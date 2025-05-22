@@ -1,0 +1,15 @@
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/bin/Debug/net9.0/ChatUser
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/bin/Debug/net9.0/ChatUser.deps.json
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/bin/Debug/net9.0/ChatUser.runtimeconfig.json
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/bin/Debug/net9.0/ChatUser.dll
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/bin/Debug/net9.0/ChatUser.pdb
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.GeneratedMSBuildEditorConfig.editorconfig
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.AssemblyInfoInputs.cache
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.AssemblyInfo.cs
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.csproj.CoreCompileInputs.cache
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.sourcelink.json
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.dll
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/refint/ChatUser.dll
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.pdb
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ChatUser.genruntimeconfig.cache
+/Users/aminmammadov/Desktop/giti/ChaosNet/ChatUser/obj/Debug/net9.0/ref/ChatUser.dll
