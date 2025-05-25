@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/aminmammadov/Desktop/giti/ChaosNet/ChatServer/ChaosNet.csproj": {}
+    "/Users/aminmammadov/Giti/ChaosNet/ChatServer/ChaosNet.csproj": {}
   },
   "projects": {
-    "/Users/aminmammadov/Desktop/giti/ChaosNet/ChatServer/ChaosNet.csproj": {
+    "/Users/aminmammadov/Giti/ChaosNet/ChatServer/ChaosNet.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/aminmammadov/Desktop/giti/ChaosNet/ChatServer/ChaosNet.csproj",
+        "projectUniqueName": "/Users/aminmammadov/Giti/ChaosNet/ChatServer/ChaosNet.csproj",
         "projectName": "ChaosNet",
-        "projectPath": "/Users/aminmammadov/Desktop/giti/ChaosNet/ChatServer/ChaosNet.csproj",
+        "projectPath": "/Users/aminmammadov/Giti/ChaosNet/ChatServer/ChaosNet.csproj",
         "packagesPath": "/Users/aminmammadov/.nuget/packages/",
-        "outputPath": "/Users/aminmammadov/Desktop/giti/ChaosNet/ChatServer/obj/",
+        "outputPath": "/Users/aminmammadov/Giti/ChaosNet/ChatServer/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/aminmammadov/.nuget/NuGet/NuGet.Config"

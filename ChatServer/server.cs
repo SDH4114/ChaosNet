@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -63,11 +64,12 @@ class Server
 
         try
         {
-            using NetworkStream stream = client.GetStream();
-            using StreamReader reader = new StreamReader(stream);
-            using StreamWriter writer = new StreamWriter(stream) { AutoFlush = true };
+            NetworkStream stream = client.GetStream();
+            StreamReader reader = new StreamReader(stream);
+            StreamWriter writer = new StreamWriter(stream) { AutoFlush = true };
 
             writer.WriteLine("Введите имя:");
+
             clientName = reader.ReadLine()?.Trim();
 
             if (string.IsNullOrWhiteSpace(clientName))
@@ -89,14 +91,16 @@ class Server
                 clients[clientName] = client;
             }
 
+            writer.WriteLine("Вы подключились к чату!");
+
             Console.WriteLine($"Подключился: {clientName}");
             BroadcastMessage($"[Server]: {clientName} присоединился к чату.");
 
             string? message;
             while ((message = reader.ReadLine()) != null)
             {
-                BroadcastMessage($"{clientName}: {message}", exclude: client);
                 Console.WriteLine($"{clientName}: {message}");
+                BroadcastMessage($"{clientName}: {message}", exclude: client);
             }
         }
         catch { }
@@ -118,6 +122,8 @@ class Server
 
     static void BroadcastMessage(string message, TcpClient? exclude = null)
     {
+        byte[] data = Encoding.UTF8.GetBytes(message + "\n");
+
         lock (clientLock)
         {
             foreach (var kv in clients)
@@ -127,10 +133,16 @@ class Server
 
                 try
                 {
-                    StreamWriter writer = new StreamWriter(client.GetStream()) { AutoFlush = true };
-                    writer.WriteLine(message);
+                    NetworkStream stream = client.GetStream();
+                    if (stream.CanWrite)
+                    {
+                        stream.Write(data, 0, data.Length);
+                    }
                 }
-                catch { }
+                catch
+                {
+                    // игнорируем ошибки
+                }
             }
         }
     }
@@ -143,8 +155,12 @@ class Server
             {
                 try
                 {
-                    StreamWriter writer = new StreamWriter(client.GetStream()) { AutoFlush = true };
-                    writer.WriteLine("Вы были отключены сервером.");
+                    var stream = client.GetStream();
+                    if (stream.CanWrite)
+                    {
+                        byte[] msg = Encoding.UTF8.GetBytes("Вы были отключены сервером.\n");
+                        stream.Write(msg, 0, msg.Length);
+                    }
                 }
                 catch { }
 
@@ -168,13 +184,27 @@ class Server
 
         lock (clientLock)
         {
-            foreach (var client in clients.Values)
+            foreach (var kvp in clients)
             {
+                TcpClient client = kvp.Value;
+                try
+                {
+                    NetworkStream stream = client.GetStream();
+                    if (stream.CanWrite)
+                    {
+                        byte[] msg = Encoding.UTF8.GetBytes("Сервер выключается. Вы были отключены.\n");
+                        stream.Write(msg, 0, msg.Length);
+                    }
+                }
+                catch { }
+
                 try { client.Close(); } catch { }
             }
+
             clients.Clear();
         }
 
-        Console.WriteLine("Сервер остановлен.");
+        Console.Clear();
+        Console.WriteLine("Сервер успешно остановлен.");
     }
 }

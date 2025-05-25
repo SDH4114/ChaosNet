@@ -7,15 +7,6 @@ class User
 {
     static void Main()
     {
-        Console.Write("Введите имя: ");
-        string name = Console.ReadLine()?.Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            SetColor(ConsoleColor.Red, "Имя не может быть пустым.");
-            return;
-        }
-
         try
         {
             using TcpClient client = new TcpClient("127.0.0.1", 5050);
@@ -25,19 +16,46 @@ class User
             using StreamReader reader = new StreamReader(stream);
             using StreamWriter writer = new StreamWriter(stream) { AutoFlush = true };
 
-            // Получаем приглашение ввести имя
-            string? prompt = reader.ReadLine();
-            if (prompt != null)
-                SetColor(ConsoleColor.DarkGray, prompt);
+            string? name = null;
 
-            writer.WriteLine(name);  // отправляем имя
+            while (true)
+            {
+                string? prompt = reader.ReadLine();
+                if (prompt != null)
+                    SetColor(ConsoleColor.DarkGray, prompt);
 
-            // Сообщение после авторизации
-            string? welcome = reader.ReadLine();
-            if (welcome != null)
-                SetColor(ConsoleColor.Green, welcome);
+                Console.Write(">> ");
+                name = Console.ReadLine()?.Trim();
 
-            // Приём сообщений
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    SetColor(ConsoleColor.Red, "Имя не может быть пустым.");
+                    continue;
+                }
+
+                writer.WriteLine(name);
+
+                string? response = reader.ReadLine();
+                if (response == null) break;
+
+                if (response.StartsWith("Имя занято"))
+                {
+                    SetColor(ConsoleColor.Red, response);
+                    continue;
+                }
+                else if (response.StartsWith("Вы подключились"))
+                {
+                    SetColor(ConsoleColor.Green, response);
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine(response);
+                }
+            }
+
+            if (name == null) return;
+
             Task.Run(() =>
             {
                 string? msg;
@@ -49,7 +67,6 @@ class User
                 catch { }
             });
 
-            // Отправка сообщений
             string? input;
             while ((input = Console.ReadLine()) != null)
             {
@@ -58,13 +75,14 @@ class User
 
                 writer.WriteLine(input);
             }
+            Console.Clear();
+            SetColor(ConsoleColor.DarkGray, "Вы отключились.");
         }
         catch (Exception ex)
         {
+            Console.Clear();
             SetColor(ConsoleColor.Red, "Ошибка: " + ex.Message);
         }
-
-        SetColor(ConsoleColor.DarkGray, "Вы отключились.");
     }
 
     static void PrintColoredMessage(string msg, string name)
@@ -75,7 +93,6 @@ class User
         }
         else if (msg.StartsWith("[Server]:"))
         {
-            // если в тексте есть "kick", "удален", "отключен", выделяем красным
             if (msg.Contains("kick", StringComparison.OrdinalIgnoreCase) ||
                 msg.Contains("удален", StringComparison.OrdinalIgnoreCase) ||
                 msg.Contains("отключен", StringComparison.OrdinalIgnoreCase))
