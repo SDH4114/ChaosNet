@@ -20,6 +20,7 @@ class Server
         listener = new TcpListener(IPAddress.Any, 5050);
         listener.Start();
 
+        Console.WriteLine("🚀 Сервер запущен на порту 5050");
         Task.Run(() => AcceptClientsAsync(cts.Token));
 
         while (true)
@@ -97,8 +98,8 @@ class Server
             string? message;
             while ((message = reader.ReadLine()) != null)
             {
-                Console.WriteLine($"{message}"); // 👈 вывод в консоль
-                BroadcastMessage($"{message}", exclude: client);
+                Console.WriteLine($"{message}"); // отображаем входящее сообщение
+                BroadcastMessage(message); // ⚠️ теперь рассылается всем, не исключая отправителя
             }
         }
         catch { }
@@ -117,16 +118,17 @@ class Server
             client.Close();
         }
     }
-    static void BroadcastMessage(string message, TcpClient? exclude = null)
+
+    static void BroadcastMessage(string message)
     {
-        byte[] data = Encoding.UTF8.GetBytes(message + Environment.NewLine); // 👈 исправлено
+        byte[] data = Encoding.UTF8.GetBytes(message + Environment.NewLine);
 
         lock (clientLock)
         {
             foreach (var kv in clients)
             {
                 TcpClient client = kv.Value;
-                if (client == exclude || !client.Connected) continue;
+                if (!client.Connected) continue;
 
                 try
                 {
@@ -138,11 +140,12 @@ class Server
                 }
                 catch
                 {
-                    // игнорируем ошибки
+                    // ошибки игнорируем
                 }
             }
         }
     }
+
     static void KickClient(string name)
     {
         lock (clientLock)
@@ -169,6 +172,7 @@ class Server
 
     static void StopServer()
     {
+        Console.WriteLine("🛑 Сервер останавливается...");
         cts.Cancel();
         listener?.Stop();
 
@@ -193,5 +197,7 @@ class Server
 
             clients.Clear();
         }
+        Console.Clear();
+        Console.WriteLine("✅ Сервер остановлен.");
     }
 }

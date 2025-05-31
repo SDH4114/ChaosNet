@@ -108,11 +108,29 @@ public partial class MainWindow : Window
                 }
 
                 if (msg.StartsWith("[Server]:"))
+                {
                     AddMessage(msg, "system");
+                }
                 else if (msg.StartsWith("[Admin]:"))
+                {
                     AddMessage(msg, "admin");
+                }
+                else if (msg.StartsWith($"{userName}:"))
+                {
+                    // Не отображаем повторно свои сообщения
+                }
                 else
-                    AddMessage(msg, "user");
+                {
+                    // 🎯 Получить имя отправителя
+                    var parts = msg.Split(':', 2);
+                    if (parts.Length == 2)
+                    {
+                        var sender = parts[0].Trim();
+                        AddMessage($"💬 {sender} отправил сообщение", "system"); // по центру
+                    }
+
+                    AddMessage(msg, "user"); // сообщение от другого
+                }
             }
         }
         catch (Exception ex)
@@ -120,7 +138,6 @@ public partial class MainWindow : Window
             AddMessage("❌ Ошибка при получении: " + ex.Message, "error");
         }
     }
-
     private void AddMessage(string text, string type)
     {
         var foreground = Brushes.White.ToImmutable();
@@ -141,11 +158,12 @@ public partial class MainWindow : Window
                 background = Brushes.Purple.ToImmutable();
                 break;
             case "self":
-                background = new SolidColorBrush(Color.FromRgb(33, 150, 243)).ToImmutable();
+                background = new SolidColorBrush(Color.FromRgb(33, 150, 243)).ToImmutable(); // синий
                 align = HorizontalAlignment.Right;
                 break;
             case "user":
-                background = new SolidColorBrush(Color.FromRgb(76, 175, 80)).ToImmutable();
+                background = new SolidColorBrush(Color.FromRgb(76, 175, 80)).ToImmutable(); // зелёный
+                align = HorizontalAlignment.Left;
                 break;
         }
 
@@ -154,9 +172,23 @@ public partial class MainWindow : Window
             Orientation = Orientation.Vertical
         };
 
+        string message = text;
+
+        // ✏️ Обработка отображаемого текста
+        if (type == "self")
+        {
+            if (text.StartsWith(userName + ":"))
+                message = text.Substring(userName.Length + 1).Trim(); // убираем "SDHaos:"
+        }
+        else if (type == "user")
+        {
+            // text = "Fern: hello"
+            // Оставляем как есть, показываем с именем
+        }
+
         var messageBlock = new TextBlock
         {
-            Text = text,
+            Text = message,
             FontSize = 15,
             TextWrapping = TextWrapping.Wrap,
             Foreground = foreground
@@ -170,6 +202,7 @@ public partial class MainWindow : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0, 4, 0, 0)
         };
+
         stack.Children.Add(messageBlock);
         stack.Children.Add(timeBlock);
 
@@ -191,8 +224,7 @@ public partial class MainWindow : Window
             if (ChatPanel.Parent is ScrollViewer scroll)
                 scroll.Offset = new Vector(0, scroll.Extent.Height);
         });
-    }
-
+    } 
     private void MessageBox_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
