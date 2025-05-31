@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ChaosNet")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7876826c4fc12d0550cb62e4cbe89bf860400254")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4d26af03e7e085e74a9508063028b2ae3f885333")]
 [assembly: System.Reflection.AssemblyProductAttribute("ChaosNet")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ChaosNet")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,1 +1,36 @@
 ChaosNet/
+# Build
+bin/
+obj/
+
+# User-specific
+*.user
+*.suo
+*.userprefs
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# dotnet artifacts
+*.dbmdl
+*.pdb
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Avalonia
+artifacts/
+Generated/
