@@ -4,6 +4,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.Media.Immutable;
+using Avalonia.Layout;
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -18,24 +20,25 @@ public partial class MainWindow : Window
     private StreamReader? reader;
     private string userName = "";
     private bool connected = false;
-    private bool nameEntered = false;
 
     public MainWindow()
     {
         InitializeComponent();
-        AddMessage("Введите имя и нажмите Enter", "system");
+        AddMessage("💡 Чат загружен. Введите имя и нажмите Enter", "system");
     }
 
     private async void Connect(string name)
     {
         try
         {
+            AddMessage("🔌 Подключение к серверу...", "system");
+
             client = new TcpClient("127.0.0.1", 5050);
             var stream = client.GetStream();
             reader = new StreamReader(stream);
             writer = new StreamWriter(stream) { AutoFlush = true };
 
-            string? prompt = await reader.ReadLineAsync(); // Введите имя:
+            string? prompt = await reader.ReadLineAsync();
             if (!string.IsNullOrWhiteSpace(prompt))
                 AddMessage(prompt, "system");
 
@@ -45,6 +48,8 @@ public partial class MainWindow : Window
             {
                 string? response = await reader.ReadLineAsync();
                 if (response == null) break;
+
+                AddMessage("📩 От сервера: " + response, "system");
 
                 if (response.StartsWith("Имя занято"))
                 {
@@ -57,17 +62,13 @@ public partial class MainWindow : Window
                     connected = true;
                     break;
                 }
-                else
-                {
-                    AddMessage(response, "system");
-                }
             }
 
             _ = Task.Run(ReceiveMessages);
         }
         catch (Exception ex)
         {
-            AddMessage("Ошибка подключения: " + ex.Message, "error");
+            AddMessage("❌ Ошибка подключения: " + ex.Message, "error");
         }
     }
 
@@ -79,14 +80,15 @@ public partial class MainWindow : Window
         if (!connected)
         {
             userName = message;
-            nameEntered = true;
             MessageBox.Text = "";
             AddMessage($"Вы: {userName}", "self");
             Connect(userName);
             return;
         }
 
-        await writer!.WriteLineAsync(message);
+        string fullMessage = $"{userName}: {message}";
+        await writer!.WriteLineAsync(fullMessage);
+        AddMessage(fullMessage, "self");
         MessageBox.Text = "";
     }
 
@@ -94,46 +96,91 @@ public partial class MainWindow : Window
     {
         try
         {
+            AddMessage("🔄 Ожидание сообщений...", "system");
+
             while (reader != null && !reader.EndOfStream)
             {
                 string? msg = await reader.ReadLineAsync();
-                if (msg == null) break;
+                if (msg == null)
+                {
+                    AddMessage("❗ Получено пустое сообщение", "error");
+                    break;
+                }
 
                 if (msg.StartsWith("[Server]:"))
                     AddMessage(msg, "system");
                 else if (msg.StartsWith("[Admin]:"))
                     AddMessage(msg, "admin");
-                else if (msg.StartsWith(userName + ":"))
-                    AddMessage(msg, "self");
                 else
                     AddMessage(msg, "user");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            AddMessage("Соединение прервано", "error");
+            AddMessage("❌ Ошибка при получении: " + ex.Message, "error");
         }
     }
 
     private void AddMessage(string text, string type)
     {
+        var foreground = Brushes.White.ToImmutable();
+        var background = Brushes.Transparent.ToImmutable();
+        var align = HorizontalAlignment.Left;
+
+        switch (type)
+        {
+            case "system":
+                background = new SolidColorBrush(Color.FromRgb(60, 60, 60)).ToImmutable();
+                align = HorizontalAlignment.Center;
+                break;
+            case "error":
+                background = Brushes.DarkRed.ToImmutable();
+                align = HorizontalAlignment.Center;
+                break;
+            case "admin":
+                background = Brushes.Purple.ToImmutable();
+                break;
+            case "self":
+                background = new SolidColorBrush(Color.FromRgb(33, 150, 243)).ToImmutable();
+                align = HorizontalAlignment.Right;
+                break;
+            case "user":
+                background = new SolidColorBrush(Color.FromRgb(76, 175, 80)).ToImmutable();
+                break;
+        }
+
+        var stack = new StackPanel
+        {
+            Orientation = Orientation.Vertical
+        };
+
         var messageBlock = new TextBlock
         {
             Text = text,
-            FontSize = 16,
+            FontSize = 15,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = Brushes.Black,
-            Background = Brushes.Yellow // видно 100%
+            Foreground = foreground
         };
+
+        var timeBlock = new TextBlock
+        {
+            Text = DateTime.Now.ToString("HH:mm"),
+            FontSize = 12,
+            Foreground = Brushes.White.ToImmutable(),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        stack.Children.Add(messageBlock);
+        stack.Children.Add(timeBlock);
 
         var border = new Border
         {
-            Background = Brushes.Lime,
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(10),
+            Background = background,
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(12, 6),
             Margin = new Thickness(5),
-            Child = messageBlock,
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Child = stack,
+            HorizontalAlignment = align,
             MaxWidth = 400
         };
 
@@ -150,7 +197,7 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Enter)
         {
-            Send_Click(sender, new RoutedEventArgs()); // ⚠️ исправлено
+            Send_Click(sender, new RoutedEventArgs());
             e.Handled = true;
         }
     }

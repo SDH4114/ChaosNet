@@ -19,7 +19,6 @@ class Server
     {
         listener = new TcpListener(IPAddress.Any, 5050);
         listener.Start();
-        Console.WriteLine("Сервер запущен. Команды: 'exit', 'kick <имя>', обычный текст — всем клиентам.");
 
         Task.Run(() => AcceptClientsAsync(cts.Token));
 
@@ -92,15 +91,14 @@ class Server
             }
 
             writer.WriteLine("Вы подключились к чату!");
-
-            Console.WriteLine($"Подключился: {clientName}");
+            Console.WriteLine($"✅ Подключился: {clientName}");
             BroadcastMessage($"[Server]: {clientName} присоединился к чату.");
 
             string? message;
             while ((message = reader.ReadLine()) != null)
             {
-                Console.WriteLine($"{clientName}: {message}");
-                BroadcastMessage($"{clientName}: {message}", exclude: client);
+                Console.WriteLine($"{message}"); // 👈 вывод в консоль
+                BroadcastMessage($"{message}", exclude: client);
             }
         }
         catch { }
@@ -113,16 +111,15 @@ class Server
                     clients.Remove(clientName);
                 }
                 BroadcastMessage($"[Server]: {clientName} отключён.");
-                Console.WriteLine($"Отключён: {clientName}");
+                Console.WriteLine($"❌ Отключён: {clientName}");
             }
 
             client.Close();
         }
     }
-
     static void BroadcastMessage(string message, TcpClient? exclude = null)
     {
-        byte[] data = Encoding.UTF8.GetBytes(message + "\n");
+        byte[] data = Encoding.UTF8.GetBytes(message + Environment.NewLine); // 👈 исправлено
 
         lock (clientLock)
         {
@@ -146,7 +143,6 @@ class Server
             }
         }
     }
-
     static void KickClient(string name)
     {
         lock (clientLock)
@@ -167,18 +163,12 @@ class Server
                 client.Close();
                 clients.Remove(name);
                 BroadcastMessage($"[Server]: {name} был удалён с сервера.");
-                Console.WriteLine($"Клиент {name} отключён.");
-            }
-            else
-            {
-                Console.WriteLine($"Клиент с именем {name} не найден.");
             }
         }
     }
 
     static void StopServer()
     {
-        Console.WriteLine("Остановка сервера...");
         cts.Cancel();
         listener?.Stop();
 
@@ -203,8 +193,5 @@ class Server
 
             clients.Clear();
         }
-
-        Console.Clear();
-        Console.WriteLine("Сервер успешно остановлен.");
     }
 }
