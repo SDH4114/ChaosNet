@@ -1,15 +1,108 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Чат-приложение</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8">
+  <title>Простой Чат</title>
+  <style>
+    body {
+      background: #1e1e1e;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      margin: 0;
+    }
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .message {
+      max-width: 70%;
+      padding: 12px;
+      border-radius: 12px;
+      background: #2e2e2e;
+    }
+    .self {
+      align-self: flex-end;
+      background: #2196f3;
+    }
+    .other {
+      align-self: flex-start;
+      background: #4caf50;
+    }
+    .system {
+      align-self: center;
+      background: #555;
+    }
+    #form {
+      display: flex;
+      padding: 10px;
+      background: #2e2e2e;
+    }
+    #input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+    }
+    button {
+      padding: 10px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <h1>Добро пожаловать в HTML-чат</h1>
-  </div>
-  <script src="js/main.js"></script>
+<div id="messages"></div>
+<form id="form">
+  <input id="input" autocomplete="off" placeholder="Введите сообщение..." />
+  <button>➤</button>
+</form>
+
+<script>
+  const socket = new WebSocket("ws://localhost:8080");
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const messages = document.getElementById('messages');
+
+  const username = prompt("Введите имя:").trim();
+  socket.addEventListener('open', () => {
+    socket.send(JSON.stringify({ type: 'join', user: username }));
+  });
+
+  socket.addEventListener('message', (event) => {
+    const msg = JSON.parse(event.data);
+    const div = document.createElement('div');
+    div.className = 'message';
+
+    if (msg.type === 'system') {
+      div.classList.add('system');
+      div.textContent = msg.text;
+    } else if (msg.user === username) {
+      div.classList.add('self');
+      div.textContent = msg.text;
+    } else {
+      div.classList.add('other');
+      div.textContent = msg.user + ': ' + msg.text;
+    }
+
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (input.value.trim()) {
+      socket.send(JSON.stringify({ type: 'message', text: input.value.trim(), user: username }));
+      input.value = '';
+    }
+  });
+</script>
 </body>
 </html>

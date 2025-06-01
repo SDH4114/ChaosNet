@@ -1,0 +1,23 @@
+{
+  "name": "chaosnet",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SDH4114/ChaosNet.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/SDH4114/ChaosNet/issues"
+  },
+  "homepage": "https://github.com/SDH4114/ChaosNet#readme",
+  "description": "",
+  "dependencies": {
+    "ws": "^8.18.2"
+  }
+}
