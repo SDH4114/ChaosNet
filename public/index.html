@@ -1,102 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="us">
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet</title>
-  <style>
-    body {
-      background: #1e1e1e;
-      font-family: sans-serif;
-      color: white;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-
-    #messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .bubble {
-      max-width: 70%;
-      padding: 12px;
-      border-radius: 16px;
-      background: #2e2e2e;
-      display: inline-block;
-      position: relative;
-      word-wrap: break-word;
-    }
-
-    .self {
-      align-self: flex-end;
-      background-color: #ff8c00; /* 🟠 тёмно-оранжевый */
-      text-align: right;
-    }
-
-    .other {
-      align-self: flex-start;
-      background-color: #4caf50;
-      text-align: left;
-    }
-
-    .system {
-      align-self: center;
-      background: #555;
-    }
-
-    .meta {
-      font-size: 11px;
-      color: #ccc;
-      margin-top: 4px;
-    }
-
-    #form {
-      display: flex;
-      padding: 10px;
-      background: #1e1e1e;
-      align-items: center;
-    }
-
-    #input {
-      flex: 1;
-      font-size: 16px;
-      padding: 12px 20px;
-      background: #1e1e1e;
-      border: 1px solid #444;
-      color: white;
-      border-radius: 999px; /* 💬 скруглённое поле */
-      outline: none;
-    }
-
-    button {
-      margin-left: 10px;
-      width: 44px;
-      height: 44px;
-      background: #ff8c00; /* 🟠 тёмно-оранжевая */
-      color: white;
-      font-size: 18px;
-      border: none;
-      border-radius: 50%; /* 🟠 полностью круглая кнопка */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: background 0.2s ease;
-    }
-
-    button:hover {
-      background: #e57c00;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
 <div id="messages"></div>
 
 <form id="form">
@@ -112,8 +21,9 @@
 
   const username = localStorage.getItem("username");
   if (!username) {
-    window.location.href = "login.html"; // если нет — назад на логин
+    window.location.href = "login.html";
   }
+
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username }));
   });
@@ -123,39 +33,56 @@
     const div = document.createElement('div');
     div.classList.add('bubble');
 
-  if (msg.type === 'system') {
-    div.classList.add('system');
-    div.textContent = msg.text;
-  } else {
-    const name = document.createElement('div');
-    name.style.fontSize = '12px';
-    name.style.marginBottom = '4px';
-    name.style.opacity = '0.7';
+    const now = new Date();
+    const time = document.createElement('div');
+    time.classList.add('meta');
+    time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const text = document.createElement('div');
-    text.textContent = msg.text;
-
-    if (msg.user === username) {
+    if (msg.type === 'system') {
+      div.classList.add('system');
+      div.textContent = msg.text;
+    } else if (msg.user === username) {
       div.classList.add('self');
-      // не добавляем имя, просто текст
+      const text = document.createElement('div');
+      text.textContent = msg.text;
       div.appendChild(text);
+      div.appendChild(time);
     } else {
       div.classList.add('other');
-      name.textContent = msg.user; // показываем имя сверху
+      const name = document.createElement('div');
+      name.style.fontSize = '12px';
+      name.style.marginBottom = '4px';
+      name.style.opacity = '0.7';
+      name.textContent = msg.user;
+
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      text.style.color = '#ccc';
+
       div.appendChild(name);
       div.appendChild(text);
+      div.appendChild(time);
     }
-  }
+
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
   });
 
-  form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (input.value.trim()) {
-      socket.send(JSON.stringify({ type: 'message', text: input.value.trim(), user: username }));
-      input.value = '';
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    if (message.toLowerCase() === "log out") {
+      localStorage.removeItem("username"); // удалить логин
+      socket.close(); // закрыть соединение
+      window.location.href = "login.html"; // перенаправить на логин
+      return;
     }
+
+    socket.send(JSON.stringify({ type: 'message', text: message, user: username }));
+    input.value = '';
   });
 </script>
 </body>
