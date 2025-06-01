@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="us">
+<head>
+  <meta charset="UTF-8" />
+  <title>Select Chat - ChaosNet</title>
+  <link rel="stylesheet" href="css/loginStyle.css" />
+</head>
+<body>
+  <div class="login-container">
+    <h2>Select a Chat</h2>
+    <form id="roomForm">
+      <input type="text" id="roomName" placeholder="Enter ID" required />
+      <button type="submit">Join</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('roomForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const room = document.getElementById('roomName').value.trim();
+      if (room) {
+        window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
+      }
+    });
+  </script>
+</body>
+</html>

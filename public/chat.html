@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChaosNet Chat</title>
+  <link rel="stylesheet" href="css/indexStyle.css" />
+</head>
+<body>
+
+<h2 id="chat-title" style="text-align: center; margin: 10px 0; color: #ff8c00;"></h2>
+
+<div id="messages"></div>
+
+<form id="form">
+  <input id="input" autocomplete="off" placeholder="Type a message..." />
+  <button>⬆</button>
+</form>
+
+<script>
+  const socket = new WebSocket("wss://" + location.host);
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const messages = document.getElementById('messages');
+  const chatTitle = document.getElementById('chat-title');
+
+  const username = localStorage.getItem("username");
+  if (!username) {
+    window.location.href = "login.html";
+  }
+
+  const urlParams = new URLSearchParams(location.search);
+  const room = urlParams.get("room");
+  const target = urlParams.get("target");
+
+  chatTitle.textContent = target ? `Private chat with ${target}` : `Room: ${room}`;
+
+  socket.addEventListener('open', () => {
+    socket.send(JSON.stringify({ type: 'join', user: username, room }));
+  });
+
+  socket.addEventListener('message', (event) => {
+    const msg = JSON.parse(event.data);
+    const div = document.createElement('div');
+    div.classList.add('bubble');
+
+    const now = new Date();
+    const time = document.createElement('div');
+    time.classList.add('meta');
+    time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (msg.type === 'system') {
+      div.classList.add('system');
+      div.textContent = msg.text;
+    } else if (msg.user === username) {
+      div.classList.add('self');
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      div.appendChild(text);
+      div.appendChild(time);
+    } else {
+      div.classList.add('other');
+      const name = document.createElement('div');
+      name.style.fontSize = '12px';
+      name.style.marginBottom = '4px';
+      name.style.opacity = '0.7';
+      name.textContent = msg.user;
+
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      text.style.color = '#ccc';
+
+      div.appendChild(name);
+      div.appendChild(text);
+      div.appendChild(time);
+    }
+
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    if (message.toLowerCase() === "log out") {
+      localStorage.removeItem("username");
+      socket.close();
+      window.location.href = "login.html";
+      return;
+    }
+
+    socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
+    input.value = '';
+  });
+</script>
+</body>
+</html>
