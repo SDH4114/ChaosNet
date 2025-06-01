@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/indexStyle.css" />
 </head>
 <body>
 <div id="messages"></div>
 
 <form id="form">
   <input id="input" autocomplete="off" placeholder="Message"/>
-  <button>➤</button>
+  <button>⬆</button>
 </form>
 
 <script>
@@ -37,6 +37,14 @@
     const time = document.createElement('div');
     time.classList.add('meta');
     time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // ⚠️ Обработка кика
+    if (msg.type === 'kick') {
+      alert(msg.text || "Вы были кикнуты.");
+      localStorage.removeItem("username");
+      window.location.href = "login.html";
+      return;
+    }
 
     if (msg.type === 'system') {
       div.classList.add('system');
@@ -68,16 +76,16 @@
     messages.scrollTop = messages.scrollHeight;
   });
 
-    form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
 
     if (!message) return;
 
     if (message.toLowerCase() === "log out") {
-      localStorage.removeItem("username"); // удалить логин
-      socket.close(); // закрыть соединение
-      window.location.href = "login.html"; // перенаправить на логин
+      localStorage.removeItem("username");
+      socket.close();
+      window.location.href = "login.html";
       return;
     }
 
