@@ -1,23 +1,13 @@
 {
   "name": "chaosnet",
   "version": "1.0.0",
-  "description": "",
+  "description": "ChaosNet Chat Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
     "ws": "^8.18.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/SDH4114/ChaosNet.git"
-  },
-  "bugs": {
-    "url": "https://github.com/SDH4114/ChaosNet/issues"
-  },
-  "homepage": "https://github.com/SDH4114/ChaosNet#readme"
+  }
 }

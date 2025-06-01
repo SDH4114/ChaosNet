@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Log in ChaosNet</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0e0e0e;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .login-container {
+      background-color: #1b1b1b;
+      padding: 40px 30px;
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
+      width: 320px;
+    }
+
+    .login-container h2 {
+      margin-bottom: 20px;
+      font-size: 24px;
+      text-align: center;
+      color: #ff8c00;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      background-color: #2e2e2e;
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+    }
+
+    input:focus {
+      outline: 2px solid #ff8c00;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background-color: #ff8c00;
+      border: none;
+      border-radius: 50px;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: #ffa733;
+    }
+
+    .error {
+      color: #ff4d4d;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <h2>Log in ChaosNet</h2>
+    <form id="loginForm">
+      <input type="text" id="nick" placeholder="Nick" required />
+      <input type="text" id="id" placeholder="ID" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="submit">Log In</button>
+      <div class="error" id="error"></div>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const nick = document.getElementById('nick').value.trim();
+      const id = document.getElementById('id').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      const res = await fetch('/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, nick, password })
+      });
+
+      if (res.ok) {
+        localStorage.setItem("username", nick);
+        window.location.href = "/index.html";
+      } else {
+        document.getElementById('error').textContent = "Неверные данные!";
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -6,6 +6,21 @@ const PORT = process.env.PORT || 10000;
 const app = express();
 
 app.use(express.static('public'));
+app.use(express.json());
+
+const USERS = [
+  { nick: "SDHaos", id: "SH4114", password: "DH44752187" },
+  { nick: "GodOfLies", id: "CL7770", password: "DH44752187" },
+  { nick: "Billvechen", id: "FB3541", password: "Bifarkanon100" },
+  { nick: "Fern", id: "FN3525", password: "D1p7L0q2" }
+];
+
+app.post('/auth', (req, res) => {
+  const { id, nick, password } = req.body;
+  const user = USERS.find(u => u.id === id && u.nick === nick && u.password === password);
+  if (user) return res.status(200).send("OK");
+  res.status(401).send("Unauthorized");
+});
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
