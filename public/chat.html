@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet</title>
-  <link rel="stylesheet" href="css/indexStyle.css" />
+  <link rel="stylesheet" href="css/chatStyle.css" />
 </head>
 <body>
 
@@ -24,6 +24,8 @@
   const chatTitle = document.getElementById('chat-title');
 
   const username = localStorage.getItem("username");
+  const userId = localStorage.getItem("userId") || "guest";
+
   if (!username) {
     window.location.href = "login.html";
   }
@@ -35,7 +37,7 @@
   chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
   socket.addEventListener('open', () => {
-    socket.send(JSON.stringify({ type: 'join', user: username, room }));
+    socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
   });
 
   socket.addEventListener('message', (event) => {
@@ -108,12 +110,13 @@
 
     if (command === "log out" || command === "/logout") {
       localStorage.removeItem("username");
+      localStorage.removeItem("userId");
       socket.close();
       window.location.href = "login.html";
       return;
     }
 
-    socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
+    socket.send(JSON.stringify({ type: 'message', text: message, user: username, id: userId, room, target }));
     input.value = '';
   });
 </script>

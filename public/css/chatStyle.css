@@ -1,0 +1,111 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #0e0e0e;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#chat-title {
+  text-align: center;
+  color: #ff8c00;
+  margin: 10px 0;
+  font-size: 20px;
+}
+
+#messages {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+form {
+  display: flex;
+  padding: 10px;
+  background-color: #1a1a1a;
+  border-top: 1px solid #333;
+}
+
+input#input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 16px;
+  border-radius: 30px;
+  border: none;
+  outline: none;
+  background-color: #2a2a2a;
+  color: white;
+  margin-right: 10px;
+}
+
+form button {
+  background-color: #ff8c00;
+  border: none;
+  border-radius: 30px;
+  padding: 0 16px;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.bubble {
+  max-width: 90%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background-color: #2e2e2e;
+  position: relative;
+  word-wrap: break-word;
+}
+
+.self {
+  align-self: flex-end;
+  background-color: #004477;
+}
+
+.other {
+  align-self: flex-start;
+  background-color: #222;
+}
+
+.system {
+  align-self: center;
+  background-color: transparent;
+  color: #888;
+  font-style: italic;
+  font-size: 14px;
+  text-align: center;
+}
+
+.meta {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 4px;
+  color: #fff;
+}
+
+@media screen and (max-width: 600px) {
+  input#input {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  form button {
+    font-size: 18px;
+    padding: 0 12px;
+  }
+
+  #chat-title {
+    font-size: 16px;
+  }
+
+  .bubble {
+    font-size: 14px;
+  }
+}

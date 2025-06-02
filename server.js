@@ -49,12 +49,13 @@ wss.on('connection', (ws) => {
       if (text.toLowerCase() === "log out") {
         ws.send(JSON.stringify({ type: 'logout' }));
         ws.close();
+        clients.delete(ws);
         return;
       }
 
       if (text === '/list') {
-        const list = Array.from(clients.values()).map(u => u.nick).join(', ');
-        ws.send(JSON.stringify({ type: 'system', text: `🧾 Online users: ${list}` }));
+        const list = Array.from(clients.values());
+        ws.send(JSON.stringify({ type: 'list', users: list }));
         return;
       }
 
@@ -101,5 +102,5 @@ function broadcast(data) {
 }
 
 server.listen(PORT, () => {
-  console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
+  console.log(`✅ Server started at http://localhost:${PORT}`);
 });

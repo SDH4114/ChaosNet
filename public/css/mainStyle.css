@@ -1,0 +1,84 @@
+/* Основной стиль */
+body {
+  background-color: #0e0e0e;
+  color: white;
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.login-container {
+  background-color: #1b1b1b;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
+  margin: 20px;
+}
+
+.login-container h2 {
+  margin-bottom: 20px;
+}
+
+input {
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background-color: #2e2e2e;
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background-color: #ff8c00;
+  border: none;
+  border-radius: 50px;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.error {
+  color: red;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.guest-link {
+  margin-top: 16px;
+}
+
+.guest-link a {
+  color: #ff8c00;
+  text-decoration: none;
+}
+
+/* Адаптация под мобильные устройства */
+@media (max-width: 480px) {
+  .login-container {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  input,
+  button {
+    font-size: 15px;
+    padding: 12px;
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+}
