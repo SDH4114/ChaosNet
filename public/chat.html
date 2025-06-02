@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet</title>
-  <link rel="stylesheet" href="css/indexStyle.css" />
+  <link rel="stylesheet" href="css/chatStyle.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
@@ -24,7 +25,7 @@
   const chatTitle = document.getElementById('chat-title');
 
   const username = localStorage.getItem("username");
-  const userId = localStorage.getItem("userId") || "guest";
+  const userId = localStorage.getItem("userid") || 'guest';
 
   if (!username) {
     window.location.href = "login.html";
@@ -58,15 +59,9 @@
       alert("You were kicked by admin!");
       socket.close();
       window.location.href = "select.html";
-    } else if (msg.type === 'ban') {
-      alert("You were banned by admin!");
+    } else if (msg.type === 'ban' || msg.type === 'logout') {
+      alert("You were banned or logged out!");
       localStorage.removeItem("username");
-      localStorage.removeItem("userId");
-      socket.close();
-      window.location.href = "login.html";
-    } else if (msg.type === 'logout') {
-      localStorage.removeItem("username");
-      localStorage.removeItem("userId");
       socket.close();
       window.location.href = "login.html";
     } else if (msg.type === 'list') {
@@ -81,7 +76,6 @@
       div.appendChild(time);
     } else {
       div.classList.add('other');
-
       const name = document.createElement('div');
       name.textContent = msg.user;
       name.style.fontSize = '12px';
@@ -117,13 +111,13 @@
 
     if (command === "log out" || command === "/logout") {
       localStorage.removeItem("username");
-      localStorage.removeItem("userId");
+      socket.send(JSON.stringify({ type: 'logout' }));
       socket.close();
       window.location.href = "login.html";
       return;
     }
 
-    socket.send(JSON.stringify({ type: 'message', text: message, user: username, id: userId, room, target }));
+    socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
     input.value = '';
   });
 </script>
