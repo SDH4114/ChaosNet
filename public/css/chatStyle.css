@@ -1,5 +1,5 @@
 body {
-  background: #2e2e2e;
+  background: #1e1e1e;
   font-family: sans-serif;
   color: white;
   margin: 0;
@@ -30,23 +30,26 @@ body {
   align-self: flex-end;
   background-color: #ff8c00;
   text-align: right;
+  color: white;
 }
 
 .other {
   align-self: flex-start;
-  background-color: #1e1e1e;
+  background-color: #3a3a3a;
   text-align: left;
+  color: #ccc;
 }
 
 .system {
   align-self: center;
   background: #1e1e1e;
   text-align: center;
+  color: white;
 }
 
 .meta {
   font-size: 11px;
-  color: #ccc;
+  color: #ffffff;
   margin-top: 4px;
   text-align: right;
 }
@@ -89,7 +92,6 @@ button:hover {
   background: #e57c00;
 }
 
-/* 🔻 Адаптация под маленькие экраны */
 @media (max-width: 600px) {
   .bubble {
     max-width: 90%;
@@ -109,5 +111,29 @@ button:hover {
 
   .meta {
     font-size: 10px;
+  }
+
+  #form {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .bubble {
+    font-size: 13px;
+  }
+
+  #input {
+    font-size: 13px;
+  }
+
+  button {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+
+  .meta {
+    font-size: 9px;
   }
 }

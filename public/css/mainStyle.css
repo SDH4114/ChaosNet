@@ -1,3 +1,4 @@
+/* Основной стиль */
 * {
   box-sizing: border-box;
 }
@@ -11,6 +12,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 0 10px;
 }
 
 .login-container {
@@ -19,6 +21,7 @@ body {
   border-radius: 20px;
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
   width: 320px;
+  max-width: 100%;
 }
 
 .login-container h2 {
@@ -84,7 +87,7 @@ button:hover {
 /* 🔻 Адаптация под экраны до 480px */
 @media (max-width: 480px) {
   .login-container {
-    width: 90%;
+    width: 100%;
     padding: 30px 20px;
   }
 
@@ -104,5 +107,22 @@ button:hover {
 
   .guest-link a {
     font-size: 13px;
+  }
+}
+
+/* 🔻 Ещё компактнее под экраны до 360px */
+@media (max-width: 360px) {
+  .login-container {
+    padding: 20px 15px;
+  }
+
+  input {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  button {
+    font-size: 14px;
+    padding: 10px;
   }
 }
