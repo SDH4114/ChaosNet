@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet</title>
-  <link rel="stylesheet" href="css/chatStyle.css" />
+  <link rel="stylesheet" href="css/indexStyle.css" />
 </head>
 <body>
 
@@ -61,6 +61,12 @@
     } else if (msg.type === 'ban') {
       alert("You were banned by admin!");
       localStorage.removeItem("username");
+      localStorage.removeItem("userId");
+      socket.close();
+      window.location.href = "login.html";
+    } else if (msg.type === 'logout') {
+      localStorage.removeItem("username");
+      localStorage.removeItem("userId");
       socket.close();
       window.location.href = "login.html";
     } else if (msg.type === 'list') {
@@ -75,6 +81,7 @@
       div.appendChild(time);
     } else {
       div.classList.add('other');
+
       const name = document.createElement('div');
       name.textContent = msg.user;
       name.style.fontSize = '12px';

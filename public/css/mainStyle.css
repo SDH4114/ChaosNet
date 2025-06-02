@@ -1,29 +1,31 @@
-/* Основной стиль */
+* {
+  box-sizing: border-box;
+}
+
 body {
   background-color: #0e0e0e;
   color: white;
   font-family: 'Segoe UI', sans-serif;
+  height: 100vh;
   margin: 0;
-  padding: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
 }
 
 .login-container {
   background-color: #1b1b1b;
-  padding: 30px;
+  padding: 40px 30px;
   border-radius: 20px;
-  text-align: center;
-  width: 100%;
-  max-width: 360px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.4);
-  margin: 20px;
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
+  width: 320px;
 }
 
 .login-container h2 {
   margin-bottom: 20px;
+  font-size: 24px;
+  text-align: center;
+  color: #ff8c00;
 }
 
 input {
@@ -35,12 +37,15 @@ input {
   border-radius: 12px;
   color: white;
   font-size: 16px;
-  box-sizing: border-box;
+}
+
+input:focus {
+  outline: 2px solid #ff8c00;
 }
 
 button {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   background-color: #ff8c00;
   border: none;
   border-radius: 50px;
@@ -48,37 +53,56 @@ button {
   font-weight: bold;
   font-size: 16px;
   cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  background-color: #ffa733;
 }
 
 .error {
-  color: red;
-  font-size: 14px;
+  color: #ff4d4d;
   margin-top: 10px;
+  text-align: center;
 }
 
 .guest-link {
-  margin-top: 16px;
+  text-align: center;
+  margin-top: 14px;
 }
 
 .guest-link a {
   color: #ff8c00;
   text-decoration: none;
+  font-size: 14px;
 }
 
-/* Адаптация под мобильные устройства */
+.guest-link a:hover {
+  text-decoration: underline;
+}
+
+/* 🔻 Адаптация под экраны до 480px */
 @media (max-width: 480px) {
   .login-container {
-    padding: 20px;
-    border-radius: 16px;
+    width: 90%;
+    padding: 30px 20px;
   }
 
-  input,
+  input {
+    font-size: 15px;
+    padding: 12px 14px;
+  }
+
   button {
     font-size: 15px;
     padding: 12px;
   }
 
-  h2 {
+  .login-container h2 {
     font-size: 20px;
+  }
+
+  .guest-link a {
+    font-size: 13px;
   }
 }

@@ -13,7 +13,9 @@ const USERS = [
   { nick: "GodOfLies", id: "CL7770", password: "DH44752187" },
   { nick: "Billvechen", id: "FB3541", password: "Bifarkanon100" },
   { nick: "Fern", id: "FN3525", password: "D1p7L0q2" },
-  { nick: "YaVaLuK", id: "YK2300", password: "y2v3l0k0" }
+  { nick: "YaVaLuK", id: "YK2300", password: "y2v3l0k0" },
+  { nick: "Maclover", id: "TU2589", password: "Turqay888Secretniggas" }
+
 ];
 
 app.post('/auth', (req, res) => {
@@ -26,11 +28,12 @@ app.post('/auth', (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const clients = new Map(); // WebSocket => { nick, id }
+const clients = new Map(); // ws => { nick, id, room }
 
 wss.on('connection', (ws) => {
   let username = '';
   let userId = '';
+  let userRoom = '';
 
   ws.on('message', (msg) => {
     const data = JSON.parse(msg);
@@ -38,8 +41,10 @@ wss.on('connection', (ws) => {
     if (data.type === 'join') {
       username = data.user;
       userId = data.id || 'guest';
-      clients.set(ws, { nick: username, id: userId });
-      broadcast({ type: 'system', text: `👋 ${username} joined the chat` });
+      userRoom = data.room || 'default';
+      clients.set(ws, { nick: username, id: userId, room: userRoom });
+
+      broadcast({ type: 'system', text: `👋 ${username} joined the chat` }, userRoom);
       return;
     }
 
@@ -49,13 +54,20 @@ wss.on('connection', (ws) => {
       if (text.toLowerCase() === "log out") {
         ws.send(JSON.stringify({ type: 'logout' }));
         ws.close();
-        clients.delete(ws);
+        return;
+      }
+
+      if (text.toLowerCase() === "exit") {
+        ws.send(JSON.stringify({ type: 'kick' }));
+        ws.close();
         return;
       }
 
       if (text === '/list') {
-        const list = Array.from(clients.values());
-        ws.send(JSON.stringify({ type: 'list', users: list }));
+        const list = Array.from(clients.values())
+          .filter(u => u.room === userRoom)
+          .map(u => `${u.nick} (${u.id})`);
+        ws.send(JSON.stringify({ type: 'list', users: Array.from(clients.values()).filter(u => u.room === userRoom) }));
         return;
       }
 
@@ -66,41 +78,41 @@ wss.on('connection', (ws) => {
         if (!['SDH', 'GodOfLies'].includes(username)) return;
 
         for (const [client, user] of clients.entries()) {
-          if (user.nick === targetNick && client.readyState === WebSocket.OPEN) {
+          if (user.nick === targetNick && user.room === userRoom && client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
               type: command,
               text: command === 'ban' ? 'You were banned.' : 'You were kicked.'
             }));
             client.close();
             clients.delete(client);
-            broadcast({ type: 'system', text: `⚠️ ${targetNick} was ${command}ed by ${username}` });
+            broadcast({ type: 'system', text: `⚠️ ${targetNick} was ${command}ed by ${username}` }, userRoom);
             return;
           }
         }
         return;
       }
 
-      broadcast({ type: 'message', text: text, user: username });
+      broadcast({ type: 'message', text: text, user: username }, userRoom);
     }
   });
 
   ws.on('close', () => {
     clients.delete(ws);
-    if (username) {
-      broadcast({ type: 'system', text: `❌ ${username} left the chat` });
+    if (username && userRoom) {
+      broadcast({ type: 'system', text: `❌ ${username} left the chat` }, userRoom);
     }
   });
 });
 
-function broadcast(data) {
+function broadcast(data, room) {
   const json = JSON.stringify(data);
-  for (const client of clients.keys()) {
-    if (client.readyState === WebSocket.OPEN) {
+  for (const [client, user] of clients.entries()) {
+    if (user.room === room && client.readyState === WebSocket.OPEN) {
       client.send(json);
     }
   }
 }
 
 server.listen(PORT, () => {
-  console.log(`✅ Server started at http://localhost:${PORT}`);
+  console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
 });
