@@ -1,6 +1,7 @@
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
+const nodemailer = require('nodemailer');
 
 const PORT = process.env.PORT || 10000;
 const app = express();
@@ -28,6 +29,7 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const clients = new Map(); // ws => { nick, id, room }
+const roomMessages = {};   // room => array of messages
 
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
@@ -41,6 +43,10 @@ wss.on('connection', (ws) => {
       userData.room = data.room || 'general';
       clients.set(ws, userData);
 
+      if (!roomMessages[userData.room]) {
+        roomMessages[userData.room] = [];
+      }
+
       broadcast(userData.room, { type: 'system', text: `👋 ${userData.nick} joined the room` });
       return;
     }
@@ -48,7 +54,6 @@ wss.on('connection', (ws) => {
     if (data.type === 'message') {
       const text = data.text.trim();
 
-      // ==== Commands ====
       if (text.toLowerCase() === 'log out') {
         ws.send(JSON.stringify({ type: 'logout' }));
         ws.close();
@@ -64,7 +69,7 @@ wss.on('connection', (ws) => {
       if (text.toLowerCase() === '/list') {
         const list = Array.from(clients.values())
           .filter(u => u.room === userData.room)
-          .map(u => `${u.nick} (${u.id})`);
+          .map(u => u.nick);
         ws.send(JSON.stringify({ type: 'list', users: list }));
         return;
       }
@@ -87,12 +92,20 @@ wss.on('connection', (ws) => {
         return;
       }
 
+      roomMessages[userData.room].push(`${userData.nick}: ${text}`);
       broadcast(userData.room, { type: 'message', text, user: userData.nick });
     }
   });
 
   ws.on('close', () => {
     clients.delete(ws);
+    const stillInRoom = Array.from(clients.values()).some(u => u.room === userData.room);
+    if (!stillInRoom) {
+      const log = roomMessages[userData.room]?.join('\n') || 'No messages.';
+      sendEmail(`Chat room "${userData.room}" is now empty.\n\nLogs:\n${log}`);
+      delete roomMessages[userData.room];
+    }
+
     if (userData.nick) {
       broadcast(userData.room, { type: 'system', text: `❌ ${userData.nick} left the chat` });
     }
@@ -108,6 +121,31 @@ function broadcast(room, data) {
   }
 }
 
+  function sendEmail(content) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: '📤 Chat log from ChaosNet',
+      text: content
+    };
+
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.error('❌ Email error:', err);
+      } else {
+        console.log('📨 Email sent:', info.response);
+      }
+    });
+  }
+  
 server.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
