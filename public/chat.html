@@ -8,11 +8,12 @@
 <body>
 
 <h2 id="chat-title" style="text-align: center; margin: 10px 0; color: #ff8c00;"></h2>
+
 <div id="messages"></div>
 
 <form id="form">
   <input id="input" autocomplete="off" placeholder="Message" />
-  <button>↑</button>
+  <button>⬆</button>
 </form>
 
 <script>
@@ -48,18 +49,16 @@
     if (msg.type === 'system') {
       div.classList.add('system');
       div.textContent = msg.text;
-    } else if (msg.type === 'kick') {
-      alert(msg.text);
-      window.location.href = "select.html";
-      return;
-    } else if (msg.type === 'ban') {
-      alert(msg.text);
-      localStorage.removeItem("username");
-      window.location.href = "login.html";
-      return;
     } else if (msg.type === 'list') {
       div.classList.add('system');
-      div.innerHTML = msg.users.map(u => `<b>${u.nick}</b><br><span style='font-size: 11px;'>ID: ${u.id}</span>`).join('<hr style="border: 0.5px solid #444;">');
+      div.innerHTML = `<strong>Online users:</strong><br>${msg.users.map(u => `${u.nick} <div style='font-size: 10px;'>(${u.id})</div>`).join('<br>')}`;
+    } else if (msg.type === 'kick') {
+      alert(msg.text || 'You were kicked.');
+      window.location.href = 'select.html';
+    } else if (msg.type === 'ban') {
+      alert(msg.text || 'You were banned.');
+      localStorage.removeItem('username');
+      window.location.href = 'login.html';
     } else if (msg.user === username) {
       div.classList.add('self');
       const text = document.createElement('div');
@@ -92,19 +91,14 @@
     const message = input.value.trim();
     if (!message) return;
 
-    if (message.toLowerCase() === "exit") {
+    if (message.toLowerCase() === 'log out' || message.toLowerCase() === '/logout') {
+      localStorage.removeItem("username");
       socket.close();
-      window.location.href = "select.html";
+      window.location.href = "login.html";
       return;
     }
 
-    socket.send(JSON.stringify({
-      type: 'message',
-      text: message,
-      user: username,
-      room,
-      target
-    }));
+    socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
     input.value = '';
   });
 </script>
