@@ -37,6 +37,7 @@
 
       if (res.ok) {
         localStorage.setItem("username", nick);
+        localStorage.setItem("userID", id); // 👈 Сохраняем ID
         window.location.href = "/select.html";
       } else {
         document.getElementById('error').textContent = "Incorrect credentials!";

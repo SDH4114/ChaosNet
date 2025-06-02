@@ -2,18 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ChaosNet Chat</title>
+  <title>ChaosNet</title>
   <link rel="stylesheet" href="css/indexStyle.css" />
 </head>
 <body>
 
 <h2 id="chat-title" style="text-align: center; margin: 10px 0; color: #ff8c00;"></h2>
-
 <div id="messages"></div>
 
 <form id="form">
-  <input id="input" autocomplete="off" placeholder="Type a message..." />
-  <button>⬆</button>
+  <input id="input" autocomplete="off" placeholder="Message" />
+  <button>↑</button>
 </form>
 
 <script>
@@ -24,15 +23,13 @@
   const chatTitle = document.getElementById('chat-title');
 
   const username = localStorage.getItem("username");
-  if (!username) {
-    window.location.href = "login.html";
-  }
+  if (!username) window.location.href = "login.html";
 
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room");
   const target = urlParams.get("target");
 
-  chatTitle.textContent = target ? `Private chat with ${target}` : `Room: ${room}`;
+  chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, room }));
@@ -51,6 +48,18 @@
     if (msg.type === 'system') {
       div.classList.add('system');
       div.textContent = msg.text;
+    } else if (msg.type === 'kick') {
+      alert(msg.text);
+      window.location.href = "select.html";
+      return;
+    } else if (msg.type === 'ban') {
+      alert(msg.text);
+      localStorage.removeItem("username");
+      window.location.href = "login.html";
+      return;
+    } else if (msg.type === 'list') {
+      div.classList.add('system');
+      div.innerHTML = msg.users.map(u => `<b>${u.nick}</b><br><span style='font-size: 11px;'>ID: ${u.id}</span>`).join('<hr style="border: 0.5px solid #444;">');
     } else if (msg.user === username) {
       div.classList.add('self');
       const text = document.createElement('div');
@@ -81,17 +90,21 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
-
     if (!message) return;
 
-    if (message.toLowerCase() === "log out") {
-      localStorage.removeItem("username");
+    if (message.toLowerCase() === "exit") {
       socket.close();
-      window.location.href = "login.html";
+      window.location.href = "select.html";
       return;
     }
 
-    socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
+    socket.send(JSON.stringify({
+      type: 'message',
+      text: message,
+      user: username,
+      room,
+      target
+    }));
     input.value = '';
   });
 </script>

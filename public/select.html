@@ -1,17 +1,45 @@
 <!DOCTYPE html>
-<html lang="us">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Select Chat - ChaosNet</title>
   <link rel="stylesheet" href="css/loginStyle.css" />
+  <style>
+    .list {
+      margin-top: 20px;
+      background: #2b2b2b;
+      border-radius: 12px;
+      padding: 16px;
+      color: #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .list h3 {
+      margin-top: 0;
+      color: #ff8c00;
+    }
+    .list-item {
+      margin: 6px 0;
+    }
+  </style>
 </head>
 <body>
   <div class="login-container">
-    <h2>Select a Chat</h2>
+    <h2>Select Chat</h2>
     <form id="roomForm">
-      <input type="text" id="roomName" placeholder="Enter ID" required />
+      <input type="text" id="roomName" placeholder="Room's ID" required />
       <button type="submit">Join</button>
     </form>
+
+    <div class="list" id="recentRooms">
+      <h3>Recent Rooms</h3>
+      <div id="roomsList"></div>
+    </div>
+
+    <div class="list" id="recentUsers">
+      <h3>Recent Users</h3>
+      <div id="usersList"></div>
+    </div>
   </div>
 
   <script>
@@ -19,9 +47,28 @@
       e.preventDefault();
       const room = document.getElementById('roomName').value.trim();
       if (room) {
+        saveToStorage('rooms', room);
         window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
       }
     });
+
+    function saveToStorage(key, value) {
+      let items = JSON.parse(localStorage.getItem(key)) || [];
+      if (!items.includes(value)) {
+        items.unshift(value);
+        if (items.length > 10) items = items.slice(0, 10);
+        localStorage.setItem(key, JSON.stringify(items));
+      }
+    }
+
+    function renderList(id, key) {
+      const container = document.getElementById(id);
+      const items = JSON.parse(localStorage.getItem(key)) || [];
+      container.innerHTML = items.map(item => `<div class="list-item">${item}</div>`).join('');
+    }
+
+    renderList('roomsList', 'rooms');
+    renderList('usersList', 'users');
   </script>
 </body>
 </html>
