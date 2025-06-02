@@ -13,7 +13,7 @@
 
 <form id="form">
   <input id="input" autocomplete="off" placeholder="Message" />
-  <button>⬆</button>
+  <button>↑</button>
 </form>
 
 <script>
@@ -24,7 +24,9 @@
   const chatTitle = document.getElementById('chat-title');
 
   const username = localStorage.getItem("username");
-  if (!username) window.location.href = "login.html";
+  if (!username) {
+    window.location.href = "login.html";
+  }
 
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room");
@@ -41,24 +43,28 @@
     const div = document.createElement('div');
     div.classList.add('bubble');
 
-    const now = new Date();
     const time = document.createElement('div');
     time.classList.add('meta');
-    time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    time.style.color = '#ffffff';
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     if (msg.type === 'system') {
       div.classList.add('system');
       div.textContent = msg.text;
+      div.appendChild(time);
+    } else if (msg.type === 'kick') {
+      alert("You were kicked by admin!");
+      socket.close();
+      window.location.href = "select.html";
+    } else if (msg.type === 'ban') {
+      alert("You were banned by admin!");
+      localStorage.removeItem("username");
+      socket.close();
+      window.location.href = "login.html";
     } else if (msg.type === 'list') {
       div.classList.add('system');
-      div.innerHTML = `<strong>Online users:</strong><br>${msg.users.map(u => `${u.nick} <div style='font-size: 10px;'>(${u.id})</div>`).join('<br>')}`;
-    } else if (msg.type === 'kick') {
-      alert(msg.text || 'You were kicked.');
-      window.location.href = 'select.html';
-    } else if (msg.type === 'ban') {
-      alert(msg.text || 'You were banned.');
-      localStorage.removeItem('username');
-      window.location.href = 'login.html';
+      div.innerHTML = `<strong>Online Users:</strong><br>` + msg.users.map(u => `${u.nick} (${u.id})`).join(', ');
+      div.appendChild(time);
     } else if (msg.user === username) {
       div.classList.add('self');
       const text = document.createElement('div');
@@ -68,10 +74,11 @@
     } else {
       div.classList.add('other');
       const name = document.createElement('div');
+      name.textContent = msg.user;
       name.style.fontSize = '12px';
       name.style.marginBottom = '4px';
-      name.style.opacity = '0.7';
-      name.textContent = msg.user;
+      name.style.opacity = '0.9';
+      name.style.color = '#ff8c00';
 
       const text = document.createElement('div');
       text.textContent = msg.text;
@@ -91,7 +98,15 @@
     const message = input.value.trim();
     if (!message) return;
 
-    if (message.toLowerCase() === 'log out' || message.toLowerCase() === '/logout') {
+    const command = message.toLowerCase();
+
+    if (command === "exit") {
+      socket.close();
+      window.location.href = "select.html";
+      return;
+    }
+
+    if (command === "log out" || command === "/logout") {
       localStorage.removeItem("username");
       socket.close();
       window.location.href = "login.html";
