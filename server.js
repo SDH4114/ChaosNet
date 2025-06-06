@@ -8,6 +8,9 @@ const app = express();
 
 app.use(express.static('public'));
 app.use(express.json());
+app.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
 
 const USERS = [
   { nick: "SDH", id: "SH4114", password: "DH44752187" },
@@ -28,8 +31,8 @@ app.post('/auth', (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const clients = new Map(); // ws => { nick, id, room }
-const roomMessages = {};   // room => array of messages
+const clients = new Map();
+const roomMessages = {}; 
 
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
@@ -139,13 +142,13 @@ function broadcast(room, data) {
 
     transporter.sendMail(mailOptions, (err, info) => {
       if (err) {
-        console.error('❌ Email error:', err);
+        console.error('Email error:', err);
       } else {
-        console.log('📨 Email sent:', info.response);
+        console.log('Email sent:', info.response);
       }
     });
   }
   
 server.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });

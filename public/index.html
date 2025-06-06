@@ -10,7 +10,7 @@
 
 <form id="form">
   <input id="input" autocomplete="off" placeholder="Message"/>
-  <button>⬆</button>
+  <button>↑</button>
 </form>
 
 <script>
@@ -38,7 +38,6 @@
     time.classList.add('meta');
     time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // ⚠️ Обработка кика
     if (msg.type === 'kick') {
       alert(msg.text || "Вы были кикнуты.");
       localStorage.removeItem("username");
