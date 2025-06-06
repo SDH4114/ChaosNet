@@ -99,10 +99,24 @@ wss.on('connection', (ws) => {
         broadcast(room, { type: 'system', text: `📅 ${dateString}` });
       }
 
-      // добавляем сообщение пользователя
       roomMessages[room].push(`${userData.nick}: ${text}`);
       broadcast(room, { type: 'message', text, user: userData.nick });
     }
+
+    if (data.type === 'join') {
+      userData.nick = data.user;
+      userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
+      userData.room = data.room || 'general';
+      clients.set(ws, userData);
+
+      if (!roomMessages[userData.room]) {
+        roomMessages[userData.room] = [];
+      }
+
+      broadcast(userData.room, { type: 'system', text: `👋 ${userData.nick} joined the room` });
+      return;
+    }
+  }); // 🔧 вот это закрывающая скобка для ws.on('message')
 
   ws.on('close', () => {
     clients.delete(ws);

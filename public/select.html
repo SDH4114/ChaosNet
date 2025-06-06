@@ -53,7 +53,17 @@
     <script>
       document.getElementById('roomForm').addEventListener('submit', function (e) {
         e.preventDefault();
-        const room = document.getElementById('roomName').value.trim();
+        const input = document.getElementById('roomName');
+        const room = input.value.trim();
+
+        if (room.toLowerCase() === '/clear') {
+          localStorage.removeItem('rooms');
+          document.getElementById('roomsList').innerHTML = '';
+          input.value = '';
+          alert("✅ Recent rooms cleared");
+          return;
+        }
+
         if (room) {
           saveToStorage('rooms', room);
           window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
