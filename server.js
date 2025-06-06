@@ -40,20 +40,6 @@ wss.on('connection', (ws) => {
   ws.on('message', (msg) => {
     const data = JSON.parse(msg);
 
-    if (data.type === 'join') {
-      userData.nick = data.user;
-      userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
-      userData.room = data.room || 'general';
-      clients.set(ws, userData);
-
-      if (!roomMessages[userData.room]) {
-        roomMessages[userData.room] = [];
-      }
-
-      broadcast(userData.room, { type: 'system', text: `👋 ${userData.nick} joined the room` });
-      return;
-    }
-
     if (data.type === 'message') {
       const text = data.text.trim();
 
@@ -95,22 +81,44 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      roomMessages[userData.room].push(`${userData.nick}: ${text}`);
-      broadcast(userData.room, { type: 'message', text, user: userData.nick });
+      // 🗓️ Проверка даты и системное сообщение
+      const now = new Date();
+      const dateString = now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      const room = userData.room;
+
+      if (!roomMessages[room]) {
+        roomMessages[room] = [];
+      }
+      if (!roomMessages[room]._lastDateTag) {
+        roomMessages[room]._lastDateTag = '';
+      }
+
+      if (roomMessages[room]._lastDateTag !== dateString) {
+        roomMessages[room]._lastDateTag = dateString;
+        roomMessages[room].push(`📅 ${dateString}`);
+        broadcast(room, { type: 'system', text: `📅 ${dateString}` });
+      }
+
+      // добавляем сообщение пользователя
+      roomMessages[room].push(`${userData.nick}: ${text}`);
+      broadcast(room, { type: 'message', text, user: userData.nick });
     }
-  });
 
   ws.on('close', () => {
     clients.delete(ws);
     const stillInRoom = Array.from(clients.values()).some(u => u.room === userData.room);
+
     if (!stillInRoom) {
-      const log = roomMessages[userData.room]?.join('\n') || 'No messages.';
-      sendEmail(`Chat room "${userData.room}" is now empty.\n\nLogs:\n${log}`);
+      const messages = roomMessages[userData.room];
+      if (messages && messages.length > 0) {
+        const log = messages.join('\n');
+        sendEmail(`Chat room "${userData.room}" is now empty.\n\nLogs:\n${log}`);
+      }
       delete roomMessages[userData.room];
     }
 
     if (userData.nick) {
-      broadcast(userData.room, { type: 'system', text: `❌ ${userData.nick} left the chat` });
+      broadcast(userData.room, { type: 'system', text: `❌ ${userData.nick} left the room` });
     }
   });
 });
@@ -124,31 +132,31 @@ function broadcast(room, data) {
   }
 }
 
-  function sendEmail(content) {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-      }
-    });
+function sendEmail(content) {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: '📤 Chat log from ChaosNet',
-      text: content
-    };
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: process.env.EMAIL_USER,
+    subject: 'Chat log from ChaosNet',
+    text: content
+  };
 
-    transporter.sendMail(mailOptions, (err, info) => {
-      if (err) {
-        console.error('Email error:', err);
-      } else {
-        console.log('Email sent:', info.response);
-      }
-    });
-  }
-  
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) {
+      console.error('Email error:', err);
+    } else {
+      console.log('Email sent:', info.response);
+    }
+  });
+}
+
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });

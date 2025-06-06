@@ -53,8 +53,21 @@
 
     if (msg.type === 'system') {
       div.classList.add('system');
-      div.textContent = msg.text;
-      div.appendChild(time);
+      
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      text.style.textAlign = 'center';
+      text.style.marginBottom = '4px';
+      text.style.color = '#ff8c00';
+
+      const timeWrapper = document.createElement('div');
+      timeWrapper.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      timeWrapper.style.textAlign = 'center';
+      timeWrapper.style.fontSize = '12px';
+      timeWrapper.style.opacity = '0.7';
+
+      div.appendChild(text);
+      div.appendChild(timeWrapper);
     } else if (msg.type === 'kick') {
       alert("You were kicked by admin!");
       socket.close();

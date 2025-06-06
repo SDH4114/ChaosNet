@@ -53,6 +53,15 @@ body {
   font-style: italic;
 }
 
+.bubble.system {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #ff8c00;
+  margin: 10px auto;
+  max-width: 80%;
+}
+
 .meta {
   font-size: 11px;
   color: #ffffff;
@@ -98,7 +107,7 @@ button:hover {
   background: #e57c00;
 }
 
-/* 📱 Адаптация под мобильные устройства */
+
 @media (max-width: 600px) {
   .bubble {
     max-width: 90%;
