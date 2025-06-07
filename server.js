@@ -35,7 +35,7 @@ const wss = new WebSocket.Server({ server });
 
 const clients = new Map();
 const roomMessages = {};
-const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 7;
+const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 14;
 const CHAT_DIR = path.join(__dirname, 'chatlogs');
 if (!fs.existsSync(CHAT_DIR)) fs.mkdirSync(CHAT_DIR);
 
@@ -77,13 +77,7 @@ wss.on('connection', (ws) => {
       }
 
       if (text.toLowerCase() === '/list') {
-        const list = Array.from(clients.values())
-          .filter(u => u.room === userData.room)
-          .map(u => {
-            if (['SDH', 'GodOfLies'].includes(u.nick)) return `${u.nick} (admin)`;
-            if (u.id.startsWith('guest_')) return `${u.nick} (guest)`;
-            return `${u.nick} (user)`;
-          });
+        const list = [userData.nick];
         ws.send(JSON.stringify({ type: 'list', users: list }));
         return;
       }
