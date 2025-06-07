@@ -60,7 +60,12 @@
           localStorage.removeItem('rooms');
           document.getElementById('roomsList').innerHTML = '';
           input.value = '';
-          alert("✅ Recent rooms cleared");
+          alert("Recent rooms cleared");
+          return;
+        }
+        if (room.toLowerCase() === '/log out') {
+          localStorage.removeItem('username');
+          window.location.href = "login.html";
           return;
         }
 

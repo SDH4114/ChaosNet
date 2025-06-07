@@ -2,11 +2,12 @@ const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.PORT || 10000;
-const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 7; // 14дней
-
 const app = express();
+
 app.use(express.static('public'));
 app.use(express.json());
 app.get('/', (req, res) => {
@@ -34,20 +35,22 @@ const wss = new WebSocket.Server({ server });
 
 const clients = new Map();
 const roomMessages = {};
+const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 7;
+const CHAT_DIR = path.join(__dirname, 'chatlogs');
+if (!fs.existsSync(CHAT_DIR)) fs.mkdirSync(CHAT_DIR);
 
-function storeMessage(room, data) {
-  if (!roomMessages[room]) roomMessages[room] = [];
-  roomMessages[room].push({ ...data, timestamp: Date.now() });
-
-  // очистка сообщений
-  roomMessages[room] = roomMessages[room].filter(m => Date.now() - m.timestamp < MESSAGE_LIFETIME);
+function saveMessagesToFile(room) {
+  const filePath = path.join(CHAT_DIR, `${room}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(roomMessages[room], null, 2));
 }
 
-function broadcast(room, data) {
-  const json = JSON.stringify(data);
-  for (const [client, u] of clients.entries()) {
-    if (u.room === room && client.readyState === WebSocket.OPEN) {
-      client.send(json);
+function loadMessagesFromFile(room) {
+  const filePath = path.join(CHAT_DIR, `${room}.json`);
+  if (fs.existsSync(filePath)) {
+    try {
+      roomMessages[room] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (e) {
+      roomMessages[room] = [];
     }
   }
 }
@@ -57,25 +60,6 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (msg) => {
     const data = JSON.parse(msg);
-
-    if (data.type === 'join') {
-      userData.nick = data.user;
-      userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
-      userData.room = data.room || 'general';
-      clients.set(ws, userData);
-
-      if (!roomMessages[userData.room]) {
-        roomMessages[userData.room] = [];
-      }
-
-      // старые сообщения
-      roomMessages[userData.room].forEach(m => ws.send(JSON.stringify(m)));
-
-      const joinText = `${userData.nick} joined the room`;
-      storeMessage(userData.room, { type: 'system', text: joinText });
-      broadcast(userData.room, { type: 'system', text: joinText });
-      return;
-    }
 
     if (data.type === 'message') {
       const text = data.text.trim();
@@ -93,23 +77,21 @@ wss.on('connection', (ws) => {
       }
 
       if (text.toLowerCase() === '/list') {
-        const users = Array.from(clients.values())
+        const list = Array.from(clients.values())
           .filter(u => u.room === userData.room)
           .map(u => {
-            let role = 'user';
-            if (['SDH', 'GodOfLies'].includes(u.nick)) role = 'admin';
-            if (u.id.startsWith('guest_')) role = 'guest';
-            return `${u.nick} (${u.id}) — ${role}`;
+            if (['SDH', 'GodOfLies'].includes(u.nick)) return `${u.nick} (admin)`;
+            if (u.id.startsWith('guest_')) return `${u.nick} (guest)`;
+            return `${u.nick} (user)`;
           });
-
-        const listText = `Online users:\n` + users.join('\n');
-        storeMessage(userData.room, { type: 'system', text: listText });
-        ws.send(JSON.stringify({ type: 'system', text: listText }));
+        ws.send(JSON.stringify({ type: 'list', users: list }));
         return;
       }
+
       if (text.startsWith('/kick ') || text.startsWith('/ban ')) {
         const command = text.startsWith('/ban ') ? 'ban' : 'kick';
         const targetName = text.split(' ')[1]?.trim();
+
         if (!['SDH', 'GodOfLies'].includes(userData.nick)) return;
 
         for (const [client, u] of clients.entries()) {
@@ -117,9 +99,7 @@ wss.on('connection', (ws) => {
             client.send(JSON.stringify({ type: command, text: `You were ${command}ed by admin.` }));
             client.close();
             clients.delete(client);
-            const notice = `⚠️ ${u.nick} was ${command}ed by ${userData.nick}`;
-            storeMessage(userData.room, { type: 'system', text: notice });
-            broadcast(userData.room, { type: 'system', text: notice });
+            broadcast(u.room, { type: 'system', text: `⚠️ ${u.nick} was ${command}ed by ${userData.nick}` });
             return;
           }
         }
@@ -132,20 +112,38 @@ wss.on('connection', (ws) => {
 
       if (!roomMessages[room]) {
         roomMessages[room] = [];
-      }
-      if (!roomMessages[room]._lastDateTag) {
-        roomMessages[room]._lastDateTag = '';
+        loadMessagesFromFile(room);
       }
 
+      if (!roomMessages[room]._lastDateTag) roomMessages[room]._lastDateTag = '';
       if (roomMessages[room]._lastDateTag !== dateString) {
         roomMessages[room]._lastDateTag = dateString;
-        const dateMessage = `${dateString}`;
-        storeMessage(room, { type: 'system', text: dateMessage });
-        broadcast(room, { type: 'system', text: dateMessage });
+        roomMessages[room].push({ type: 'system', text: `${dateString}`, timestamp: now.getTime() });
+        broadcast(room, { type: 'system', text: `${dateString}` });
       }
 
-      storeMessage(room, { type: 'message', text, user: userData.nick });
-      broadcast(room, { type: 'message', text, user: userData.nick });
+      roomMessages[room] = roomMessages[room].filter(m => now.getTime() - m.timestamp < MESSAGE_LIFETIME);
+      const msgObj = { type: 'message', text, user: userData.nick, timestamp: now.getTime() };
+      roomMessages[room].push(msgObj);
+      broadcast(room, msgObj);
+      saveMessagesToFile(room);
+    }
+
+    if (data.type === 'join') {
+      userData.nick = data.user;
+      userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
+      userData.room = data.room || 'general';
+      clients.set(ws, userData);
+
+      if (!roomMessages[userData.room]) {
+        loadMessagesFromFile(userData.room);
+      }
+
+      const history = roomMessages[userData.room] || [];
+      history.forEach(m => ws.send(JSON.stringify(m)));
+
+      broadcast(userData.room, { type: 'system', text: `👋 ${userData.nick} joined the room` });
+      return;
     }
   });
 
@@ -159,16 +157,22 @@ wss.on('connection', (ws) => {
         const log = messages.map(m => `${m.user || 'SYSTEM'}: ${m.text}`).join('\n');
         sendEmail(`Chat room "${userData.room}" is now empty.\n\nLogs:\n${log}`);
       }
-      delete roomMessages[userData.room];
     }
 
     if (userData.nick) {
-      const leftMsg = `${userData.nick} left the room`;
-      storeMessage(userData.room, { type: 'system', text: leftMsg });
-      broadcast(userData.room, { type: 'system', text: leftMsg });
+      broadcast(userData.room, { type: 'system', text: `❌ ${userData.nick} left the room` });
     }
   });
 });
+
+function broadcast(room, data) {
+  const json = JSON.stringify(data);
+  for (const [client, u] of clients.entries()) {
+    if (u.room === room && client.readyState === WebSocket.OPEN) {
+      client.send(json);
+    }
+  }
+}
 
 function sendEmail(content) {
   const transporter = nodemailer.createTransport({
