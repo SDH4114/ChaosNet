@@ -37,6 +37,8 @@
 
   chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
+  let lastRenderedDate = '';
+
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
   });
@@ -46,6 +48,22 @@
     const div = document.createElement('div');
     div.classList.add('bubble');
 
+    // Date header, only once per day
+    if (msg.type === 'system' && /^\d{1,2} \w+/.test(msg.text)) {
+      const currentDate = msg.text;
+      if (lastRenderedDate !== currentDate) {
+        lastRenderedDate = currentDate;
+
+        const dateDiv = document.createElement('div');
+        dateDiv.textContent = currentDate;
+        dateDiv.style.textAlign = 'center';
+        dateDiv.style.color = '#999';
+        dateDiv.style.margin = '10px 0';
+        messages.appendChild(dateDiv);
+      }
+      return;
+    }
+
     const time = document.createElement('div');
     time.classList.add('meta');
     time.style.color = '#ffffff';
@@ -53,7 +71,6 @@
 
     if (msg.type === 'system') {
       div.classList.add('system');
-      
       const text = document.createElement('div');
       text.textContent = msg.text;
       text.style.textAlign = 'center';
@@ -61,7 +78,7 @@
       text.style.color = '#ff8c00';
 
       const timeWrapper = document.createElement('div');
-      timeWrapper.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      timeWrapper.textContent = time.textContent;
       timeWrapper.style.textAlign = 'center';
       timeWrapper.style.fontSize = '12px';
       timeWrapper.style.opacity = '0.7';
@@ -134,5 +151,6 @@
     input.value = '';
   });
 </script>
+
 </body>
 </html>

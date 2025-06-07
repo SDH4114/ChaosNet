@@ -4,7 +4,7 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 
 const PORT = process.env.PORT || 10000;
-const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 14; // 14дней
+const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 7; // 14дней
 
 const app = express();
 app.use(express.static('public'));
@@ -71,7 +71,7 @@ wss.on('connection', (ws) => {
       // старые сообщения
       roomMessages[userData.room].forEach(m => ws.send(JSON.stringify(m)));
 
-      const joinText = `👋 ${userData.nick} joined the room`;
+      const joinText = `${userData.nick} joined the room`;
       storeMessage(userData.room, { type: 'system', text: joinText });
       broadcast(userData.room, { type: 'system', text: joinText });
       return;
@@ -95,14 +95,18 @@ wss.on('connection', (ws) => {
       if (text.toLowerCase() === '/list') {
         const users = Array.from(clients.values())
           .filter(u => u.room === userData.room)
-          .map(u => `${u.nick} (${u.id})`);
+          .map(u => {
+            let role = 'user';
+            if (['SDH', 'GodOfLies'].includes(u.nick)) role = 'admin';
+            if (u.id.startsWith('guest_')) role = 'guest';
+            return `${u.nick} (${u.id}) — ${role}`;
+          });
 
-        const listText = `👥 Online users:\n` + users.join('\n');
+        const listText = `Online users:\n` + users.join('\n');
         storeMessage(userData.room, { type: 'system', text: listText });
         ws.send(JSON.stringify({ type: 'system', text: listText }));
         return;
       }
-
       if (text.startsWith('/kick ') || text.startsWith('/ban ')) {
         const command = text.startsWith('/ban ') ? 'ban' : 'kick';
         const targetName = text.split(' ')[1]?.trim();
@@ -123,7 +127,7 @@ wss.on('connection', (ws) => {
       }
 
       const now = new Date();
-      const dateString = now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+      const dateString = now.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
       const room = userData.room;
 
       if (!roomMessages[room]) {
