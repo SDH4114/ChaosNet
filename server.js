@@ -35,13 +35,17 @@ const wss = new WebSocket.Server({ server });
 
 const clients = new Map();
 const roomMessages = {};
-const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 14;
+const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 7;
 const CHAT_DIR = path.join(__dirname, 'chatlogs');
 if (!fs.existsSync(CHAT_DIR)) fs.mkdirSync(CHAT_DIR);
 
 function saveMessagesToFile(room) {
   const filePath = path.join(CHAT_DIR, `${room}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(roomMessages[room], null, 2));
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(roomMessages[room], null, 2));
+  } catch (e) {
+    console.error(`Failed to save messages for room ${room}:`, e);
+  }
 }
 
 function loadMessagesFromFile(room) {
@@ -50,6 +54,7 @@ function loadMessagesFromFile(room) {
     try {
       roomMessages[room] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     } catch (e) {
+      console.error(`Failed to load messages for room ${room}:`, e);
       roomMessages[room] = [];
     }
   }
@@ -63,7 +68,6 @@ wss.on('connection', (ws) => {
 
     if (data.type === 'message') {
       const text = data.text.trim();
-
       if (text.toLowerCase() === 'log out') {
         ws.send(JSON.stringify({ type: 'logout' }));
         ws.close();
@@ -76,21 +80,9 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (text === '/list') {
-        const users = Array.from(clients.values())
-          .filter(u => u.room === userData.room)
-          .map(u => u.nick);
-
-        const listText = `Online users:\n${users.join('\n')}`;
-        storeMessage(userData.room, { type: 'system', text: listText });
-        ws.send(JSON.stringify({ type: 'system', text: listText }));
-        return;
-      }
-
       if (text.startsWith('/kick ') || text.startsWith('/ban ')) {
         const command = text.startsWith('/ban ') ? 'ban' : 'kick';
         const targetName = text.split(' ')[1]?.trim();
-
         if (!['SDH', 'GodOfLies'].includes(userData.nick)) return;
 
         for (const [client, u] of clients.entries()) {
@@ -105,19 +97,19 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      const now = new Date();
+      const now = Date.now();
       const room = userData.room;
 
       if (!roomMessages[room]) {
-        roomMessages[room] = [];
         loadMessagesFromFile(room);
+        if (!roomMessages[room]) roomMessages[room] = [];
       }
 
-      roomMessages[room] = roomMessages[room].filter(m => now.getTime() - m.timestamp < MESSAGE_LIFETIME);
-      const msgObj = { type: 'message', text, user: userData.nick, timestamp: now.getTime() };
+      roomMessages[room] = roomMessages[room].filter(m => now - m.timestamp < MESSAGE_LIFETIME);
+      const msgObj = { type: 'message', text, user: userData.nick, timestamp: now };
       roomMessages[room].push(msgObj);
-      broadcast(room, msgObj);
       saveMessagesToFile(room);
+      broadcast(room, msgObj);
     }
 
     if (data.type === 'join') {
@@ -128,13 +120,12 @@ wss.on('connection', (ws) => {
 
       if (!roomMessages[userData.room]) {
         loadMessagesFromFile(userData.room);
+        if (!roomMessages[userData.room]) roomMessages[userData.room] = [];
       }
 
-      const history = roomMessages[userData.room] || [];
+      const history = roomMessages[userData.room];
       history.forEach(m => ws.send(JSON.stringify(m)));
-
       broadcast(userData.room, { type: 'system', text: `${userData.nick} joined the room` });
-      return;
     }
   });
 
@@ -182,11 +173,8 @@ function sendEmail(content) {
   };
 
   transporter.sendMail(mailOptions, (err, info) => {
-    if (err) {
-      console.error('Email error:', err);
-    } else {
-      console.log('Email sent:', info.response);
-    }
+    if (err) console.error('Email error:', err);
+    else console.log('Email sent:', info.response);
   });
 }
 
