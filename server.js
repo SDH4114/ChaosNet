@@ -60,6 +60,14 @@ function loadMessagesFromFile(room) {
   }
 }
 
+function storeSystemMessage(room, text) {
+  const msg = { type: 'system', text, timestamp: Date.now() };
+  if (!roomMessages[room]) roomMessages[room] = [];
+  roomMessages[room].push(msg);
+  saveMessagesToFile(room);
+  broadcast(room, msg);
+}
+
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
@@ -90,7 +98,7 @@ wss.on('connection', (ws) => {
             client.send(JSON.stringify({ type: command, text: `You were ${command}ed by admin.` }));
             client.close();
             clients.delete(client);
-            broadcast(u.room, { type: 'system', text: `${u.nick} was ${command}ed by ${userData.nick}` });
+            storeSystemMessage(u.room, `${u.nick} was ${command}ed by ${userData.nick}`);
             return;
           }
         }
@@ -125,7 +133,8 @@ wss.on('connection', (ws) => {
 
       const history = roomMessages[userData.room];
       history.forEach(m => ws.send(JSON.stringify(m)));
-      broadcast(userData.room, { type: 'system', text: `${userData.nick} joined the room` });
+
+      storeSystemMessage(userData.room, `${userData.nick} joined the room`);
     }
   });
 
@@ -142,7 +151,7 @@ wss.on('connection', (ws) => {
     }
 
     if (userData.nick) {
-      broadcast(userData.room, { type: 'system', text: `${userData.nick} left the room` });
+      storeSystemMessage(userData.room, `${userData.nick} left the room`);
     }
   });
 });
