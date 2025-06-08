@@ -77,7 +77,9 @@ wss.on('connection', (ws) => {
       }
 
       if (text.toLowerCase() === '/list') {
-        const list = [userData.nick];
+        const list = Array.from(clients.values())
+          .filter(u => u.room === userData.room)
+          .map(u => u.nick);
         ws.send(JSON.stringify({ type: 'list', users: list }));
         return;
       }
@@ -93,7 +95,7 @@ wss.on('connection', (ws) => {
             client.send(JSON.stringify({ type: command, text: `You were ${command}ed by admin.` }));
             client.close();
             clients.delete(client);
-            broadcast(u.room, { type: 'system', text: `⚠️ ${u.nick} was ${command}ed by ${userData.nick}` });
+            broadcast(u.room, { type: 'system', text: `${u.nick} was ${command}ed by ${userData.nick}` });
             return;
           }
         }
@@ -136,7 +138,7 @@ wss.on('connection', (ws) => {
       const history = roomMessages[userData.room] || [];
       history.forEach(m => ws.send(JSON.stringify(m)));
 
-      broadcast(userData.room, { type: 'system', text: `👋 ${userData.nick} joined the room` });
+      broadcast(userData.room, { type: 'system', text: `${userData.nick} joined the room` });
       return;
     }
   });
@@ -154,7 +156,7 @@ wss.on('connection', (ws) => {
     }
 
     if (userData.nick) {
-      broadcast(userData.room, { type: 'system', text: `❌ ${userData.nick} left the room` });
+      broadcast(userData.room, { type: 'system', text: ` ${userData.nick} left the room` });
     }
   });
 });
