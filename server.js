@@ -73,9 +73,19 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (msg) => {
     const data = JSON.parse(msg);
+    const now = Date.now();
+    const room = userData.room;
 
+    // Загружаем историю, если нужно
+    if (!roomMessages[room]) {
+      loadMessagesFromFile(room);
+      if (!roomMessages[room]) roomMessages[room] = [];
+    }
+
+    // Сообщение-текст
     if (data.type === 'message') {
       const text = data.text.trim();
+
       if (text.toLowerCase() === 'log out') {
         ws.send(JSON.stringify({ type: 'logout' }));
         ws.close();
@@ -105,14 +115,7 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      const now = Date.now();
-      const room = userData.room;
-
-      if (!roomMessages[room]) {
-        loadMessagesFromFile(room);
-        if (!roomMessages[room]) roomMessages[room] = [];
-      }
-
+      // Сохраняем и рассылаем текст
       roomMessages[room] = roomMessages[room].filter(m => now - m.timestamp < MESSAGE_LIFETIME);
       const msgObj = { type: 'message', text, user: userData.nick, timestamp: now };
       roomMessages[room].push(msgObj);
@@ -120,6 +123,22 @@ wss.on('connection', (ws) => {
       broadcast(room, msgObj);
     }
 
+    // Сообщение-изображение
+    if (data.type === 'image' && data.image) {
+      const msgObj = {
+        type: 'image',
+        image: data.image,       // base64 строка
+        filename: data.filename || 'image',
+        user: userData.nick,
+        timestamp: now
+      };
+      roomMessages[room].push(msgObj);
+      saveMessagesToFile(room);
+      broadcast(room, msgObj);
+      return;
+    }
+
+    // Подключение к комнате
     if (data.type === 'join') {
       userData.nick = data.user;
       userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
@@ -145,7 +164,7 @@ wss.on('connection', (ws) => {
     if (!stillInRoom) {
       const messages = roomMessages[userData.room];
       if (messages && messages.length > 0) {
-        const log = messages.map(m => `${m.user || 'SYSTEM'}: ${m.text}`).join('\n');
+        const log = messages.map(m => `${m.user || 'SYSTEM'}: ${m.text || '[image]'}`).join('\n');
         sendEmail(`Chat room "${userData.room}" is now empty.\n\nLogs:\n${log}`);
       }
     }
