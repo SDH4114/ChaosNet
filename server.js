@@ -55,14 +55,6 @@ function loadMessagesFromFile(room) {
   }
 }
 
-function storeMessage(room, message) {
-  if (!roomMessages[room]) roomMessages[room] = [];
-  const now = Date.now();
-  roomMessages[room] = roomMessages[room].filter(m => now - m.timestamp < MESSAGE_LIFETIME);
-  roomMessages[room].push({ ...message, timestamp: now });
-  saveMessagesToFile(room);
-}
-
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
@@ -87,9 +79,10 @@ wss.on('connection', (ws) => {
       if (text === '/list') {
         const users = Array.from(clients.values())
           .filter(u => u.room === userData.room)
-          .map(u => `${u.nick}`);
+          .map(u => u.nick);
 
-        const listText = `Online users:\n` + users.join('\n');
+        const listText = `Online users:\n${users.join('\n')}`;
+        storeMessage(userData.room, { type: 'system', text: listText });
         ws.send(JSON.stringify({ type: 'system', text: listText }));
         return;
       }
@@ -140,10 +133,7 @@ wss.on('connection', (ws) => {
       const history = roomMessages[userData.room] || [];
       history.forEach(m => ws.send(JSON.stringify(m)));
 
-      const joinMsg = { type: 'system', text: `${userData.nick} joined the room`, timestamp: Date.now() };
-      roomMessages[userData.room].push(joinMsg);
-      broadcast(userData.room, joinMsg);
-      saveMessagesToFile(userData.room);
+      broadcast(userData.room, { type: 'system', text: `${userData.nick} joined the room` });
       return;
     }
   });
@@ -161,10 +151,7 @@ wss.on('connection', (ws) => {
     }
 
     if (userData.nick) {
-      const leaveMsg = { type: 'system', text: `${userData.nick} left the room`, timestamp: Date.now() };
-      roomMessages[userData.room].push(leaveMsg);
-      broadcast(userData.room, leaveMsg);
-      saveMessagesToFile(userData.room);
+      broadcast(userData.room, { type: 'system', text: `${userData.nick} left the room` });
     }
   });
 });
