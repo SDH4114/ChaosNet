@@ -14,7 +14,6 @@ app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
 
-
 const USERS = [
   { nick: "SDH", id: "SH4114", password: "DH44752187" },
   { nick: "GodOfLies", id: "CL7770", password: "DH44752187" },
@@ -77,16 +76,17 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      if (text.toLowerCase() === '/list') {
-        const list = Array.from(clients.values())
+      if (text === '/list') {
+        const users = Array.from(clients.values())
           .filter(u => u.room === userData.room)
-          .map(u => u.nick);
+          .map(u => `${u.nick}`);
 
-        const uniqueNames = [...new Set(list)];
-
-        ws.send(JSON.stringify({ type: 'list', users: uniqueNames }));
+        const listText = `Online users:\n` + users.join('\n');
+        storeMessage(userData.room, { type: 'system', text: listText });
+        ws.send(JSON.stringify({ type: 'system', text: listText }));
         return;
       }
+
       if (text.startsWith('/kick ') || text.startsWith('/ban ')) {
         const command = text.startsWith('/ban ') ? 'ban' : 'kick';
         const targetName = text.split(' ')[1]?.trim();
@@ -106,7 +106,6 @@ wss.on('connection', (ws) => {
       }
 
       const now = new Date();
-      const dateString = now.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
       const room = userData.room;
 
       if (!roomMessages[room]) {
