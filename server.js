@@ -129,6 +129,7 @@ wss.on('connection', (ws) => {
         type: 'image',
         image: data.image,       // base64 строка
         filename: data.filename || 'image',
+        text: data.text || "",
         user: userData.nick,
         timestamp: now
       };
