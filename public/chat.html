@@ -109,23 +109,19 @@
         name.style.color = '#ff8c00';
         div.appendChild(name);
       }
-    const link = document.createElement('a');
-    link.href = msg.image;
-    link.target = '_blank';
-    link.style.display = 'inline-block';
-    link.style.marginTop = '5px';
-
     const img = document.createElement('img');
     img.src = msg.image;
     img.alt = msg.filename || 'image';
     img.style.maxWidth = '200px';
     img.style.borderRadius = '10px';
-    
+    img.style.marginTop = '5px';
+      
     div.appendChild(name);
     link.appendChild(img);
     div.appendChild(link);
     div.appendChild(text);
     div.appendChild(time);
+
     } else if (msg.user === username) {
       div.classList.add('self');
       const text = document.createElement('div');
