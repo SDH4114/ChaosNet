@@ -55,6 +55,14 @@ function loadMessagesFromFile(room) {
   }
 }
 
+function storeMessage(room, message) {
+  if (!roomMessages[room]) roomMessages[room] = [];
+  const now = Date.now();
+  roomMessages[room] = roomMessages[room].filter(m => now - m.timestamp < MESSAGE_LIFETIME);
+  roomMessages[room].push({ ...message, timestamp: now });
+  saveMessagesToFile(room);
+}
+
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
@@ -82,7 +90,6 @@ wss.on('connection', (ws) => {
           .map(u => `${u.nick}`);
 
         const listText = `Online users:\n` + users.join('\n');
-        storeMessage(userData.room, { type: 'system', text: listText });
         ws.send(JSON.stringify({ type: 'system', text: listText }));
         return;
       }
@@ -133,7 +140,10 @@ wss.on('connection', (ws) => {
       const history = roomMessages[userData.room] || [];
       history.forEach(m => ws.send(JSON.stringify(m)));
 
-      broadcast(userData.room, { type: 'system', text: `${userData.nick} joined the room` });
+      const joinMsg = { type: 'system', text: `${userData.nick} joined the room`, timestamp: Date.now() };
+      roomMessages[userData.room].push(joinMsg);
+      broadcast(userData.room, joinMsg);
+      saveMessagesToFile(userData.room);
       return;
     }
   });
@@ -151,7 +161,10 @@ wss.on('connection', (ws) => {
     }
 
     if (userData.nick) {
-      broadcast(userData.room, { type: 'system', text: ` ${userData.nick} left the room` });
+      const leaveMsg = { type: 'system', text: `${userData.nick} left the room`, timestamp: Date.now() };
+      roomMessages[userData.room].push(leaveMsg);
+      broadcast(userData.room, leaveMsg);
+      saveMessagesToFile(userData.room);
     }
   });
 });
