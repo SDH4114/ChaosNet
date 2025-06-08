@@ -14,6 +14,7 @@ app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
 
+
 const USERS = [
   { nick: "SDH", id: "SH4114", password: "DH44752187" },
   { nick: "GodOfLies", id: "CL7770", password: "DH44752187" },
@@ -80,10 +81,12 @@ wss.on('connection', (ws) => {
         const list = Array.from(clients.values())
           .filter(u => u.room === userData.room)
           .map(u => u.nick);
-        ws.send(JSON.stringify({ type: 'list', users: list }));
+
+        const uniqueNames = [...new Set(list)];
+
+        ws.send(JSON.stringify({ type: 'list', users: uniqueNames }));
         return;
       }
-
       if (text.startsWith('/kick ') || text.startsWith('/ban ')) {
         const command = text.startsWith('/ban ') ? 'ban' : 'kick';
         const targetName = text.split(' ')[1]?.trim();
@@ -109,13 +112,6 @@ wss.on('connection', (ws) => {
       if (!roomMessages[room]) {
         roomMessages[room] = [];
         loadMessagesFromFile(room);
-      }
-
-      if (!roomMessages[room]._lastDateTag) roomMessages[room]._lastDateTag = '';
-      if (roomMessages[room]._lastDateTag !== dateString) {
-        roomMessages[room]._lastDateTag = dateString;
-        roomMessages[room].push({ type: 'system', text: `${dateString}`, timestamp: now.getTime() });
-        broadcast(room, { type: 'system', text: `${dateString}` });
       }
 
       roomMessages[room] = roomMessages[room].filter(m => now.getTime() - m.timestamp < MESSAGE_LIFETIME);
