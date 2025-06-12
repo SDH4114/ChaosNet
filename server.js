@@ -75,7 +75,12 @@ wss.on('connection', (ws) => {
       userData.room = data.room || 'general';
       clients.set(ws, userData);
 
-      await deleteOldMessages(userData.room); // 🧹 автоудаление старых сообщений при входе
+      broadcast(userData.room, {
+        type: 'system',
+        text: `${userData.nick} joined the chat`
+      });
+
+      await deleteOldMessages(userData.room);
 
       const { data: history } = await supabase
         .from('messages')
@@ -172,7 +177,6 @@ function sendEmail(content) {
   });
 }
 
-// 🧹 Удаление сообщений старше 15 дней
 async function deleteOldMessages(room) {
   const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
   const { data: oldMessages } = await supabase
@@ -184,7 +188,7 @@ async function deleteOldMessages(room) {
   if (oldMessages && oldMessages.length > 0) {
     const idsToDelete = oldMessages.map(m => m.id);
     await supabase.from('messages').delete().in('id', idsToDelete);
-    console.log(`🧹 Deleted ${idsToDelete.length} old messages in room ${room}`);
+    console.log(`Deleted ${idsToDelete.length} old messages in room ${room}`);
   }
 }
 

@@ -12,6 +12,10 @@
 
 <div id="messages" style="max-height: 70vh; overflow-y: auto; padding: 10px;"></div>
 
+<div id="imagePreview" style="display:none; text-align:center; margin-bottom: 10px;">
+  <span id="imageName" style="font-size:14px; color:#aaa;"></span>
+</div>
+
 <form id="form">
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" />
@@ -28,6 +32,8 @@
   const imageInput = document.getElementById('imageInput');
   const messages = document.getElementById('messages');
   const chatTitle = document.getElementById('chat-title');
+  const imagePreview = document.getElementById('imagePreview');
+  const imageName = document.getElementById('imageName');
 
   const username = localStorage.getItem("username");
   const userId = localStorage.getItem("userid") || 'guest';
@@ -49,7 +55,17 @@
   });
 
   document.getElementById('photoBtn').addEventListener('click', () => {
-  document.getElementById('imageInput').click();
+    document.getElementById('imageInput').click();
+  });
+
+  imageInput.addEventListener('change', () => {
+    const file = imageInput.files[0];
+    if (file) {
+      imageName.textContent = file.name;
+      imagePreview.style.display = 'block';
+    } else {
+      imagePreview.style.display = 'none';
+    }
   });
 
   socket.addEventListener('message', (event) => {
@@ -186,12 +202,13 @@
           target,
           image: reader.result,
           filename: file.name,
-          text: message // подпись
+          text: message
         }));
       };
       reader.readAsDataURL(file);
       input.value = '';
       imageInput.value = '';
+      imagePreview.style.display = 'none';
       return;
     }
 
