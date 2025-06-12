@@ -1,18 +1,28 @@
+// ✅ Полный server.js с автоудалением сообщений старше 15 дней из Supabase
+
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
-const nodemailer = require('nodemailer');
-const fs = require('fs');
+const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const nodemailer = require('nodemailer');
+const { createClient } = require('@supabase/supabase-js');
 
 const PORT = process.env.PORT || 10000;
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const BUCKET = 'chat-uploads';
 
 app.use(express.static('public'));
 app.use(express.json());
-app.get('/', (req, res) => {
-  res.redirect('/login.html');
-});
+
+const upload = multer({ dest: 'temp_uploads/' });
 
 const USERS = [
   { nick: "SDH", id: "SH4114", password: "DH44752187" },
@@ -30,148 +40,105 @@ app.post('/auth', (req, res) => {
   res.status(401).send("Unauthorized");
 });
 
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+app.post('/upload', upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).send('No file');
+
+  const fileExt = path.extname(req.file.originalname);
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}${fileExt}`;
+  const filePath = req.file.path;
+  const fileBuffer = fs.readFileSync(filePath);
+
+  const { error } = await supabase.storage.from(BUCKET).upload(fileName, fileBuffer, {
+    contentType: req.file.mimetype,
+    upsert: false
+  });
+  fs.unlinkSync(filePath);
+
+  if (error) return res.status(500).send('Upload error');
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
+  res.status(200).json({ url: data.publicUrl });
+});
 
 const clients = new Map();
-const roomMessages = {};
-const MESSAGE_LIFETIME = 1000 * 60 * 60 * 24 * 7;
-const CHAT_DIR = path.join(__dirname, 'chatlogs');
-if (!fs.existsSync(CHAT_DIR)) fs.mkdirSync(CHAT_DIR);
-
-function saveMessagesToFile(room) {
-  const filePath = path.join(CHAT_DIR, `${room}.json`);
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(roomMessages[room], null, 2));
-  } catch (e) {
-    console.error(`Failed to save messages for room ${room}:`, e);
-  }
-}
-
-function loadMessagesFromFile(room) {
-  const filePath = path.join(CHAT_DIR, `${room}.json`);
-  if (fs.existsSync(filePath)) {
-    try {
-      roomMessages[room] = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    } catch (e) {
-      console.error(`Failed to load messages for room ${room}:`, e);
-      roomMessages[room] = [];
-    }
-  }
-}
-
-function storeSystemMessage(room, text) {
-  const msg = { type: 'system', text, timestamp: Date.now() };
-  if (!roomMessages[room]) roomMessages[room] = [];
-  roomMessages[room].push(msg);
-  saveMessagesToFile(room);
-  broadcast(room, msg);
-}
+const activeMessages = new Map();
 
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
-  ws.on('message', (msg) => {
+  ws.on('message', async (msg) => {
     const data = JSON.parse(msg);
-    const now = Date.now();
+    const now = new Date().toISOString();
     const room = userData.room;
 
-    // Загружаем историю, если нужно
-    if (!roomMessages[room]) {
-      loadMessagesFromFile(room);
-      if (!roomMessages[room]) roomMessages[room] = [];
-    }
-
-    // Сообщение-текст
-    if (data.type === 'message') {
-      const text = data.text.trim();
-
-      if (text.toLowerCase() === 'log out') {
-        ws.send(JSON.stringify({ type: 'logout' }));
-        ws.close();
-        return;
-      }
-
-      if (text.toLowerCase() === 'exit') {
-        ws.send(JSON.stringify({ type: 'kick' }));
-        ws.close();
-        return;
-      }
-
-      if (text.startsWith('/kick ') || text.startsWith('/ban ')) {
-        const command = text.startsWith('/ban ') ? 'ban' : 'kick';
-        const targetName = text.split(' ')[1]?.trim();
-        if (!['SDH', 'GodOfLies'].includes(userData.nick)) return;
-
-        for (const [client, u] of clients.entries()) {
-          if ((u.nick === targetName || u.id === targetName) && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: command, text: `You were ${command}ed by admin.` }));
-            client.close();
-            clients.delete(client);
-            storeSystemMessage(u.room, `${u.nick} was ${command}ed by ${userData.nick}`);
-            return;
-          }
-        }
-        return;
-      }
-
-      // Сохраняем и рассылаем текст
-      roomMessages[room] = roomMessages[room].filter(m => now - m.timestamp < MESSAGE_LIFETIME);
-      const msgObj = { type: 'message', text, user: userData.nick, timestamp: now };
-      roomMessages[room].push(msgObj);
-      saveMessagesToFile(room);
-      broadcast(room, msgObj);
-    }
-
-    // Сообщение-изображение
-    if (data.type === 'image' && data.image) {
-      const msgObj = {
-        type: 'image',
-        image: data.image,       // base64 строка
-        filename: data.filename || 'image',
-        text: data.text || "",
-        user: userData.nick,
-        timestamp: now
-      };
-      roomMessages[room].push(msgObj);
-      saveMessagesToFile(room);
-      broadcast(room, msgObj);
-      return;
-    }
-
-    // Подключение к комнате
     if (data.type === 'join') {
       userData.nick = data.user;
       userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
       userData.room = data.room || 'general';
       clients.set(ws, userData);
 
-      if (!roomMessages[userData.room]) {
-        loadMessagesFromFile(userData.room);
-        if (!roomMessages[userData.room]) roomMessages[userData.room] = [];
-      }
+      await deleteOldMessages(userData.room); // 🧹 автоудаление старых сообщений при входе
 
-      const history = roomMessages[userData.room];
-      history.forEach(m => ws.send(JSON.stringify(m)));
+      const { data: history } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('room', userData.room)
+        .order('timestamp', { ascending: true });
 
-      storeSystemMessage(userData.room, `${userData.nick} joined the room`);
+      history.forEach(m => {
+        ws.send(JSON.stringify({
+          type: m.image_url ? 'image' : 'message',
+          text: m.text,
+          image: m.image_url,
+          user: m.user,
+          timestamp: m.timestamp
+        }));
+      });
+      return;
+    }
+
+    if (data.type === 'message') {
+      const message = {
+        room,
+        user: userData.nick,
+        text: data.text,
+        image_url: '',
+        timestamp: now
+      };
+      await supabase.from('messages').insert(message);
+      broadcast(room, { type: 'message', text: data.text, user: userData.nick, timestamp: now });
+      activeMessages.set(room, true);
+    }
+
+    if (data.type === 'image') {
+      const message = {
+        room,
+        user: userData.nick,
+        text: data.text || '',
+        image_url: data.image,
+        timestamp: now
+      };
+      await supabase.from('messages').insert(message);
+      broadcast(room, { type: 'image', text: data.text, image: data.image, user: userData.nick, timestamp: now });
+      activeMessages.set(room, true);
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', async () => {
     clients.delete(ws);
-    const stillInRoom = Array.from(clients.values()).some(u => u.room === userData.room);
+    const room = userData.room;
+    const stillInRoom = Array.from(clients.values()).some(u => u.room === room);
 
-    if (!stillInRoom) {
-      const messages = roomMessages[userData.room];
-      if (messages && messages.length > 0) {
-        const log = messages.map(m => `${m.user || 'SYSTEM'}: ${m.text || '[image]'}`).join('\n');
-        sendEmail(`Chat room "${userData.room}" is now empty.\n\nLogs:\n${log}`);
-      }
-    }
+    if (!stillInRoom && activeMessages.get(room)) {
+      const { data: logs } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('room', room)
+        .order('timestamp');
 
-    if (userData.nick) {
-      storeSystemMessage(userData.room, `${userData.nick} left the room`);
+      const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text || '[image]'}`).join('\n');
+      sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
+      activeMessages.delete(room);
     }
   });
 });
@@ -197,7 +164,7 @@ function sendEmail(content) {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: process.env.EMAIL_USER,
-    subject: 'Chat log from ChaosNet',
+    subject: 'ChaosNet: chat log on empty room',
     text: content
   };
 
@@ -207,6 +174,22 @@ function sendEmail(content) {
   });
 }
 
+// 🧹 Удаление сообщений старше 15 дней
+async function deleteOldMessages(room) {
+  const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: oldMessages } = await supabase
+    .from('messages')
+    .select('id')
+    .lt('timestamp', fifteenDaysAgo)
+    .eq('room', room);
+
+  if (oldMessages && oldMessages.length > 0) {
+    const idsToDelete = oldMessages.map(m => m.id);
+    await supabase.from('messages').delete().in('id', idsToDelete);
+    console.log(`🧹 Deleted ${idsToDelete.length} old messages in room ${room}`);
+  }
+}
+
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
