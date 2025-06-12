@@ -1,5 +1,3 @@
-// ✅ Полный server.js с автоудалением сообщений старше 15 дней из Supabase
-
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
