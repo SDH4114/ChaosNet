@@ -98,7 +98,7 @@
       text.textContent = msg.text;
       text.style.textAlign = 'center';
       text.style.marginBottom = '4px';
-      text.style.color = '#ff8c00';
+      text.style.color = 'white';
 
       const timeWrapper = document.createElement('div');
       timeWrapper.textContent = time.textContent;
@@ -176,7 +176,7 @@
 
       const text = document.createElement('div');
       text.textContent = msg.text;
-      text.style.color = '#ccc';
+      text.style.color = 'white';
 
       div.appendChild(name);
       div.appendChild(text);
@@ -233,7 +233,30 @@
     socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
     input.value = '';
   });
-</script>
+  const modal = document.getElementById('imageModal');
+  const modalImg = document.getElementById('modalImage');
+  const span = document.getElementsByClassName("close")[0];
 
+  messages.addEventListener('click', (e) => {
+    if (e.target.tagName === 'IMG') {
+      modal.style.display = "block";
+      modalImg.src = e.target.src;
+    }
+  });
+
+  span.onclick = () => {
+    modal.style.display = "none";
+  };
+
+  window.onclick = (e) => {
+    if (e.target === modal) {
+      modal.style.display = "none";
+    }
+  };
+</script>
+  <div id="imageModal" class="modal">
+    <span class="close">&times;</span>
+    <img class="modal-content" id="modalImage">
+  </div>
 </body>
 </html>
