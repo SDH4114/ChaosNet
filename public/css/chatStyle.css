@@ -1,27 +1,31 @@
+/* Глобально для всех элементов — чтобы padding и border входили в размеры */
 * {
   box-sizing: border-box;
 }
 
+/* Настройки тела страницы */
 body {
-  background: #1e1e1e;
-  font-family: sans-serif;
-  color: white;
-  margin: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  background: #1e1e1e;               /* тёмный фон */
+  font-family: sans-serif;           /* шрифт без засечек */
+  color: white;                      /* белый цвет текста по умолчанию */
+  margin: 0;                         /* убрать отступы браузера */
+  height: 100vh;                     /* высота на весь экран */
+  display: flex;                     /* flex-контейнер */
+  flex-direction: column;           /* вертикальное размещение */
+  overflow: hidden;                 /* скрыть прокрутку у body */
 }
 
+/* Контейнер для сообщений чата */
 #messages {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1;                           /* занимает всё оставшееся место */
+  overflow-y: auto;                 /* вертикальная прокрутка при переполнении */
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 10px;                         /* отступ между сообщениями */
 }
 
+/* Общий стиль сообщений */
 .bubble {
   max-width: 70%;
   padding: 12px;
@@ -32,13 +36,15 @@ body {
   word-break: break-word;
 }
 
+/* Сообщения пользователя (справа) */
 .self {
   align-self: flex-end;
-  background-color: #ff8c00;
+  background-color: #ff8c00;        /* оранжевый фон */
   text-align: right;
   color: white;
 }
 
+/* Сообщения других пользователей (слева) */
 .other {
   align-self: flex-start;
   background-color: #3a3a3a;
@@ -46,6 +52,7 @@ body {
   color: white;
 }
 
+/* Системные сообщения */
 .system {
   align-self: center;
   background: #1e1e1e;
@@ -54,6 +61,7 @@ body {
   font-style: italic;
 }
 
+/* Системные сообщения без фона */
 .bubble.system {
   background: transparent;
   border: none;
@@ -63,6 +71,7 @@ body {
   max-width: 80%;
 }
 
+/* Метаданные (время сообщений) */
 .meta {
   font-size: 11px;
   color: #ffffff;
@@ -70,12 +79,13 @@ body {
   text-align: right;
 }
 
+/* Форма отправки сообщений */
 #form {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
-  background: #1e1e1e;
+  background: transparent;          /* убран фон */
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -84,12 +94,14 @@ body {
   z-index: 1000;
 }
 
+/* Внутренняя строка формы (input + кнопки) */
 .form-row {
   display: flex;
   gap: 10px;
   width: 100%;
 }
 
+/* Поле ввода текста */
 #input {
   flex: 1;
   font-size: 16px;
@@ -97,10 +109,11 @@ body {
   background: #1e1e1e;
   border: 1px solid #444;
   color: white;
-  border-radius: 999px;
+  border-radius: 999px;             /* полностью скруглённое */
   outline: none;
 }
 
+/* Кнопки: отправка и фото */
 button,
 form button[type="submit"],
 #photoBtn {
@@ -118,26 +131,31 @@ form button[type="submit"],
   transition: background 0.2s ease;
 }
 
+/* Эффект наведения на кнопки */
 button:hover,
 form button[type="submit"]:hover,
 #photoBtn:hover {
   background: #ffa733;
 }
 
+/* Заголовок комнаты */
 #chat-title {
   text-align: center;
   margin: 10px 0;
   color: #ff8c00;
 }
 
+/* Кнопка "Фото" — отдельное оформление */
 #photoBtn {
   border-radius: 999px;
 }
 
+/* Скрытый input для загрузки изображений */
 #imageInput {
   display: none;
 }
 
+/* Модальное окно при просмотре изображений */
 .modal {
   display: none;
   position: fixed;
@@ -148,9 +166,10 @@ form button[type="submit"]:hover,
   width: 100%;
   height: 100%;
   overflow: auto;
-  background-color: rgba(0,0,0,0.85);
+  background-color: rgba(0,0,0,0.85);  /* затемнение фона */
 }
 
+/* Содержимое модального окна (изображение) */
 .modal-content {
   margin: auto;
   display: block;
@@ -159,6 +178,7 @@ form button[type="submit"]:hover,
   border-radius: 10px;
 }
 
+/* Кнопка закрытия модального окна */
 .close {
   position: absolute;
   top: 20px;
@@ -169,10 +189,12 @@ form button[type="submit"]:hover,
   cursor: pointer;
 }
 
+/* Цвет при наведении на крестик */
 .close:hover {
   color: #ff8c00;
 }
 
+/* 🔻 Медиазапрос для экранов до 600px */
 @media (max-width: 600px) {
   .bubble {
     max-width: 90%;
@@ -199,6 +221,7 @@ form button[type="submit"]:hover,
   }
 }
 
+/* 🔻 Медиазапрос для экранов до 400px */
 @media (max-width: 400px) {
   .bubble {
     font-size: 13px;

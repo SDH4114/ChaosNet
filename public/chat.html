@@ -8,14 +8,18 @@
 </head>
 <body>
 
+<!-- Заголовок чата -->
 <h2 id="chat-title" style="text-align: center; margin: 10px 0; color: #ff8c00;"></h2>
 
+<!-- Контейнер для сообщений -->
 <div id="messages" style="max-height: 70vh; overflow-y: auto; padding: 10px;"></div>
 
+<!-- Превью изображения перед отправкой -->
 <div id="imagePreview" style="display:none; text-align:center; margin-bottom: 10px;">
   <span id="imageName" style="font-size:14px; color:#aaa;"></span>
 </div>
 
+<!-- Форма ввода сообщений и изображений -->
 <form id="form">
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" />
@@ -26,6 +30,7 @@
 </form>
 
 <script>
+  // Подключение к WebSocket-серверу
   const socket = new WebSocket("wss://" + location.host);
   const form = document.getElementById('form');
   const input = document.getElementById('input');
@@ -35,29 +40,36 @@
   const imagePreview = document.getElementById('imagePreview');
   const imageName = document.getElementById('imageName');
 
+  // Получение данных пользователя из localStorage
   const username = localStorage.getItem("username");
   const userId = localStorage.getItem("userid") || 'guest';
 
+  // Перенаправление на логин, если пользователь не авторизован
   if (!username) {
     window.location.href = "login.html";
   }
 
+  // Получаем параметры из URL (комната или цель общения)
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room");
   const target = urlParams.get("target");
 
+  // Устанавливаем заголовок чата
   chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
   let lastRenderedDate = '';
 
+  // Отправляем событие "join" при открытии соединения
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
   });
 
+  // Обработка кнопки выбора изображения
   document.getElementById('photoBtn').addEventListener('click', () => {
     document.getElementById('imageInput').click();
   });
 
+  // Показываем имя выбранного файла, если есть
   imageInput.addEventListener('change', () => {
     const file = imageInput.files[0];
     if (file) {
@@ -68,11 +80,13 @@
     }
   });
 
+  // Обработка входящих сообщений
   socket.addEventListener('message', (event) => {
     const msg = JSON.parse(event.data);
     const div = document.createElement('div');
     div.classList.add('bubble');
 
+    // Обработка системной даты
     if (msg.type === 'system' && /^\d{1,2} \w+/.test(msg.text)) {
       const currentDate = msg.text;
       if (lastRenderedDate !== currentDate) {
@@ -87,11 +101,13 @@
       return;
     }
 
+    // Время сообщения
     const time = document.createElement('div');
     time.classList.add('meta');
     time.style.color = '#ffffff';
     time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    // Системные сообщения
     if (msg.type === 'system') {
       div.classList.add('system');
       const text = document.createElement('div');
@@ -108,19 +124,26 @@
 
       div.appendChild(text);
       div.appendChild(timeWrapper);
+
+    // События выхода, кика и бана
     } else if (msg.type === 'kick') {
       alert("You were kicked by admin!");
       socket.close();
       window.location.href = "select.html";
+
     } else if (msg.type === 'ban' || msg.type === 'logout') {
       alert("You were banned or logged out!");
       localStorage.removeItem("username");
       socket.close();
       window.location.href = "login.html";
+
+    // Список онлайн-юзеров
     } else if (msg.type === 'list') {
       div.classList.add('system');
       div.innerHTML = `<strong>Online Users:</strong><br>` + msg.users.map(u => `${u.nick} (${u.id})`).join(', ');
       div.appendChild(time);
+
+    // Изображения
     } else if (msg.type === 'image') {
       div.classList.add(msg.user === username ? 'self' : 'other');
 
@@ -159,12 +182,16 @@
       }
 
       div.appendChild(time);
+
+    // Собственные текстовые сообщения
     } else if (msg.user === username) {
       div.classList.add('self');
       const text = document.createElement('div');
       text.textContent = msg.text;
       div.appendChild(text);
       div.appendChild(time);
+
+    // Сообщения от других пользователей
     } else {
       div.classList.add('other');
       const name = document.createElement('div');
@@ -183,15 +210,18 @@
       div.appendChild(time);
     }
 
+    // Добавление сообщения в чат
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
   });
 
+  // Отправка сообщений
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
     const file = imageInput.files[0];
 
+    // Отправка изображения
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
@@ -214,14 +244,13 @@
 
     if (!message) return;
 
+    // Команды выхода
     const command = message.toLowerCase();
-
     if (command === "exit") {
       socket.close();
       window.location.href = "select.html";
       return;
     }
-
     if (command === "log out" || command === "/logout") {
       localStorage.removeItem("username");
       socket.send(JSON.stringify({ type: 'logout' }));
@@ -230,9 +259,12 @@
       return;
     }
 
+    // Отправка текстового сообщения
     socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
     input.value = '';
   });
+
+  // Просмотр изображения в модальном окне
   const modal = document.getElementById('imageModal');
   const modalImg = document.getElementById('modalImage');
   const span = document.getElementsByClassName("close")[0];
@@ -254,9 +286,11 @@
     }
   };
 </script>
-  <div id="imageModal" class="modal">
-    <span class="close">&times;</span>
-    <img class="modal-content" id="modalImage">
-  </div>
+
+<!-- Модальное окно для просмотра изображений -->
+<div id="imageModal" class="modal">
+  <span class="close">&times;</span>
+  <img class="modal-content" id="modalImage">
+</div>
 </body>
 </html>
