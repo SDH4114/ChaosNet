@@ -10,7 +10,6 @@
   <div class="login-container">
     <h2>Login to ChaosNet</h2>
     <form id="loginForm">
-      <!-- Nickname removed -->
       <input type="text" id="id" placeholder="ID" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Log In</button>
@@ -27,7 +26,7 @@
 
       const id = document.getElementById('id').value.trim();
       const password = document.getElementById('password').value.trim();
-      const nick = id; // 👈 Auto-assign nickname as ID
+      const nick = id; // используем ID как ник
 
       const res = await fetch('/auth', {
         method: 'POST',
