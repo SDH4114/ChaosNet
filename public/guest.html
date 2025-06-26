@@ -12,13 +12,18 @@
       <input type="text" id="guestName" placeholder="Enter your Nick" required />
       <button type="submit">Continue</button>
     </form>
+    <div style="margin-top: 12px; text-align: center;">
+      <a href="login.html" style="color: #ff8c00; text-decoration: none;">Back</a>
+    </div>
   </div>
+
   <script>
     document.getElementById('guestForm').addEventListener('submit', function (e) {
       e.preventDefault();
       const name = document.getElementById('guestName').value.trim();
       if (name) {
         localStorage.setItem("username", name);
+        localStorage.setItem("userid", "guest-" + Date.now());
         window.location.href = "select.html";
       }
     });
