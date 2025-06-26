@@ -8,11 +8,10 @@
 </head>
 <body>
 
-<h2 id="chat-title" style="text-align: center; margin: 10px 0; color: #ff8c00;"></h2>
-<div id="messages" style="max-height: 70vh; overflow-y: auto; padding: 10px;"></div>
-<div id="imagePreview" style="display:none; text-align:center; margin-bottom: 10px;">
-  <span id="imageName" style="font-size:14px; color:#aaa;"></span>
-</div>
+<h2 id="chat-title">Room: example</h2>
+
+<div id="messages"></div>
+
 <form id="form">
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" />
@@ -22,6 +21,11 @@
   <input type="file" id="imageInput" accept="image/*" />
 </form>
 
+<div id="imageModal" class="modal">
+  <span class="close">&times;</span>
+  <img class="modal-content" id="modalImage">
+</div>
+
 <script>
   const socket = new WebSocket("wss://" + location.host);
   const form = document.getElementById('form');
@@ -29,16 +33,11 @@
   const imageInput = document.getElementById('imageInput');
   const messages = document.getElementById('messages');
   const chatTitle = document.getElementById('chat-title');
-  const imagePreview = document.getElementById('imagePreview');
-  const imageName = document.getElementById('imageName');
 
-  const username = localStorage.getItem("username");
-  const userId = localStorage.getItem("userid") || 'guest';
-
-  if (!username) window.location.href = "login.html";
-
+  const username = localStorage.getItem("username") || "guest";
+  const userId = localStorage.getItem("userid") || "guest";
   const urlParams = new URLSearchParams(location.search);
-  const room = urlParams.get("room");
+  const room = urlParams.get("room") || "main";
   const target = urlParams.get("target");
 
   chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
@@ -48,13 +47,7 @@
   });
 
   document.getElementById('photoBtn').addEventListener('click', () => {
-    document.getElementById('imageInput').click();
-  });
-
-  imageInput.addEventListener('change', () => {
-    const file = imageInput.files[0];
-    imageName.textContent = file ? file.name : '';
-    imagePreview.style.display = file ? 'block' : 'none';
+    imageInput.click();
   });
 
   socket.addEventListener('message', (event) => {
@@ -65,53 +58,42 @@
     const now = new Date();
     const time = document.createElement('div');
     time.classList.add('meta');
-    time.style.color = '#ffffff';
-    time.style.textAlign = 'right';
     time.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const date = document.createElement('div');
-    date.classList.add('meta');
-    date.style.color = '#aaa';
-    date.style.fontSize = '11px';
-    date.style.textAlign = 'right';
+    date.classList.add('date-meta');
     date.textContent = now.toLocaleDateString('ru-RU');
-
-    if (msg.type === 'system' && /^\d{1,2} \w+/.test(msg.text)) {
-      const dateDiv = document.createElement('div');
-      dateDiv.textContent = msg.text;
-      dateDiv.style.textAlign = 'center';
-      dateDiv.style.color = '#999';
-      dateDiv.style.margin = '10px 0';
-      messages.appendChild(dateDiv);
-      return;
-    }
 
     if (msg.type === 'system') {
       div.classList.add('system');
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      text.style.textAlign = 'center';
-      text.style.marginBottom = '4px';
-      text.style.color = 'white';
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-    } else if (msg.type === 'kick') {
-      alert("You were kicked by admin!");
-      socket.close();
-      window.location.href = "select.html";
-    } else if (msg.type === 'ban' || msg.type === 'logout') {
-      alert("You were banned or logged out!");
-      localStorage.removeItem("username");
-      socket.close();
-      window.location.href = "login.html";
-    } else if (msg.type === 'list') {
-      div.classList.add('system');
-      div.innerHTML = `<strong>Online Users:</strong><br>` + msg.users.map(u => `${u.nick} (${u.id})`).join(', ');
+      div.textContent = msg.text;
       div.appendChild(time);
       div.appendChild(date);
     } else if (msg.type === 'image') {
       div.classList.add(msg.user === username ? 'self' : 'other');
+
+      const img = document.createElement('img');
+      img.src = msg.image;
+      img.alt = msg.filename || 'image';
+      img.style.maxWidth = '200px';
+      img.style.borderRadius = '10px';
+      div.appendChild(img);
+
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text;
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.textAlign = 'center';
+        caption.style.fontWeight = 'bold';
+        div.appendChild(caption);
+      }
+
+      div.appendChild(time);
+      div.appendChild(date);
+    } else {
+      div.classList.add(msg.user === username ? 'self' : 'other');
+
       if (msg.user !== username) {
         const name = document.createElement('div');
         name.textContent = msg.user;
@@ -121,54 +103,9 @@
         name.style.color = '#ff8c00';
         div.appendChild(name);
       }
-      const link = document.createElement('a');
-      link.href = msg.image;
-      link.target = '_blank';
-      link.style.display = 'inline-block';
-      link.style.marginTop = '5px';
 
-      const img = document.createElement('img');
-      img.src = msg.image;
-      img.alt = msg.filename || 'image';
-      img.style.maxWidth = '200px';
-      img.style.borderRadius = '10px';
-
-      link.appendChild(img);
-      div.appendChild(link);
-
-      if (msg.text && msg.text.trim() !== "") {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = '#ffffff';
-        caption.style.marginTop = '6px';
-        caption.style.fontSize = '14px';
-        caption.style.textAlign = 'center';
-        caption.style.fontWeight = 'bold';
-        caption.style.textShadow = '1px 1px 2px black';
-        div.appendChild(caption);
-      }
-
-      div.appendChild(time);
-      div.appendChild(date);
-    } else if (msg.user === username) {
-      div.classList.add('self');
       const text = document.createElement('div');
       text.textContent = msg.text;
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-    } else {
-      div.classList.add('other');
-      const name = document.createElement('div');
-      name.textContent = msg.user;
-      name.style.fontSize = '12px';
-      name.style.marginBottom = '4px';
-      name.style.opacity = '0.9';
-      name.style.color = '#ff8c00';
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      text.style.color = 'white';
-      div.appendChild(name);
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
@@ -187,39 +124,30 @@
       const reader = new FileReader();
       reader.onload = () => {
         socket.send(JSON.stringify({
-          type: 'image', user: username, room, target,
-          image: reader.result, filename: file.name, text: message
+          type: 'image',
+          user: username,
+          room,
+          target,
+          image: reader.result,
+          filename: file.name,
+          text: message
         }));
       };
       reader.readAsDataURL(file);
       input.value = '';
       imageInput.value = '';
-      imagePreview.style.display = 'none';
-      return;
-    }
-    if (!message) return;
-
-    const command = message.toLowerCase();
-    if (command === "exit") {
-      socket.close();
-      window.location.href = "select.html";
-      return;
-    }
-    if (command === "log out" || command === "/logout") {
-      localStorage.removeItem("username");
-      socket.send(JSON.stringify({ type: 'logout' }));
-      socket.close();
-      window.location.href = "login.html";
       return;
     }
 
-    socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
-    input.value = '';
+    if (message) {
+      socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
+      input.value = '';
+    }
   });
 
   const modal = document.getElementById('imageModal');
   const modalImg = document.getElementById('modalImage');
-  const span = document.getElementsByClassName("close")[0];
+  const closeBtn = document.querySelector('.close');
 
   messages.addEventListener('click', (e) => {
     if (e.target.tagName === 'IMG') {
@@ -227,13 +155,21 @@
       modalImg.src = e.target.src;
     }
   });
-  span.onclick = () => modal.style.display = "none";
-  window.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+  closeBtn.onclick = () => {
+    modal.style.display = "none";
+  };
+
+  window.onclick = (e) => {
+    if (e.target === modal) {
+      modal.style.display = "none";
+    }
+  };
 </script>
 
-<div id="imageModal" class="modal">
+<!-- <div id="imageModal" class="modal">
   <span class="close">&times;</span>
-  <img class="modal-content" id="modalImage">
+  <img class="modal-content" id="modalImage"> -->
 </div>
 </body>
 </html>
