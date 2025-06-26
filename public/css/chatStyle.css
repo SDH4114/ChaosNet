@@ -5,7 +5,7 @@
 
 /* Настройки тела страницы */
 body {
-  background: #1e1e1e;               /* тёмный фон */
+  background: #ff0000;               /* тёмный фон */
   font-family: sans-serif;           /* шрифт без засечек */
   color: white;                      /* белый цвет текста по умолчанию */
   margin: 0;                         /* убрать отступы браузера */
@@ -55,7 +55,7 @@ body {
 /* Системные сообщения */
 .system {
   align-self: center;
-  background: #1e1e1e;
+  background: #66ff00;
   text-align: center;
   color: white;
   font-style: italic;
@@ -106,7 +106,7 @@ body {
   flex: 1;
   font-size: 16px;
   padding: 12px 20px;
-  background: #1e1e1e;
+  background: #0400ff;
   border: 1px solid #444;
   color: white;
   border-radius: 999px;             /* полностью скруглённое */
