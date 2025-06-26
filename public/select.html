@@ -17,53 +17,53 @@
       <h3>Recent Rooms</h3>
       <div id="roomsList"></div>
     </div>
-
-    <script>
-      document.getElementById('roomForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const input = document.getElementById('roomName');
-        const room = input.value.trim();
-
-        if (room.toLowerCase() === '/clear') {
-          localStorage.removeItem('rooms');
-          document.getElementById('roomsList').innerHTML = '';
-          input.value = '';
-          alert("Recent rooms cleared");
-          return;
-        }
-        if (room.toLowerCase() === '/log out') {
-          localStorage.removeItem('username');
-          window.location.href = "login.html";
-          return;
-        }
-
-        if (room) {
-          saveToStorage('rooms', room);
-          window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
-        }
-      });
-
-      function saveToStorage(key, value) {
-        let items = JSON.parse(localStorage.getItem(key)) || [];
-        if (!items.includes(value)) {
-          items.unshift(value);
-          if (items.length > 10) items = items.slice(0, 10);
-          localStorage.setItem(key, JSON.stringify(items));
-        }
-      }
-
-      function renderList(id, key) {
-        const container = document.getElementById(id);
-        const items = JSON.parse(localStorage.getItem(key)) || [];
-        container.innerHTML = items.map(item => `
-          <div class="list-item">
-            <a href="chat.html?room=${encodeURIComponent(item)}" class="room-link">${item}</a>
-          </div>
-        `).join('');
-      }
-
-      renderList('roomsList', 'rooms');
-    </script>
   </div>
+
+  <script>
+    document.getElementById('roomForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const input = document.getElementById('roomName');
+      const room = input.value.trim();
+
+      if (room.toLowerCase() === '/clear') {
+        localStorage.removeItem('rooms');
+        document.getElementById('roomsList').innerHTML = '';
+        input.value = '';
+        alert("Recent rooms cleared");
+        return;
+      }
+      if (room.toLowerCase() === '/log out') {
+        localStorage.removeItem('username');
+        window.location.href = "login.html";
+        return;
+      }
+
+      if (room) {
+        saveToStorage('rooms', room);
+        window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
+      }
+    });
+
+    function saveToStorage(key, value) {
+      let items = JSON.parse(localStorage.getItem(key)) || [];
+      if (!items.includes(value)) {
+        items.unshift(value);
+        if (items.length > 10) items = items.slice(0, 10);
+        localStorage.setItem(key, JSON.stringify(items));
+      }
+    }
+
+    function renderList(id, key) {
+      const container = document.getElementById(id);
+      const items = JSON.parse(localStorage.getItem(key)) || [];
+      container.innerHTML = items.map(item => `
+        <div class="list-item">
+          <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
+        </div>
+      `).join('');
+    }
+
+    renderList('roomsList', 'rooms');
+  </script>
 </body>
 </html>
