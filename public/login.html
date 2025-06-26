@@ -10,7 +10,7 @@
   <div class="login-container">
     <h2>Login to ChaosNet</h2>
     <form id="loginForm">
-      <input type="text" id="nick" placeholder="Nickname" required />
+      <!-- Nickname removed -->
       <input type="text" id="id" placeholder="ID" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Log In</button>
@@ -25,9 +25,9 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const nick = document.getElementById('nick').value.trim();
       const id = document.getElementById('id').value.trim();
       const password = document.getElementById('password').value.trim();
+      const nick = id; // 👈 Auto-assign nickname as ID
 
       const res = await fetch('/auth', {
         method: 'POST',
@@ -37,7 +37,7 @@
 
       if (res.ok) {
         localStorage.setItem("username", nick);
-        localStorage.setItem("userID", id); // 👈 Сохраняем ID
+        localStorage.setItem("userID", id);
         window.location.href = "/select.html";
       } else {
         document.getElementById('error').textContent = "Incorrect credentials!";
