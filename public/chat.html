@@ -173,13 +173,19 @@
       div.appendChild(link);
 
       if (msg.text && msg.text.trim() !== "") {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = '#ccc';
-        caption.style.marginTop = '5px';
-        caption.style.fontSize = '14px';
-        div.appendChild(caption);
-      }
+          const caption = document.createElement('div');
+          caption.textContent = msg.text;
+          caption.style.color = '#ffffff'; // Белый цвет
+          caption.style.marginTop = '6px';
+          caption.style.fontSize = '14px';
+          caption.style.textAlign = 'center';
+          caption.style.fontWeight = 'bold';
+          caption.style.background = '#2e2e2e'; // Фон для читаемости
+          caption.style.padding = '6px 12px';
+          caption.style.borderRadius = '12px';
+          caption.style.textShadow = '1px 1px 2px black';
+          div.appendChild(caption);
+        }
 
       div.appendChild(time);
 
