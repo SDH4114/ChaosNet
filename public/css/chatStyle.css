@@ -85,7 +85,6 @@ body {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: transparent;          /* убран фон */
   padding: 10px;
   display: flex;
   flex-direction: column;
