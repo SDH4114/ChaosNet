@@ -94,11 +94,12 @@ button:hover {
 .back-link::after {
   content: "";
   position: absolute;
-  left: 0;
+  left: 50%;
   bottom: -2px;
   height: 2px;
   width: 0;
   background-color: #ff8c00;
+  transform: translateX(-50%);
   transition: width 0.3s ease;
 }
 
@@ -106,7 +107,6 @@ button:hover {
 .back-link:focus::after {
   width: 100%;
 }
-
 /* 🔻 Адаптация под экраны до 480px */
 @media (max-width: 480px) {
   .login-container {
@@ -131,6 +131,63 @@ button:hover {
   .guest-link a {
     font-size: 13px;
   }
+}
+
+    .list {
+      margin-top: 20px;
+      background: #2b2b2b;
+      border-radius: 12px;
+      padding: 16px;
+      color: #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .list h3 {
+      margin-top: 0;
+      color: #ff8c00;
+    }
+
+    .list-item {
+      margin: 6px 0;
+    }
+
+    .list-item a {
+      color: #ccc;
+      text-decoration: none;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    .list-item a:hover {
+      text-decoration: underline;
+      color: #ff8c00;
+    }
+
+    .room-link {
+  color: #ff8c00;
+  text-decoration: none;
+  position: relative;
+  display: inline-block;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.room-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  height: 2px;
+  width: 0;
+  background-color: #ff8c00;
+  transform: translateX(-50%);
+  transition: width 0.3s ease;
+}
+
+.room-link:hover::after,
+.room-link:focus::after {
+  width: 100%;
 }
 
 /* 🔻 Ещё компактнее под экраны до 360px */
