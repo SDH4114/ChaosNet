@@ -57,12 +57,13 @@
         const items = JSON.parse(localStorage.getItem(key)) || [];
         container.innerHTML = items.map(item => `
           <div class="list-item">
-            <a href="chat.html?room=${encodeURIComponent(item)}">${item}</a>
+            <a href="chat.html?room=${encodeURIComponent(item)}" class="room-link">${item}</a>
           </div>
         `).join('');
       }
 
       renderList('roomsList', 'rooms');
     </script>
-  </body>
+  </div>
+</body>
 </html>

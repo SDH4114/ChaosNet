@@ -206,3 +206,28 @@ button:hover {
     padding: 10px;
   }
 }
+
+.underline-link {
+  color: #ff8c00;
+  text-decoration: none;
+  position: relative;
+  display: inline-block;
+  font-size: 14px;
+}
+
+.underline-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  height: 2px;
+  width: 0;
+  background-color: #ff8c00;
+  transform: translateX(-50%);
+  transition: width 0.3s ease;
+}
+
+.underline-link:hover::after,
+.underline-link:focus::after {
+  width: 100%;
+}
