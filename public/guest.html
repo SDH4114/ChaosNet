@@ -4,6 +4,31 @@
   <meta charset="UTF-8" />
   <title>Guest - ChaosNet</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
+  <style>
+    .back-link {
+      color: #ff8c00;
+      text-decoration: none;
+      position: relative;
+      display: inline-block;
+      font-size: 14px;
+    }
+
+    .back-link::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -2px;
+      height: 2px;
+      width: 0;
+      background-color: #ff8c00;
+      transition: width 0.3s ease;
+    }
+
+    .back-link:hover::after,
+    .back-link:focus::after {
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
   <div class="login-container">
@@ -13,7 +38,7 @@
       <button type="submit">Continue</button>
     </form>
     <div style="margin-top: 12px; text-align: center;">
-      <a href="login.html" style="color: #ff8c00; text-decoration: none;">Back</a>
+      <a href="login.html" class="back-link">Back</a>
     </div>
   </div>
 
