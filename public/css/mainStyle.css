@@ -133,6 +133,15 @@ button:hover {
   color: #ff8c00;
 }
 
+.bubble.system {
+  background: none;
+  text-align: center;
+  font-style: italic;
+  color: white;
+  box-shadow: none;
+  margin: 12px auto;
+}
+
 /* Адаптация */
 @media (max-width: 480px) {
   .login-container {
