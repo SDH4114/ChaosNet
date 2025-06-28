@@ -85,6 +85,7 @@ wss.on('connection', (ws) => {
 
       broadcast(userData.room, {
         type: 'system',
+        user: 'system',
         text: `${userData.nick} joined`,
         timestamp: now
       });
@@ -151,6 +152,7 @@ wss.on('connection', (ws) => {
       });
       broadcast(room, {
         type: 'system',
+        user: 'system',
         text: `${userData.nick} left`,
         timestamp: leaveTime
       });
