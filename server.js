@@ -77,7 +77,8 @@ wss.on('connection', (ws) => {
 
       broadcast(userData.room, {
         type: 'system',
-        text: `${userData.nick} joined the chat`
+        text: `${userData.nick} joined the chat`,
+        timestamp: now
       });
 
       await deleteOldMessages(userData.room);
@@ -130,6 +131,16 @@ wss.on('connection', (ws) => {
   ws.on('close', async () => {
     clients.delete(ws);
     const room = userData.room;
+
+    // 👉 Системное сообщение о выходе
+    if (userData.nick && room) {
+      broadcast(room, {
+        type: 'system',
+        text: `${userData.nick} left`,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     const stillInRoom = Array.from(clients.values()).some(u => u.room === room);
 
     if (!stillInRoom && activeMessages.get(room)) {
