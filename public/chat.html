@@ -8,10 +8,18 @@
 </head>
 <body>
 
-<h2 id="chat-title">Room: example</h2>
+<!-- Верхняя панель -->
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
+  <h2 id="chat-title" style="margin: 0; color: #ff8c00;">Room: example</h2>
+  <a href="select.html" style="text-decoration: none;">
+    <button style="background-color: #ff8c00; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">Leave</button>
+  </a>
+</div>
 
+<!-- Контейнер для сообщений -->
 <div id="messages"></div>
 
+<!-- Форма ввода -->
 <form id="form">
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" />
@@ -21,6 +29,7 @@
   <input type="file" id="imageInput" accept="image/*" />
 </form>
 
+<!-- Модальное окно для изображений -->
 <div id="imageModal" class="modal">
   <span class="close">&times;</span>
   <img class="modal-content" id="modalImage">
@@ -167,9 +176,5 @@
   };
 </script>
 
-<!-- <div id="imageModal" class="modal">
-  <span class="close">&times;</span>
-  <img class="modal-content" id="modalImage"> -->
-</div>
 </body>
 </html>
