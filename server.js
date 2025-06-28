@@ -140,7 +140,6 @@ wss.on('connection', (ws) => {
     clients.delete(ws);
     const room = userData.room;
 
-    // 👉 Системное сообщение о выходе
     if (userData.nick && room) {
       const leaveTime = new Date().toISOString();
       await supabase.from('messages').insert({
