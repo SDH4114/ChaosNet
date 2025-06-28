@@ -75,9 +75,17 @@ wss.on('connection', (ws) => {
       userData.room = data.room || 'general';
       clients.set(ws, userData);
 
+      await supabase.from('messages').insert({
+        room: userData.room,
+        user: 'system',
+        text: `${userData.nick} joined`,
+        image_url: '',
+        timestamp: now
+      });
+
       broadcast(userData.room, {
         type: 'system',
-        text: `${userData.nick} joined the chat`,
+        text: `${userData.nick} joined`,
         timestamp: now
       });
 
@@ -134,10 +142,18 @@ wss.on('connection', (ws) => {
 
     // 👉 Системное сообщение о выходе
     if (userData.nick && room) {
+      const leaveTime = new Date().toISOString();
+      await supabase.from('messages').insert({
+        room: room,
+        user: 'system',
+        text: `${userData.nick} left`,
+        image_url: '',
+        timestamp: leaveTime
+      });
       broadcast(room, {
         type: 'system',
         text: `${userData.nick} left`,
-        timestamp: new Date().toISOString()
+        timestamp: leaveTime
       });
     }
 
