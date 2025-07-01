@@ -76,10 +76,17 @@
     date.textContent = timeObj.toLocaleDateString('ru-RU');
 
     if (msg.type === 'system') {
-      div.classList.add('system');
-      div.textContent = msg.text;
+      div.className = 'bubble system';
+      const text = document.createElement('div');
+      text.textContent = msg.text;
+      text.style.textAlign = 'center';
+      text.style.fontStyle = 'italic';
+      text.style.color = '#ffffff';
+
       time.style.textAlign = 'center';
       date.style.textAlign = 'center';
+
+      div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
     } else if (msg.type === 'image') {

@@ -183,3 +183,19 @@ button:hover {
     padding: 10px;
   }
 }
+/* Стили для формы регистрации */
+.register-container {
+  background-color: #1b1b1b;
+  padding: 40px 30px;
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
+  width: 320px;
+  max-width: 100%;
+}
+
+.register-container h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  text-align: center;
+  color: #ff8c00;
+}
