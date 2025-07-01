@@ -11,7 +11,7 @@
     <h2>Register</h2>
     <form id="register-form">
       <input type="text" id="nick" placeholder="Nickname" required />
-      <input type="text" id="id" placeholder="User ID" required />
+      <input type="text" id="id" placeholder="User ID (e.g. AA0000)" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Register</button>
     </form>
@@ -25,6 +25,11 @@
       e.preventDefault();
       const nick = document.getElementById('nick').value;
       const id = document.getElementById('id').value;
+      const idPattern = /^[A-Z]{2}\d{4}$/;
+      if (!idPattern.test(id)) {
+        alert("User ID must be in the format AA0000.");
+        return;
+      }
       const password = document.getElementById('password').value;
 
       try {

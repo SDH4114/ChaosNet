@@ -22,20 +22,53 @@ app.use(express.json());
 
 const upload = multer({ dest: 'temp_uploads/' });
 
-const USERS = [
-  { nick: "SDH", id: "SH4114", password: "DH44752187" },
-  { nick: "GodOfLies", id: "CL7770", password: "DH44752187" },
-  { nick: "Billvechen", id: "FB3541", password: "Bifarkanon100" },
-  { nick: "Fern", id: "FN3525", password: "D1p7L0q2" },
-  { nick: "YaVaLuK", id: "YK2300", password: "y2v3l0k0" },
-  { nick: "Maclover", id: "TU2589", password: "Turqay888Secretniggas" }
-];
 
-app.post('/auth', (req, res) => {
+app.post('/register', async (req, res) => {
   const { id, nick, password } = req.body;
-  const user = USERS.find(u => u.id === id && u.nick === nick && u.password === password);
-  if (user) return res.status(200).send("OK");
-  res.status(401).send("Unauthorized");
+
+  if (!id || !nick || !password) {
+    return res.status(400).send("All fields required");
+  }
+
+  // Check if nickname already taken
+  const { data: existingNick } = await supabase
+    .from('users')
+    .select('nick')
+    .eq('nick', nick)
+    .maybeSingle();
+
+  if (existingNick) return res.status(409).send("Nickname already taken");
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (fetchError) return res.status(500).send("Error checking existing user");
+  if (existing) return res.status(409).send("User already exists");
+
+  const { error } = await supabase
+    .from('users')
+    .insert({ id, nick, password });
+
+  if (error) return res.status(500).send("Error creating user");
+  res.status(201).send("User registered");
+});
+
+app.post('/auth', async (req, res) => {
+  const { id, nick, password } = req.body;
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .eq('nick', nick)
+    .eq('password', password)
+    .maybeSingle();
+
+  if (error) return res.status(500).send("Server error");
+  if (!users) return res.status(401).send("Unauthorized");
+  res.status(200).send("OK");
 });
 
 app.post('/upload', upload.single('image'), async (req, res) => {
