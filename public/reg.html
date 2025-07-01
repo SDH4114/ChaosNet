@@ -11,12 +11,12 @@
     <h2>Register</h2>
     <form id="register-form">
       <input type="text" id="nick" placeholder="Nick" required />
-      <input type="text" id="id" placeholder="User ID (e.g. AA0000)" required />
+      <input type="text" id="id" placeholder="ID (e.g. AA0000)" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Register</button>
     </form>
     <div class="guest-link">
-      <a href="select.html" class="link-underline">select</a>
+      <a href="login.html" class="link-underline">Log In</a>
     </div>
   </div>
 
@@ -41,7 +41,7 @@
 
         if (res.ok) {
           alert("User registered successfully!");
-          window.location.href = 'select.html';
+          window.location.href = 'login.html';
         } else {
           alert("Registration failed.");
         }
