@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Register</title>
+  <title>ChaosNet - Register</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -10,13 +10,13 @@
   <div class="register-container">
     <h2>Register</h2>
     <form id="register-form">
-      <input type="text" id="nick" placeholder="Nickname" required />
+      <input type="text" id="nick" placeholder="Nick" required />
       <input type="text" id="id" placeholder="User ID (e.g. AA0000)" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Register</button>
     </form>
     <div class="guest-link">
-      <a href="login.html" class="link-underline">Log in</a>
+      <a href="select.html" class="link-underline">select</a>
     </div>
   </div>
 
@@ -41,7 +41,7 @@
 
         if (res.ok) {
           alert("User registered successfully!");
-          window.location.href = 'login.html';
+          window.location.href = 'select.html';
         } else {
           alert("Registration failed.");
         }
