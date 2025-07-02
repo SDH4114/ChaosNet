@@ -74,6 +74,7 @@
     const date = document.createElement('div');
     date.classList.add('date-meta');
     date.textContent = timeObj.toLocaleDateString('ru-RU');
+    date.style.color = '#ffffff';
 
     if (msg.type === 'system') {
       div.className = 'bubble system';
