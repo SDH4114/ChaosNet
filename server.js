@@ -73,14 +73,15 @@ app.post('/auth', async (req, res) => {
 });
 
 app.post('/check-admin', async (req, res) => {
-  const { id } = req.body;
+  const { id, nick } = req.body;
 
-  if (!id) return res.status(400).send("ID required");
+  if (!id || !nick) return res.status(400).send("ID and nick required");
 
   const { data, error } = await supabase
     .from('users')
     .select('status')
     .eq('id', id)
+    .eq('nick', nick)
     .maybeSingle();
 
   if (error) return res.status(500).send("Error checking status");
