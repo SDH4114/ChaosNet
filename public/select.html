@@ -39,16 +39,18 @@
       }
       if (room.toLowerCase() === '/adminp') {
         const userId = localStorage.getItem('userid');
-        const nick = localStorage.getItem('username');
 
         fetch('/check-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: userId, nick })
+          body: JSON.stringify({ id: userId })
         })
-        .then(res => res.json())
-        .then(data => {
-          if (data.admin) {
+        .then(res => {
+          if (!res.ok) throw new Error();
+          return res.text();
+        })
+        .then(text => {
+          if (text === 'OK') {
             window.location.href = "adminPanel.html";
           } else {
             alert("Access denied. Not an admin.");
