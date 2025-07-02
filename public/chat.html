@@ -140,8 +140,8 @@
         div.appendChild(caption);
       }
 
-      time.style.textAlign = 'left';
-      date.style.textAlign = 'left';
+      time.style.textAlign = msg.user === username ? 'right' : 'left';
+      date.style.textAlign = msg.user === username ? 'right' : 'left';
 
       div.appendChild(time);
       div.appendChild(date);
