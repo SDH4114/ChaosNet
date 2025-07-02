@@ -125,6 +125,12 @@ wss.on('connection', (ws) => {
           timestamp: m.timestamp
         }));
       });
+      // Broadcast join message
+      broadcast(userData.room, {
+        type: 'join',
+        user: userData.nick,
+        timestamp: now
+      });
       return;
     }
 
@@ -156,6 +162,12 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', async () => {
+    const now = new Date().toISOString();
+    broadcast(userData.room, {
+      type: 'leave',
+      user: userData.nick,
+      timestamp: now
+    });
     clients.delete(ws);
     const room = userData.room;
 

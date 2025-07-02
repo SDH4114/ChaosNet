@@ -74,7 +74,7 @@
     const date = document.createElement('div');
     date.classList.add('date-meta');
     date.textContent = timeObj.toLocaleDateString('ru-RU');
-    date.style.color = '#ffffff';
+    date.style.color = 'white';
 
     if (msg.type === 'system') {
       div.className = 'bubble system';
@@ -82,7 +82,39 @@
       text.textContent = msg.text;
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
-      text.style.color = '#ffffff';
+      text.style.color = 'white';
+
+      time.style.textAlign = 'center';
+      date.style.textAlign = 'center';
+
+      div.appendChild(text);
+      div.appendChild(time);
+      div.appendChild(date);
+    }
+    if (msg.type === 'join') {
+      div.className = 'bubble system';
+
+      const text = document.createElement('div');
+      text.textContent = `${msg.user} joined`;
+      text.style.textAlign = 'center';
+      text.style.fontStyle = 'italic';
+      text.style.color = 'white';
+
+      time.style.textAlign = 'center';
+      date.style.textAlign = 'center';
+
+      div.appendChild(text);
+      div.appendChild(time);
+      div.appendChild(date);
+    }
+    if (msg.type === 'leave') {
+      div.className = 'bubble system';
+
+      const text = document.createElement('div');
+      text.textContent = `${msg.user} left`;
+      text.style.textAlign = 'center';
+      text.style.fontStyle = 'italic';
+      text.style.color = 'white';
 
       time.style.textAlign = 'center';
       date.style.textAlign = 'center';
@@ -186,6 +218,10 @@
       modal.style.display = "none";
     }
   };
+
+  window.addEventListener('beforeunload', () => {
+    socket.send(JSON.stringify({ type: 'leave', user: username, id: userId, room }));
+  });
 </script>
 
 </body>
