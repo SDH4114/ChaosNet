@@ -73,24 +73,21 @@ app.post('/auth', async (req, res) => {
 });
 
 app.post('/check-admin', async (req, res) => {
-  const { id, nick } = req.body;
+  const { id } = req.body;
 
-  if (!id || !nick) return res.status(400).send("ID and nick required");
+  if (!id) return res.status(400).json({ admin: false, error: "ID required" });
 
   const { data, error } = await supabase
     .from('users')
     .select('status')
     .eq('id', id)
-    .eq('nick', nick)
     .maybeSingle();
 
-  if (error) return res.status(500).send("Error checking status");
-
-  if (!data || data.status !== 'admin') {
-    return res.status(403).send("Forbidden");
+  if (error || !data || data.status !== 'admin') {
+    return res.status(200).json({ admin: false });
   }
 
-  res.status(200).send("OK");
+  res.status(200).json({ admin: true });
 });
 
 app.post('/upload', upload.single('image'), async (req, res) => {

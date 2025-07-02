@@ -65,7 +65,7 @@
     div.classList.add('bubble');
 
     const timestamp = msg.timestamp;
-    const timeObj = new Date(new Date(timestamp).getTime() + 4 * 60 * 60 * 1000);
+    const timeObj = new Date(timestamp);
 
     const time = document.createElement('div');
     time.classList.add('meta');

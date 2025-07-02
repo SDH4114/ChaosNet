@@ -45,18 +45,18 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: userId })
         })
-        .then(res => {
-          if (!res.ok) throw new Error();
-          return res.text();
-        })
-        .then(text => {
-          if (text === 'OK') {
+        .then(res => res.json())
+        .then(data => {
+          if (data.admin === true) {
             window.location.href = "adminPanel.html";
           } else {
             alert("Access denied. Not an admin.");
           }
         })
-        .catch(() => alert("Error checking admin status."));
+        .catch((err) => {
+          console.error("Admin check error:", err);
+          alert("Error checking admin status.");
+        });
         return;
       }
 
