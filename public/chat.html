@@ -135,8 +135,8 @@
         caption.textContent = msg.text;
         caption.style.color = 'white';
         caption.style.marginTop = '6px';
-        caption.style.textAlign = 'center';
-        caption.style.fontWeight = 'bold';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = msg.user === username ? 'right' : 'left';
         div.appendChild(caption);
       }
 
