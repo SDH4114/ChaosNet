@@ -140,6 +140,9 @@
         div.appendChild(caption);
       }
 
+      time.style.textAlign = 'left';
+      date.style.textAlign = 'left';
+
       div.appendChild(time);
       div.appendChild(date);
     } else {
@@ -158,8 +161,8 @@
         date.style.textAlign = 'left';
       }
       if (msg.user === username) {
-        time.style.textAlign = 'left';
-        date.style.textAlign = 'left';
+        time.style.textAlign = 'right';
+        date.style.textAlign = 'right';
       }
 
       const text = document.createElement('div');
