@@ -157,6 +157,10 @@
         time.style.textAlign = 'left';
         date.style.textAlign = 'left';
       }
+      if (msg.user === username) {
+        time.style.textAlign = 'right';
+        date.style.textAlign = 'right';
+      }
 
       const text = document.createElement('div');
       text.textContent = msg.text;
