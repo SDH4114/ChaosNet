@@ -2,18 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Panel</title>
+  <title>ChaosNet - Admin Panel</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
   <link rel="stylesheet" href="css/adminPanel.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+<a href="select.html" 
+  style="position: fixed; top: 10px; right: 10px; 
+         background-color: #2b2b2b; 
+         color: #ff8c00; 
+         border: none; 
+         padding: 8px 14px; 
+         border-radius: 8px; 
+         cursor: pointer; 
+         font-size: 14px; 
+         text-decoration: none; 
+         box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+  Back
+</a>
+
   <h1>Admin Panel</h1>
   <a href="NewName.html" class="button-link">Go to Name Page</a>
 
   <div class="chat-rooms-container">
     <h2>Active Chat Rooms</h2>
     <ul id="activeRoomsList"></ul>
+  </div>
+
+</script>
+
+  <div style="margin: 20px 10px;">
+    <h3>Admin Commands</h3>
+    <input id="adminCommandInput" type="text" placeholder="/give admin nick or /take admin nick"
+           style="width: 100%; padding: 10px; border-radius: 6px; border: none; background: #2b2b2b; color: #fff;">
+    <button onclick="handleAdminCommand()" 
+            style="margin-top: 10px; padding: 8px 14px; background-color: #ff8c00; color: white; border: none; border-radius: 6px; cursor: pointer;">
+      Execute
+    </button>
+    <div id="adminCommandResult" style="margin-top: 10px; color: #ccc;"></div>
   </div>
 
   <script>
@@ -30,6 +57,29 @@
 
     fetchActiveRooms();
     setInterval(fetchActiveRooms, 5000);
+
+    async function handleAdminCommand() {
+      const input = document.getElementById('adminCommandInput').value.trim();
+      const resultEl = document.getElementById('adminCommandResult');
+
+      const [cmd, role, nick] = input.split(' ');
+
+      if ((cmd === '/give' || cmd === '/take') && role === 'admin' && nick) {
+        const res = await fetch('/set-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nick,
+            isAdmin: cmd === '/give'
+          })
+        });
+
+        const text = await res.text();
+        resultEl.textContent = text;
+      } else {
+        resultEl.textContent = "Invalid command. Use /give admin nick or /take admin nick.";
+      }
+    }
   </script>
 </body>
 </html>

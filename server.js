@@ -97,6 +97,7 @@ app.post('/check-admin', async (req, res) => {
   }
 });
 
+
 app.get('/active-rooms', (req, res) => {
   const uniqueRooms = new Set();
   for (const client of clients.values()) {
@@ -105,6 +106,36 @@ app.get('/active-rooms', (req, res) => {
     }
   }
   res.json({ rooms: Array.from(uniqueRooms) });
+});
+
+app.post('/admin-action', async (req, res) => {
+  const { command } = req.body;
+  if (!command) return res.status(400).send("No command provided");
+
+  const giveMatch = command.match(/^\/give admin (\w+)$/);
+  const takeMatch = command.match(/^\/take admin (\w+)$/);
+
+  if (giveMatch) {
+    const nick = giveMatch[1];
+    const { error } = await supabase
+      .from('users')
+      .update({ AdminStatus: true })
+      .eq('nick', nick);
+    if (error) return res.status(500).send("Failed to give admin");
+    return res.status(200).send(`${nick} is now admin`);
+  }
+
+  if (takeMatch) {
+    const nick = takeMatch[1];
+    const { error } = await supabase
+      .from('users')
+      .update({ AdminStatus: false })
+      .eq('nick', nick);
+    if (error) return res.status(500).send("Failed to remove admin");
+    return res.status(200).send(`${nick} is no longer admin`);
+  }
+
+  return res.status(400).send("Invalid command");
 });
 
 app.post('/upload', upload.single('image'), async (req, res) => {
