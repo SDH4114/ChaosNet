@@ -41,7 +41,21 @@
       if (res.ok) {
         localStorage.setItem("username", nick);
         localStorage.setItem("userID", id);
-        window.location.href = "/select.html";
+
+        fetch('/check-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        })
+        .then(r => r.json())
+        .then(data => {
+          localStorage.setItem("isAdmin", data.admin ? "true" : "false");
+          window.location.href = "/select.html";
+        })
+        .catch(() => {
+          localStorage.setItem("isAdmin", "false");
+          window.location.href = "/select.html";
+        });
       } else {
         document.getElementById('error').textContent = "Incorrect credentials!";
       }

@@ -77,19 +77,24 @@ app.post('/check-admin', async (req, res) => {
 
   if (!id) return res.status(400).json({ admin: false });
 
-  const { data, error } = await supabase
-    .from('users')
-    .select('AdminStatus')
-    .eq('id', id)
-    .limit(1)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('AdminStatus')
+      .eq('id', id)
+      .limit(1)
+      .single();
 
-  if (error || !data) {
-    console.error("Supabase admin check error:", error?.message || "No data");
+    if (error || !data) {
+      console.error("Supabase admin check error:", error?.message || "No data");
+      return res.status(500).json({ admin: false });
+    }
+
+    return res.status(200).json({ admin: data.AdminStatus === true });
+  } catch (err) {
+    console.error("Unexpected error during admin check:", err);
     return res.status(500).json({ admin: false });
   }
-
-  res.json({ admin: !!data.AdminStatus });
 });
 
 app.post('/upload', upload.single('image'), async (req, res) => {

@@ -18,7 +18,21 @@
          width: auto; 
          box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
   Log out
-</button>  <div class="login-container">
+</button>
+<button id="adminBtn" onclick="goToAdminPanel()" 
+  style="display: none; position: fixed; top: 10px; right: 110px; 
+         background-color: #2b2b2b; 
+         color: #ff8c00; 
+         border: none; 
+         padding: 8px 14px; 
+         border-radius: 8px; 
+         cursor: pointer; 
+         font-size: 14px; 
+         width: auto; 
+         box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+  Admin Panel
+</button>
+  <div class="login-container">
     <h2>Select Room</h2>
     <form id="roomForm">
       <input type="text" id="roomName" placeholder="Room ID" required />
@@ -101,6 +115,28 @@
           <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
         </div>
       `).join('');
+    }
+
+    function goToAdminPanel() {
+      window.location.href = "adminPanel.html";
+    }
+
+    const currentUserId = localStorage.getItem('userID');
+    if (currentUserId) {
+      fetch('/check-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentUserId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (Boolean(data.admin)) {
+          document.getElementById('adminBtn').style.display = 'inline-block';
+        }
+      })
+      .catch(err => {
+        console.error("Failed to check admin:", err);
+      });
     }
 
     renderList('roomsList', 'rooms');
