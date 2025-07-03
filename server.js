@@ -97,6 +97,25 @@ app.post('/check-admin', async (req, res) => {
   }
 });
 
+app.post('/set-admin', async (req, res) => {
+  const { nick, isAdmin } = req.body;
+
+  if (!nick || typeof isAdmin !== 'boolean') {
+    return res.status(400).send("Invalid data");
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update({ AdminStatus: isAdmin })
+    .eq('nick', nick);
+
+  if (error) {
+    console.error("Error updating admin status:", error.message);
+    return res.status(500).send("Failed to update admin status");
+  }
+
+  res.send(`Admin status ${isAdmin ? "granted to" : "removed from"} ${nick}`);
+});
 
 app.get('/active-rooms', (req, res) => {
   const uniqueRooms = new Set();
