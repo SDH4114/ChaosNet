@@ -16,6 +16,11 @@
   </a>
 </div>
 
+<div id="user-list" style="background-color: #1e1e1e; color: white; padding: 8px 16px; font-size: 14px;">
+  <strong>Users in room:</strong>
+  <span id="users-online">Loading...</span>
+</div>
+
 <!-- Контейнер для сообщений -->
 <div id="messages"></div>
 
@@ -53,6 +58,7 @@
 
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
+    socket.send(JSON.stringify({ type: 'requestUserList', room }));
   });
 
   document.getElementById('photoBtn').addEventListener('click', () => {
@@ -61,6 +67,13 @@
 
   socket.addEventListener('message', (event) => {
     const msg = JSON.parse(event.data);
+
+    if (msg.type === 'userlist') {
+      const usersOnline = document.getElementById('users-online');
+      usersOnline.textContent = msg.users.join(', ');
+      return;
+    }
+
     const div = document.createElement('div');
     div.classList.add('bubble');
 

@@ -97,6 +97,16 @@ app.post('/check-admin', async (req, res) => {
   }
 });
 
+app.get('/active-rooms', (req, res) => {
+  const uniqueRooms = new Set();
+  for (const client of clients.values()) {
+    if (client.room) {
+      uniqueRooms.add(client.room);
+    }
+  }
+  res.json({ rooms: Array.from(uniqueRooms) });
+});
+
 app.post('/upload', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).send('No file');
 
