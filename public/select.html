@@ -68,29 +68,6 @@
         window.location.href = "login.html";
         return;
       }
-      if (room.toLowerCase() === '/adminp') {
-        const userId = localStorage.getItem('userid');
-        const nick = localStorage.getItem('username');
-
-        fetch('/check-admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: userId, nick })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (Boolean(data.admin)) {
-            window.location.href = "adminPanel.html";
-          } else {
-            alert("Access denied. Not an admin.");
-          }
-        })
-        .catch((err) => {
-          console.error("Admin check error:", err);
-          alert("Error checking admin status.");
-        });
-        return;
-      }
 
       if (room) {
         saveToStorage('rooms', room);
