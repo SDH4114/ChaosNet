@@ -112,25 +112,27 @@ app.post('/admin-action', async (req, res) => {
   const { command } = req.body;
   if (!command) return res.status(400).send("No command provided");
 
-  const giveMatch = command.match(/^\/give admin (\w+)$/);
-  const takeMatch = command.match(/^\/take admin (\w+)$/);
+  const giveMatch = command.match(/^\/give admin (\w+)$/i);
+  const takeMatch = command.match(/^\/take admin (\w+)$/i);
 
   if (giveMatch) {
     const nick = giveMatch[1];
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from('users')
       .update({ AdminStatus: true })
       .eq('nick', nick);
+
     if (error) return res.status(500).send("Failed to give admin");
     return res.status(200).send(`${nick} is now admin`);
   }
 
   if (takeMatch) {
     const nick = takeMatch[1];
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from('users')
       .update({ AdminStatus: false })
       .eq('nick', nick);
+
     if (error) return res.status(500).send("Failed to remove admin");
     return res.status(200).send(`${nick} is no longer admin`);
   }
