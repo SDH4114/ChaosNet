@@ -39,11 +39,12 @@
       }
       if (room.toLowerCase() === '/adminp') {
         const userId = localStorage.getItem('userid');
+        const nick = localStorage.getItem('username');
 
         fetch('/check-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: userId })
+          body: JSON.stringify({ id: userId, nick })
         })
         .then(res => res.json())
         .then(data => {
