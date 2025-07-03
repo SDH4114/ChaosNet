@@ -58,6 +58,8 @@
 
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
+    // Notify admin panel about room usage
+    socket.send(JSON.stringify({ type: 'activeRoom', room }));
     socket.send(JSON.stringify({ type: 'requestUserList', room }));
   });
 
@@ -67,6 +69,8 @@
 
   socket.addEventListener('message', (event) => {
     const msg = JSON.parse(event.data);
+
+    if (msg.type === 'activeRoom') return;
 
     if (msg.type === 'userlist') {
       const usersOnline = document.getElementById('users-online');

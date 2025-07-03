@@ -138,6 +138,12 @@ wss.on('connection', (ws) => {
     const now = new Date().toISOString();
     const room = userData.room;
 
+    if (data.type === 'activeRoom') {
+      userData.room = data.room;
+      clients.set(ws, userData);
+      return;
+    }
+
     if (data.type === 'join') {
       userData.nick = data.user;
       userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);

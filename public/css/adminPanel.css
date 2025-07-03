@@ -27,3 +27,12 @@ h1 {
 .button-link:hover {
   background: #ffa733;
 }
+
+.admin-room-item {
+  padding: 6px 10px;
+  margin-bottom: 5px;
+  background: #2e2e2e;
+  color: #ff8c00;
+  border-radius: 6px;
+  font-weight: bold;
+}

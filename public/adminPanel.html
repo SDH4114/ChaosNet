@@ -22,13 +22,14 @@
         const res = await fetch('/active-rooms');
         const rooms = await res.json();
         const list = document.getElementById('activeRoomsList');
-        list.innerHTML = rooms.map(room => `<li>${room}</li>`).join('');
+        list.innerHTML = rooms.map(room => `<li class="admin-room-item">${room}</li>`).join('');
       } catch (err) {
         console.error('Error fetching active rooms:', err);
       }
     }
 
     fetchActiveRooms();
+    setInterval(fetchActiveRooms, 5000);
   </script>
 </body>
 </html>
