@@ -89,7 +89,7 @@ app.post('/check-admin', async (req, res) => {
     return res.status(500).json({ admin: false });
   }
 
-  res.json({ admin: data.AdminStatus === true });
+  res.json({ admin: !!data.AdminStatus });
 });
 
 app.post('/upload', upload.single('image'), async (req, res) => {

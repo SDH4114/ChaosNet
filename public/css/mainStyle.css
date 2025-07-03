@@ -19,8 +19,8 @@ body {
   padding: 40px 30px;
   border-radius: 20px;
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
-  width: 320px;
-  max-width: 100%;
+  width: 90vw;
+  max-width: 400px;
 }
 
 .login-container h2 {
@@ -189,8 +189,8 @@ button:hover {
   padding: 40px 30px;
   border-radius: 20px;
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
-  width: 320px;
-  max-width: 100%;
+  width: 90vw;
+  max-width: 400px;
 }
 
 .register-container h2 {
@@ -198,4 +198,11 @@ button:hover {
   font-size: 24px;
   text-align: center;
   color: #ff8c00;
+}
+
+@media (min-width: 768px) {
+  .login-container,
+  .register-container {
+    width: 400px;
+  }
 }
