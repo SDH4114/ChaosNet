@@ -108,8 +108,8 @@ app.post('/set-admin', async (req, res) => {
     const { data, error } = await supabase
       .from('users')
       .update({ AdminStatus: isAdmin })
-      .eq('nick', nick);
-
+      .eq('nick', nick)
+      .select();
     if (error) {
       console.error("Error updating admin status:", error.message);
       return res.status(500).send("Failed to update admin status");
