@@ -110,9 +110,14 @@ app.post('/set-admin', async (req, res) => {
       .update({ AdminStatus: isAdmin })
       .eq('nick', nick);
 
-    if (error || data.length === 0) {
-      console.error("Error updating admin status:", error?.message || "No data");
+    if (error) {
+      console.error("Error updating admin status:", error.message);
       return res.status(500).send("Failed to update admin status");
+    }
+
+    if (!data || data.length === 0) {
+      console.error("No matching user found to update admin status.");
+      return res.status(404).send("User not found");
     }
 
     res.status(200).send(`Admin status ${isAdmin ? "granted to" : "removed from"} ${nick}`);
