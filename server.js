@@ -144,6 +144,19 @@ app.post('/admin-action', async (req, res) => {
   const giveMatch = command.match(/^\/give admin (\w+)$/i);
   const takeMatch = command.match(/^\/take admin (\w+)$/i);
 
+  // /kill <nick> command
+  const killMatch = command.match(/^\/kill (\w+)$/i);
+  if (killMatch) {
+    const nick = killMatch[1];
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('nick', nick);
+
+    if (error) return res.status(500).send("Failed to delete user");
+    return res.status(200).send(`${nick} has been deleted`);
+  }
+
   if (giveMatch) {
     const nick = giveMatch[1];
     const { error, data } = await supabase
