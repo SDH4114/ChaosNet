@@ -104,17 +104,22 @@ app.post('/set-admin', async (req, res) => {
     return res.status(400).send("Invalid data");
   }
 
-  const { error } = await supabase
-    .from('users')
-    .update({ AdminStatus: isAdmin })
-    .eq('nick', nick);
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ AdminStatus: isAdmin })
+      .eq('nick', nick);
 
-  if (error) {
-    console.error("Error updating admin status:", error.message);
-    return res.status(500).send("Failed to update admin status");
+    if (error || data.length === 0) {
+      console.error("Error updating admin status:", error?.message || "No data");
+      return res.status(500).send("Failed to update admin status");
+    }
+
+    res.status(200).send(`Admin status ${isAdmin ? "granted to" : "removed from"} ${nick}`);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    res.status(500).send("Server error");
   }
-
-  res.send(`Admin status ${isAdmin ? "granted to" : "removed from"} ${nick}`);
 });
 
 app.get('/active-rooms', (req, res) => {
