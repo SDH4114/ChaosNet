@@ -117,6 +117,19 @@
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
+
+      // Отправка системного сообщения на сервер
+      fetch('/log-system-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: msg.user,
+          text: `${msg.user} joined`,
+          type: 'system',
+          room,
+          timestamp: msg.timestamp
+        })
+      });
     } else if (msg.type === 'leave') {
       div.className = 'bubble system';
 
@@ -132,6 +145,19 @@
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
+
+      // Отправка системного сообщения на сервер
+      fetch('/log-system-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: msg.user,
+          text: `${msg.user} left`,
+          type: 'system',
+          room,
+          timestamp: msg.timestamp
+        })
+      });
     } else if (msg.type === 'image') {
       div.classList.add(msg.user === username ? 'self' : 'other');
 
