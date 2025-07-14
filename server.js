@@ -248,6 +248,13 @@ wss.on('connection', (ws) => {
         user: userData.nick,
         timestamp: now
       });
+      await supabase.from('messages').insert({
+        room: userData.room,
+        user: 'system',
+        text: `${userData.nick} joined`,
+        image_url: '',
+        timestamp: now
+      });
       return;
     }
 
@@ -283,6 +290,13 @@ wss.on('connection', (ws) => {
     broadcast(userData.room, {
       type: 'leave',
       user: userData.nick,
+      timestamp: now
+    });
+    await supabase.from('messages').insert({
+      room: userData.room,
+      user: 'system',
+      text: `${userData.nick} left`,
+      image_url: '',
       timestamp: now
     });
     clients.delete(ws);
