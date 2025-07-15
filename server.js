@@ -3,9 +3,16 @@ const http = require('http');
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises;
 const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcrypt');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const validator = require('validator');
+const { randomBytes, createCipheriv, createDecipheriv } = require('crypto');
+require('dotenv').config();
 
 const PORT = process.env.PORT || 10000;
 const app = express();
@@ -15,192 +22,186 @@ const wss = new WebSocket.Server({ server });
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-const BUCKET = 'chat-uploads';
+const BUCKET = 'chat-Uploads';
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
+const SALT_ROUNDS = 10;
 
+// Create temp_uploads directory
+const TEMP_UPLOADS_DIR = 'temp_uploads';
+fs.mkdir(TEMP_UPLOADS_DIR, { recursive: true }).catch(err => console.error('Error creating temp_uploads:', err));
+
+// Security
+app.use(helmet());
+app.use(cors({ origin: process.env.CLIENT_URL || 'https://chaosnet.onrender.com/login.html' }));
 app.use(express.static('public'));
 app.use(express.json());
 
-const upload = multer({ dest: 'temp_uploads/' });
+// Rate limiting
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many login attempts' });
+app.use('/auth', authLimiter);
+app.use('/register', authLimiter);
 
+// Multer setup
+const upload = multer({ dest: TEMP_UPLOADS_DIR });
 
+// Validate ID format
+const validateIdFormat = (id) => /^[A-Z]{2}\d{4}$/.test(id);
+
+// Registration
 app.post('/register', async (req, res) => {
   const { id, nick, password } = req.body;
+  if (!id || !nick || !password) return res.status(400).send('All fields required');
+  if (!validateIdFormat(id)) return res.status(400).send('ID must be AA0000');
+  if (!validator.isLength(nick, { min: 3, max: 20 }) || !validator.isAlphanumeric(nick, 'en-US', { ignore: '_' }))
+    return res.status(400).send('Nickname: 3-20 chars, letters/numbers/_');
+  if (!validator.isLength(password, { min: 8 })) return res.status(400).send('Password min 8 chars');
 
-  if (!id || !nick || !password) {
-    return res.status(400).send("All fields required");
+  try {
+    const { data: existingNick } = await supabase.from('users').select('nick').eq('nick', nick).maybeSingle();
+    if (existingNick) return res.status(409).send('Nickname taken');
+    const { data: existingId } = await supabase.from('users').select('id').eq('id', id).maybeSingle();
+    if (existingId) return res.status(409).send('ID taken');
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    const { error } = await supabase.from('users').insert({ id, nick, password: hashedPassword, AdminStatus: false });
+    if (error) return res.status(500).send('Error creating user');
+    res.status(201).send('User registered');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
   }
-
-  // Check if nickname already taken
-  const { data: existingNick } = await supabase
-    .from('users')
-    .select('nick')
-    .eq('nick', nick)
-    .maybeSingle();
-
-  if (existingNick) return res.status(409).send("Nickname already taken");
-
-  const { data: existing, error: fetchError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (fetchError) return res.status(500).send("Error checking existing user");
-  if (existing) return res.status(409).send("User already exists");
-
-  const { error } = await supabase
-    .from('users')
-    .insert({ id, nick, password });
-
-  if (error) return res.status(500).send("Error creating user");
-  res.status(201).send("User registered");
 });
 
-
+// Authentication
 app.post('/auth', async (req, res) => {
   const { id, nick, password } = req.body;
-  const { data: users, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', id)
-    .eq('nick', nick)
-    .eq('password', password)
-    .maybeSingle();
+  if (!id || !nick || !password) return res.status(400).send('All fields required');
+  if (!validateIdFormat(id)) return res.status(400).send('ID must be AA0000');
 
-  if (error) return res.status(500).send("Server error");
-  if (!users) return res.status(401).send("Unauthorized");
-  res.status(200).send("OK");
+  try {
+    const { data: user, error } = await supabase.from('users').select('*').eq('id', id).eq('nick', nick).maybeSingle();
+    if (error) return res.status(500).send('Server error');
+    if (!user) return res.status(401).send('Invalid credentials');
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) return res.status(401).send('Invalid credentials');
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 });
 
+// Check admin status
 app.post('/check-admin', async (req, res) => {
   const { id } = req.body;
-
-  if (!id) return res.status(400).json({ admin: false });
+  if (!id || !validateIdFormat(id)) return res.status(400).json({ admin: false });
 
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('AdminStatus')
-      .eq('id', id)
-      .limit(1)
-      .single();
-
-    if (error || !data) {
-      console.error("Supabase admin check error:", error?.message || "No data");
-      return res.status(500).json({ admin: false });
-    }
-
-    return res.status(200).json({ admin: data.AdminStatus === true });
+    const { data, error } = await supabase.from('users').select('AdminStatus').eq('id', id).maybeSingle();
+    if (error || !data) return res.status(404).json({ admin: false });
+    res.status(200).json({ admin: data.AdminStatus });
   } catch (err) {
-    console.error("Unexpected error during admin check:", err);
-    return res.status(500).json({ admin: false });
+    console.error(err);
+    res.status(500).json({ admin: false });
   }
 });
 
+// Set admin status
 app.post('/set-admin', async (req, res) => {
   const { nick, isAdmin } = req.body;
-
-  if (!nick || typeof isAdmin !== 'boolean') {
-    return res.status(400).send("Invalid data");
-  }
+  if (!nick || typeof isAdmin !== 'boolean') return res.status(400).send('Invalid data');
 
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .update({ AdminStatus: isAdmin })
-      .eq('nick', nick)
-      .select();
-    if (error) {
-      console.error("Error updating admin status:", error.message);
-      return res.status(500).send("Failed to update admin status");
-    }
-
-    if (!data || data.length === 0) {
-      console.error("No matching user found to update admin status.");
-      return res.status(404).send("User not found");
-    }
-
-    res.status(200).send(`Admin status ${isAdmin ? "granted to" : "removed from"} ${nick}`);
+    const { data, error } = await supabase.from('users').update({ AdminStatus: isAdmin }).eq('nick', nick).select();
+    if (error) return res.status(500).send('Failed to update admin');
+    if (!data?.length) return res.status(404).send('User not found');
+    res.status(200).send(`Admin ${isAdmin ? 'granted to' : 'removed from'} ${nick}`);
   } catch (err) {
-    console.error("Unexpected error:", err);
-    res.status(500).send("Server error");
+    console.error(err);
+    res.status(500).send('Server error');
   }
 });
 
+// Get active rooms
 app.get('/active-rooms', (req, res) => {
-  const uniqueRooms = new Set();
-  for (const client of clients.values()) {
-    if (client.room) {
-      uniqueRooms.add(client.room);
-    }
-  }
-  res.json({ rooms: Array.from(uniqueRooms) });
+  const uniqueRooms = new Set(clients.values().filter(c => c.room).map(c => c.room));
+  res.json({ rooms: [...uniqueRooms] });
 });
 
+// Admin actions
 app.post('/admin-action', async (req, res) => {
   const { command } = req.body;
-  if (!command) return res.status(400).send("No command provided");
+  if (!command || !validator.isLength(command, { min: 1, max: 100 })) return res.status(400).send('Invalid command');
 
   const giveMatch = command.match(/^\/give admin (\w+)$/i);
   const takeMatch = command.match(/^\/take admin (\w+)$/i);
-
-  // /kill <nick> command
   const killMatch = command.match(/^\/kill (\w+)$/i);
-  if (killMatch) {
-    const nick = killMatch[1];
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('nick', nick);
 
-    if (error) return res.status(500).send("Failed to delete user");
-    return res.status(200).send(`${nick} has been deleted`);
+  try {
+    if (killMatch) {
+      const nick = killMatch[1];
+      const { error } = await supabase.from('users').delete().eq('nick', nick);
+      return error ? res.status(500).send('Failed to delete') : res.status(200).send(`${nick} deleted`);
+    }
+    if (giveMatch) {
+      const nick = giveMatch[1];
+      const { error } = await supabase.from('users').update({ AdminStatus: true }).eq('nick', nick);
+      return error ? res.status(500).send('Failed to grant') : res.status(200).send(`${nick} is admin`);
+    }
+    if (takeMatch) {
+      const nick = takeMatch[1];
+      const { error } = await supabase.from('users').update({ AdminStatus: false }).eq('nick', nick);
+      return error ? res.status(500).send('Failed to remove') : res.status(200).send(`${nick} no longer admin`);
+    }
+    return res.status(400).send('Invalid command');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
   }
-
-  if (giveMatch) {
-    const nick = giveMatch[1];
-    const { error, data } = await supabase
-      .from('users')
-      .update({ AdminStatus: true })
-      .eq('nick', nick);
-
-    if (error) return res.status(500).send("Failed to give admin");
-    return res.status(200).send(`${nick} is now admin`);
-  }
-
-  if (takeMatch) {
-    const nick = takeMatch[1];
-    const { error, data } = await supabase
-      .from('users')
-      .update({ AdminStatus: false })
-      .eq('nick', nick);
-
-    if (error) return res.status(500).send("Failed to remove admin");
-    return res.status(200).send(`${nick} is no longer admin`);
-  }
-
-  return res.status(400).send("Invalid command");
 });
 
+// Upload images
 app.post('/upload', upload.single('image'), async (req, res) => {
-  if (!req.file) return res.status(400).send('No file');
+  if (!req.file) return res.status(400).send('No file uploaded');
 
-  const fileExt = path.extname(req.file.originalname);
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}${fileExt}`;
-  const filePath = req.file.path;
-  const fileBuffer = fs.readFileSync(filePath);
+  try {
+    const fileExt = path.extname(req.file.originalname);
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}${fileExt}`;
+    const filePath = path.join(TEMP_UPLOADS_DIR, req.file.filename);
+    const fileBuffer = await fs.readFile(filePath);
 
-  const { error } = await supabase.storage.from(BUCKET).upload(fileName, fileBuffer, {
-    contentType: req.file.mimetype,
-    upsert: false
-  });
-  fs.unlinkSync(filePath);
+    const { error } = await supabase.storage.from(BUCKET).upload(fileName, fileBuffer, { contentType: req.file.mimetype, upsert: false });
+    await fs.unlink(filePath).catch(err => console.error('Temp file delete error:', err));
 
-  if (error) return res.status(500).send('Upload error');
-
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
-  res.status(200).json({ url: data.publicUrl });
+    if (error) return res.status(500).send('Upload error');
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
+    res.status(200).json({ url: data.publicUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
 });
+
+// Encrypt and decrypt messages
+function encryptMessage(message) {
+  if (!message) return { encrypted: '', iv: '' };
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(message, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return { encrypted, iv: iv.toString('hex') };
+}
+
+function decryptMessage(encrypted, iv) {
+  if (!encrypted || !iv) return '';
+  try {
+    const decipher = createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, Buffer.from(iv, 'hex'));
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    return '[Decryption error]';
+  }
+}
 
 const clients = new Map();
 const activeMessages = new Map();
@@ -209,110 +210,51 @@ wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
   ws.on('message', async (msg) => {
-    const data = JSON.parse(msg);
+    let data;
+    try { data = JSON.parse(msg); } catch { return; }
     const now = new Date().toISOString();
-    const room = userData.room;
+    const room = userData.room || data.room || 'general';
 
-    if (data.type === 'activeRoom') {
-      userData.room = data.room;
-      clients.set(ws, userData);
-      return;
-    }
-
+    if (data.type === 'activeRoom') { userData.room = validator.escape(data.room || 'general'); clients.set(ws, userData); return; }
     if (data.type === 'join') {
-      userData.nick = data.user;
-      userData.id = data.id || 'guest_' + Math.random().toString(36).substring(7);
-      userData.room = data.room || 'general';
+      userData.nick = validator.escape(data.user || 'guest');
+      userData.id = validator.escape(data.id || `guest_${Math.random().toString(36).substring(7)}`);
+      userData.room = validator.escape(data.room || 'general');
       clients.set(ws, userData);
-
       await deleteOldMessages(userData.room);
-
-      const { data: history } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room', userData.room)
-        .order('timestamp', { ascending: true });
-
-      history.forEach(m => {
-        ws.send(JSON.stringify({
-          type: m.image_url ? 'image' : 'message',
-          text: m.text,
-          image: m.image_url,
-          user: m.user,
-          timestamp: m.timestamp
-        }));
-      });
-      // Broadcast join message
-      broadcast(userData.room, {
-        type: 'join',
-        user: userData.nick,
-        timestamp: now
-      });
-      await supabase.from('messages').insert({
-        room: userData.room,
-        user: 'system',
-        text: `${userData.nick} joined`,
-        image_url: '',
-        timestamp: now
-      });
+      const { data: history, error } = await supabase.from('messages').select('*').eq('room', userData.room).order('timestamp');
+      if (!error) history.forEach(m => ws.send(JSON.stringify({ type: m.image_url ? 'image' : 'message', text: m.text ? decryptMessage(m.text, m.iv) : '', image: m.image_url, user: m.user, timestamp: m.timestamp })));
+      broadcast(userData.room, { type: 'join', user: userData.nick, timestamp: now });
       return;
     }
-
     if (data.type === 'message') {
-      const message = {
-        room,
-        user: userData.nick,
-        text: data.text,
-        image_url: '',
-        timestamp: now
-      };
-      await supabase.from('messages').insert(message);
-      broadcast(room, { type: 'message', text: data.text, user: userData.nick, timestamp: now });
-      activeMessages.set(room, true);
+      const cleanText = validator.escape(data.text || '');
+      const { encrypted, iv } = encryptMessage(cleanText);
+      const { error } = await supabase.from('messages').insert({ room, user: userData.nick, text: encrypted, iv, image_url: '', timestamp: now });
+      if (!error) { broadcast(room, { type: 'message', text: cleanText, user: userData.nick, timestamp: now }); activeMessages.set(room, true); }
     }
-
     if (data.type === 'image') {
-      const message = {
-        room,
-        user: userData.nick,
-        text: data.text || '',
-        image_url: data.image,
-        timestamp: now
-      };
-      await supabase.from('messages').insert(message);
-      broadcast(room, { type: 'image', text: data.text, image: data.image, user: userData.nick, timestamp: now });
-      activeMessages.set(room, true);
+      const cleanText = data.text ? validator.escape(data.text) : '';
+      const { encrypted, iv } = cleanText ? encryptMessage(cleanText) : { encrypted: '', iv: '' };
+      const { error } = await supabase.from('messages').insert({ room, user: userData.nick, text: encrypted, iv, image_url: data.image, timestamp: now });
+      if (!error) { broadcast(room, { type: 'image', text: cleanText, image: data.image, user: userData.nick, timestamp: now }); activeMessages.set(room, true); }
+    }
+    if (data.type === 'requestUserList') {
+      const users = [...clients.values()].filter(u => u.room === data.room).map(u => u.nick);
+      ws.send(JSON.stringify({ type: 'userlist', users }));
     }
   });
 
   ws.on('close', async () => {
-    const now = new Date().toISOString();
-    broadcast(userData.room, {
-      type: 'leave',
-      user: userData.nick,
-      timestamp: now
-    });
-    await supabase.from('messages').insert({
-      room: userData.room,
-      user: 'system',
-      text: `${userData.nick} left`,
-      image_url: '',
-      timestamp: now
-    });
+    if (userData.nick && userData.room) broadcast(userData.room, { type: 'leave', user: userData.nick, timestamp: new Date().toISOString() });
     clients.delete(ws);
     const room = userData.room;
-
-    const stillInRoom = Array.from(clients.values()).some(u => u.room === room);
-
-    if (!stillInRoom && activeMessages.get(room)) {
-      const { data: logs } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room', room)
-        .order('timestamp');
-
-      const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text || '[image]'}`).join('\n');
-      sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
+    if (![...clients.values()].some(u => u.room === room) && activeMessages.get(room)) {
+      const { data: logs, error } = await supabase.from('messages').select('*').eq('room', room).order('timestamp');
+      if (!error) {
+        const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text ? decryptMessage(m.text, m.iv) : '[image]'}`).join('\n');
+        await sendEmail(`Chat room "${room}" empty.\n\nMessages:\n${logText}`);
+      }
       activeMessages.delete(room);
     }
   });
@@ -320,50 +262,18 @@ wss.on('connection', (ws) => {
 
 function broadcast(room, data) {
   const json = JSON.stringify(data);
-  for (const [client, u] of clients.entries()) {
-    if (u.room === room && client.readyState === WebSocket.OPEN) {
-      client.send(json);
-    }
-  }
+  for (const [client, u] of clients) if (u.room === room && client.readyState === WebSocket.OPEN) client.send(json);
 }
 
-function sendEmail(content) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
-  });
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_USER,
-    subject: 'ChaosNet: chat log on empty room',
-    text: content
-  };
-
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) console.error('Email error:', err);
-    else console.log('Email sent:', info.response);
-  });
+async function sendEmail(content) {
+  const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASSWORD } });
+  await transporter.sendMail({ from: process.env.EMAIL_USER, to: process.env.EMAIL_USER, subject: 'ChaosNet: Chat log', text: content }).catch(console.error);
 }
 
 async function deleteOldMessages(room) {
   const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: oldMessages } = await supabase
-    .from('messages')
-    .select('id')
-    .lt('timestamp', fifteenDaysAgo)
-    .eq('room', room);
-
-  if (oldMessages && oldMessages.length > 0) {
-    const idsToDelete = oldMessages.map(m => m.id);
-    await supabase.from('messages').delete().in('id', idsToDelete);
-    console.log(`Deleted ${idsToDelete.length} old messages in room ${room}`);
-  }
+  const { data: oldMessages, error } = await supabase.from('messages').select('id').lt('timestamp', fifteenDaysAgo).eq('room', room);
+  if (!error && oldMessages?.length) await supabase.from('messages').delete().in('id', oldMessages.map(m => m.id)).then(() => console.log(`Deleted ${oldMessages.length} messages in ${room}`)).catch(console.error);
 }
 
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

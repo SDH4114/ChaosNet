@@ -7,268 +7,206 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-
-<!-- Верхняя панель -->
-<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
-  <h2 id="chat-title" style="margin: 0; color: #ff8c00;">Room: example</h2>
-  <a href="select.html" style="text-decoration: none;">
-    <button style="background-color: #2b2b2b; color: #ff8c00; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">Leave</button>
-  </a>
-</div>
-
-<!-- Контейнер для сообщений -->
-<div id="messages"></div>
-
-<!-- Форма ввода -->
-<form id="form">
-  <div class="form-row">
-    <input id="input" autocomplete="off" placeholder="Message or caption" />
-    <button type="button" id="photoBtn">Photo</button>
-    <button type="submit">↑</button>
+  <!-- Top bar -->
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
+    <h2 id="chat-title" style="margin: 0; color: #ff8c00;">Room: example</h2>
+    <a href="select.html" style="text-decoration: none;">
+      <button style="background-color: #2b2b2b; color: #ff8c00; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">Leave</button>
+    </a>
   </div>
-  <input type="file" id="imageInput" accept="image/*" />
-</form>
 
-<!-- Модальное окно для изображений -->
-<div id="imageModal" class="modal">
-  <span class="close">&times;</span>
-  <img class="modal-content" id="modalImage">
-</div>
+  <!-- Messages container -->
+  <div id="messages"></div>
+  <div id="users-online" style="padding: 10px; color: #ff8c00;"></div>
 
-<script>
-  const socket = new WebSocket("wss://" + location.host);
-  const form = document.getElementById('form');
-  const input = document.getElementById('input');
-  const imageInput = document.getElementById('imageInput');
-  const messages = document.getElementById('messages');
-  const chatTitle = document.getElementById('chat-title');
+  <!-- Input form -->
+  <form id="form">
+    <div class="form-row">
+      <input id="input" autocomplete="off" placeholder="Message or caption" />
+      <button type="button" id="photoBtn">Photo</button>
+      <button type="submit">↑</button>
+    </div>
+    <input type="file" id="imageInput" accept="image/*" style="display: none;" />
+  </form>
 
-  const username = localStorage.getItem("username") || "guest";
-  const userId = localStorage.getItem("userid") || "guest";
-  const urlParams = new URLSearchParams(location.search);
-  const room = urlParams.get("room") || "main";
-  const target = urlParams.get("target");
+  <!-- Image modal -->
+  <div id="imageModal" class="modal">
+    <span class="close">×</span>
+    <img class="modal-content" id="modalImage">
+  </div>
 
-  chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
+  <script type="module">
+    import DOMPurify from 'https://unpkg.com/dompurify@3.0.6/dist/purify.min.js';
 
-  socket.addEventListener('open', () => {
-    socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
-    // Notify admin panel about room usage
-    socket.send(JSON.stringify({ type: 'activeRoom', room }));
-    socket.send(JSON.stringify({ type: 'requestUserList', room }));
-  });
+    // WebSocket setup
+    const socket = new WebSocket(`wss://chaosnet.onrender.com`);
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const imageInput = document.getElementById('imageInput');
+    const messages = document.getElementById('messages');
+    const chatTitle = document.getElementById('chat-title');
 
-  document.getElementById('photoBtn').addEventListener('click', () => {
-    imageInput.click();
-  });
+    // User data
+    const username = localStorage.getItem('username') || 'guest';
+    const userId = localStorage.getItem('userid') || 'guest_' + Math.random().toString(36).substring(7);
+    const urlParams = new URLSearchParams(location.search);
+    const room = DOMPurify.sanitize(urlParams.get('room') || 'main');
+    const target = DOMPurify.sanitize(urlParams.get('target') || '');
 
-  socket.addEventListener('message', (event) => {
-    const msg = JSON.parse(event.data);
+    // Set chat title
+    chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
-    if (msg.type === 'activeRoom') return;
+    socket.addEventListener('open', () => {
+      socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
+      socket.send(JSON.stringify({ type: 'activeRoom', room }));
+      socket.send(JSON.stringify({ type: 'requestUserList', room }));
+    });
 
-    if (msg.type === 'userlist') {
-      const usersOnline = document.getElementById('users-online');
-      usersOnline.textContent = msg.users.join(', ');
-      return;
-    }
-
-    const div = document.createElement('div');
-    div.classList.add('bubble');
-
-    const timestamp = msg.timestamp;
-    const timeObj = new Date(timestamp);
-
-    const time = document.createElement('div');
-    time.classList.add('meta');
-    time.textContent = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const date = document.createElement('div');
-    date.classList.add('date-meta');
-    date.textContent = timeObj.toLocaleDateString('ru-RU');
-    date.style.color = 'white';
-
-    if (msg.type === 'system') {
-      div.className = 'bubble system';
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      text.style.textAlign = 'center';
-      text.style.fontStyle = 'italic';
-      text.style.color = 'white';
-
-      time.style.textAlign = 'center';
-      date.style.textAlign = 'center';
-
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-    } else if (msg.type === 'join') {
-      div.className = 'bubble system';
-
-      const text = document.createElement('div');
-      text.textContent = `${msg.user} joined`;
-      text.style.textAlign = 'center';
-      text.style.fontStyle = 'italic';
-      text.style.color = 'white';
-
-      time.style.textAlign = 'center';
-      date.style.textAlign = 'center';
-
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-
-      // Отправка системного сообщения на сервер
-      fetch('/log-system-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user: msg.user,
-          text: `${msg.user} joined`,
-          type: 'system',
-          room,
-          timestamp: msg.timestamp
-        })
-      });
-    } else if (msg.type === 'leave') {
-      div.className = 'bubble system';
-
-      const text = document.createElement('div');
-      text.textContent = `${msg.user} left`;
-      text.style.textAlign = 'center';
-      text.style.fontStyle = 'italic';
-      text.style.color = 'white';
-
-      time.style.textAlign = 'center';
-      date.style.textAlign = 'center';
-
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-
-      // Отправка системного сообщения на сервер
-      fetch('/log-system-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user: msg.user,
-          text: `${msg.user} left`,
-          type: 'system',
-          room,
-          timestamp: msg.timestamp
-        })
-      });
-    } else if (msg.type === 'image') {
-      div.classList.add(msg.user === username ? 'self' : 'other');
-
-      const img = document.createElement('img');
-      img.src = msg.image;
-      img.alt = msg.filename || 'image';
-      img.style.maxWidth = '200px';
-      img.style.borderRadius = '10px';
-      div.appendChild(img);
-
-      if (msg.text) {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = 'white';
-        caption.style.marginTop = '6px';
-        caption.style.fontWeight = 'normal';
-        caption.style.textAlign = msg.user === username ? 'right' : 'left';
-        div.appendChild(caption);
+    socket.addEventListener('message', (event) => {
+      let msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch (err) {
+        console.error('Invalid message:', err);
+        return;
       }
 
-      time.style.textAlign = msg.user === username ? 'right' : 'left';
-      date.style.textAlign = msg.user === username ? 'right' : 'left';
+      if (msg.type === 'activeRoom') return;
 
-      div.appendChild(time);
-      div.appendChild(date);
-    } else {
-      div.classList.add(msg.user === username ? 'self' : 'other');
-
-      if (msg.user !== username) {
-        const name = document.createElement('div');
-        name.textContent = msg.user;
-        name.style.fontSize = '12px';
-        name.style.marginBottom = '4px';
-        name.style.opacity = '0.9';
-        name.style.color = '#ff8c00';
-        div.appendChild(name);
-        // Set alignment for time and date for messages from others
-        time.style.textAlign = 'left';
-        date.style.textAlign = 'left';
-      }
-      if (msg.user === username) {
-        time.style.textAlign = 'right';
-        date.style.textAlign = 'right';
+      if (msg.type === 'userlist') {
+        document.getElementById('users-online').textContent = DOMPurify.sanitize(msg.users.join(', '));
+        return;
       }
 
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-    }
+      const div = document.createElement('div');
+      div.classList.add('bubble');
+      const time = document.createElement('div');
+      time.classList.add('meta');
+      const date = document.createElement('div');
+      date.classList.add('date-meta');
+      date.style.color = 'white';
 
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
-  });
+      const timestamp = new Date(msg.timestamp);
+      time.textContent = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      date.textContent = timestamp.toLocaleDateString('en-US');
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const message = input.value.trim();
-    const file = imageInput.files[0];
+      if (msg.type === 'system' || msg.type === 'join' || msg.type === 'leave') {
+        div.classList.add('system');
+        const text = document.createElement('div');
+        text.textContent = DOMPurify.sanitize(msg.type === 'system' ? msg.text : `${msg.user} ${msg.type === 'join' ? 'joined' : 'left'}`);
+        text.style.textAlign = 'center';
+        text.style.fontStyle = 'italic';
+        text.style.color = 'white';
+        time.style.textAlign = 'center';
+        date.style.textAlign = 'center';
+        div.appendChild(text);
+        div.appendChild(time);
+        div.appendChild(date);
+      } else if (msg.type === 'image') {
+        div.classList.add(msg.user === username ? 'self' : 'other');
+        const img = document.createElement('img');
+        img.src = DOMPurify.sanitize(msg.image || '');
+        img.alt = 'image';
+        img.style.maxWidth = '200px';
+        img.style.borderRadius = '10px';
+        div.appendChild(img);
+        if (msg.text) {
+          const caption = document.createElement('div');
+          caption.textContent = DOMPurify.sanitize(msg.text);
+          caption.style.color = 'white';
+          caption.style.marginTop = '6px';
+          caption.style.textAlign = msg.user === username ? 'right' : 'left';
+          div.appendChild(caption);
+        }
+        time.style.textAlign = msg.user === username ? 'right' : 'left';
+        date.style.textAlign = msg.user === username ? 'right' : 'left';
+        div.appendChild(time);
+        div.appendChild(date);
+      } else if (msg.type === 'message') {
+        div.classList.add(msg.user === username ? 'self' : 'other');
+        if (msg.user !== username) {
+          const name = document.createElement('div');
+          name.textContent = DOMPurify.sanitize(msg.user);
+          name.style.fontSize = '12px';
+          name.style.marginBottom = '4px';
+          name.style.color = '#ff8c00';
+          div.appendChild(name);
+          time.style.textAlign = 'left';
+          date.style.textAlign = 'left';
+        } else {
+          time.style.textAlign = 'right';
+          date.style.textAlign = 'right';
+        }
+        const text = document.createElement('div');
+        text.textContent = DOMPurify.sanitize(msg.text || '');
+        div.appendChild(text);
+        div.appendChild(time);
+        div.appendChild(date);
+      }
 
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        socket.send(JSON.stringify({
-          type: 'image',
-          user: username,
-          room,
-          target,
-          image: reader.result,
-          filename: file.name,
-          text: message
-        }));
-      };
-      reader.readAsDataURL(file);
-      input.value = '';
-      imageInput.value = '';
-      return;
-    }
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    });
 
-    if (message) {
-      socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
-      input.value = '';
-    }
-  });
+    socket.addEventListener('close', () => {
+      alert('Connection lost');
+      console.log('WebSocket disconnected');
+    });
 
-  const modal = document.getElementById('imageModal');
-  const modalImg = document.getElementById('modalImage');
-  const closeBtn = document.querySelector('.close');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (message) {
+        socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
+        input.value = '';
+      }
+    });
 
-  messages.addEventListener('click', (e) => {
-    if (e.target.tagName === 'IMG') {
-      modal.style.display = "block";
-      modalImg.src = e.target.src;
-    }
-  });
+    document.getElementById('photoBtn').addEventListener('click', () => imageInput.click());
 
-  closeBtn.onclick = () => {
-    modal.style.display = "none";
-  };
+    imageInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
-  window.onclick = (e) => {
-    if (e.target === modal) {
-      modal.style.display = "none";
-    }
-  };
+      const formData = new FormData();
+      formData.append('image', file);
 
-  window.addEventListener('beforeunload', () => {
-    socket.send(JSON.stringify({ type: 'leave', user: username, id: userId, room }));
-  });
-</script>
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        if (!response.ok) throw new Error('Upload failed');
+        const { url } = await response.json();
+        socket.send(JSON.stringify({ type: 'image', image: url, text: input.value.trim(), user: username, room, target }));
+        input.value = '';
+        imageInput.value = '';
+      } catch (err) {
+        console.error('Image upload error:', err);
+        alert('Failed to upload image');
+      }
+    });
 
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    const closeBtn = document.querySelector('.close');
+
+    messages.addEventListener('click', (e) => {
+      if (e.target.tagName === 'IMG') {
+        modal.style.display = 'block';
+        modalImg.src = DOMPurify.sanitize(e.target.src);
+      }
+    });
+
+    closeBtn.addEventListener('click', () => modal.style.display = 'none');
+
+    window.addEventListener('click', (e) => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+
+    window.addEventListener('beforeunload', () => {
+      socket.send(JSON.stringify({ type: 'leave', user: username, id: userId, room }));
+    });
+  </script>
 </body>
 </html>
