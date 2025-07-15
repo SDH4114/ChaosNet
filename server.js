@@ -367,3 +367,6 @@ async function deleteOldMessages(room) {
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+
+// надо сделать обновление безопастности
