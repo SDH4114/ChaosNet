@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="us">
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet - Login</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
+
   <div class="login-container">
     <h2>Log In</h2>
     <form id="loginForm">
-      <input type="text" id="nick" placeholder="Nickname" required />
-      <input type="text" id="id" placeholder="ID (e.g., AA0000)" pattern="[A-Z]{2}\d{4}" title="ID must be in the format AA0000" required />
+      <input type="text" id="nick" placeholder="Nick" required />
+      <input type="text" id="id" placeholder="ID" pattern="[A-Z]{2}\d{4}" title="ID must be in the format AA0000" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Log In</button>
       <div class="error" id="error"></div>
@@ -19,72 +19,48 @@
     <div class="guest-link" style="text-align: center;">
       <a href="reg.html" class="link-underline">Register</a>
     </div>
-    <!-- Uncomment if guest login is needed -->
     <!-- <div class="guest-link" style="margin-top: 12px; text-align: center;">
       <a href="guest.html" class="link-underline">Continue as guest</a>
     </div> -->
   </div>
 
-  <script type="module">
-    import DOMPurify from 'https://unpkg.com/dompurify@3.0.6/dist/purify.min.js';
-
+  <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // Sanitize inputs
-      const nick = DOMPurify.sanitize(document.getElementById('nick').value.trim());
-      const id = DOMPurify.sanitize(document.getElementById('id').value.trim());
-      const password = document.getElementById('password').value.trim(); // Password not sanitized but validated
+      const nick = document.getElementById('nick').value.trim();
+      const id = document.getElementById('id').value.trim();
+      const password = document.getElementById('password').value.trim();
 
-      // Client-side validation
-      const idPattern = /^[A-Z]{2}\d{4}$/;
-      if (!idPattern.test(id)) {
-        document.getElementById('error').textContent = 'ID must be in the format AA0000 (two letters followed by four digits).';
-        return;
-      }
-      if (!nick || nick.length < 3 || nick.length > 20 || !/^[a-zA-Z0-9_]+$/.test(nick)) {
-        document.getElementById('error').textContent = 'Nickname must be 3–20 characters, using only letters, numbers, or underscores.';
-        return;
-      }
-      if (password.length < 8) {
-        document.getElementById('error').textContent = 'Password must be at least 8 characters.';
-        return;
-      }
+      const res = await fetch('/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, nick, password })
+      });
 
-      try {
-        const res = await fetch('/auth', {
+      if (res.ok) {
+        localStorage.setItem("username", nick);
+        localStorage.setItem("userID", id);
+
+        fetch('/check-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, nick, password }),
+          body: JSON.stringify({ id })
+        })
+        .then(r => r.json())
+        .then(data => {
+          localStorage.setItem("isAdmin", data.admin ? "true" : "false");
+          window.location.href = "/select.html";
+        })
+        .catch(() => {
+          localStorage.setItem("isAdmin", "false");
+          window.location.href = "/select.html";
         });
-
-        const message = await res.text();
-        if (res.ok) {
-          localStorage.setItem('username', nick);
-          localStorage.setItem('userId', id); // Fixed typo: userID -> userId for consistency
-
-          const adminRes = await fetch('/check-admin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id }),
-          });
-
-          if (adminRes.ok) {
-            const data = await adminRes.json();
-            localStorage.setItem('isAdmin', data.admin ? 'true' : 'false');
-          } else {
-            localStorage.setItem('isAdmin', 'false');
-          }
-
-          window.location.href = '/select.html';
-        } else {
-          document.getElementById('error').textContent = message || 'Incorrect credentials!';
-        }
-      } catch (err) {
-        console.error('Login error:', err);
-        document.getElementById('error').textContent = 'Server error: Unable to log in.';
+      } else {
+        document.getElementById('error').textContent = "Incorrect credentials!";
       }
     });
   </script>
+
 </body>
 </html>

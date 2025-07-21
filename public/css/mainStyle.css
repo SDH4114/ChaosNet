@@ -1,13 +1,11 @@
-/* Global box-sizing */
 * {
   box-sizing: border-box;
 }
 
-/* Body styling */
 body {
   background-color: #0e0e0e;
   color: white;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Segoe UI', sans-serif;
   height: 100vh;
   margin: 0;
   display: flex;
@@ -16,28 +14,22 @@ body {
   padding: 0 10px;
 }
 
-/* Login and register container */
-.login-container,
-.register-container {
+.login-container {
   background-color: #1b1b1b;
   padding: 40px 30px;
   border-radius: 20px;
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
   width: 90vw;
   max-width: 400px;
-  animation: fadeIn 0.5s ease-in;
 }
 
-/* Form heading */
-.login-container h2,
-.register-container h2 {
+.login-container h2 {
   margin-bottom: 20px;
   font-size: 24px;
   text-align: center;
   color: #ff8c00;
 }
 
-/* Form inputs */
 input {
   width: 100%;
   padding: 14px 16px;
@@ -47,71 +39,35 @@ input {
   border-radius: 12px;
   color: white;
   font-size: 16px;
-  outline: none;
-  transition: border 0.3s ease;
 }
 
 input:focus {
-  border: 2px solid #ff8c00;
+  outline: 2px solid #ff8c00;
 }
 
-/* Buttons (form and top buttons) */
-button,
-.logout-btn,
-.admin-btn {
-  padding: 8px 14px;
-  background-color: #2b2b2b;
-  color: #ff8c00;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.3s ease;
-  box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);
-}
-
-button[type="submit"] {
+button {
   width: 100%;
   padding: 14px;
   background-color: #ff8c00;
+  border: none;
+  border-radius: 50px;
   color: white;
   font-weight: bold;
-  border-radius: 50px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s;
 }
 
-button:hover,
-.logout-btn:hover,
-.admin-btn:hover {
-  background-color: #3a3a3a;
-}
-
-button[type="submit"]:hover {
+button:hover {
   background-color: #ffa733;
 }
 
-/* Logout and admin buttons positioning */
-.logout-btn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-}
-
-.admin-btn {
-  position: fixed;
-  top: 10px;
-  right: 110px;
-}
-
-/* Error message */
 .error {
-  color: #ff4444;
+  color: #ff4d4d;
   margin-top: 10px;
   text-align: center;
-  font-size: 14px;
-  min-height: 20px;
 }
 
-/* Guest link */
 .guest-link {
   text-align: center;
   margin-top: 14px;
@@ -119,6 +75,10 @@ button[type="submit"]:hover {
 
 .guest-link a {
   font-size: 14px;
+}
+
+/* Единый стиль подчёркивания */
+.link-underline {
   color: #ff8c00;
   text-decoration: none;
   position: relative;
@@ -126,7 +86,7 @@ button[type="submit"]:hover {
 }
 
 .link-underline::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 50%;
   bottom: -2px;
@@ -142,7 +102,7 @@ button[type="submit"]:hover {
   width: 100%;
 }
 
-/* Room list */
+/* Список комнат */
 .list {
   margin-top: 20px;
   background: #2b2b2b;
@@ -167,23 +127,24 @@ button[type="submit"]:hover {
   text-decoration: none;
   font-size: 15px;
   cursor: pointer;
-  transition: color 0.2s ease;
 }
 
 .list-item a:hover {
   color: #ff8c00;
 }
 
-/* Animation for form appearance */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+.bubble.system {
+  background: none;
+  text-align: center;
+  font-style: italic;
+  color: white;
+  box-shadow: none;
+  margin: 12px auto;
 }
 
-/* Media query for screens up to 480px */
+/* Адаптация */
 @media (max-width: 480px) {
-  .login-container,
-  .register-container {
+  .login-container {
     width: 100%;
     padding: 30px 20px;
   }
@@ -193,36 +154,22 @@ button[type="submit"]:hover {
     padding: 12px 14px;
   }
 
-  button,
-  button[type="submit"] {
+  button {
     font-size: 15px;
     padding: 12px;
   }
 
-  .logout-btn,
-  .admin-btn {
-    font-size: 13px;
-    padding: 6px 12px;
-  }
-
-  .login-container h2,
-  .register-container h2 {
+  .login-container h2 {
     font-size: 20px;
   }
 
   .guest-link a {
     font-size: 13px;
   }
-
-  .error {
-    font-size: 12px;
-  }
 }
 
-/* Media query for screens up to 360px */
 @media (max-width: 360px) {
-  .login-container,
-  .register-container {
+  .login-container {
     padding: 20px 15px;
   }
 
@@ -231,20 +178,28 @@ button[type="submit"]:hover {
     padding: 10px 12px;
   }
 
-  button,
-  button[type="submit"] {
+  button {
     font-size: 14px;
     padding: 10px;
   }
-
-  .logout-btn,
-  .admin-btn {
-    font-size: 12px;
-    padding: 5px 10px;
-  }
+}
+/* Стили для формы регистрации */
+.register-container {
+  background-color: #1b1b1b;
+  padding: 40px 30px;
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
+  width: 90vw;
+  max-width: 400px;
 }
 
-/* Ensure consistency for larger screens */
+.register-container h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  text-align: center;
+  color: #ff8c00;
+}
+
 @media (min-width: 768px) {
   .login-container,
   .register-container {

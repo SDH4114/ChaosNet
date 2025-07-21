@@ -4,64 +4,70 @@
   <meta charset="UTF-8" />
   <title>ChaosNet - Select Room</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <button onclick="logOut()" 
-    class="logout-btn">
-    Log out
-  </button>
-  <button id="adminBtn" onclick="goToAdminPanel()" 
-    class="admin-btn" style="display: none;">
-    Admin Panel
-  </button>
+<button onclick="logOut()" 
+  style="position: fixed; top: 10px; right: 10px; 
+         background-color: #2b2b2b; 
+         color: #ff8c00; 
+         border: none; 
+         padding: 8px 14px; 
+         border-radius: 8px; 
+         cursor: pointer; 
+         font-size: 14px; 
+         width: auto; 
+         box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+  Log out
+</button>
+<button id="adminBtn" onclick="goToAdminPanel()" 
+  style="display: none; position: fixed; top: 10px; right: 110px; 
+         background-color: #2b2b2b; 
+         color: #ff8c00; 
+         border: none; 
+         padding: 8px 14px; 
+         border-radius: 8px; 
+         cursor: pointer; 
+         font-size: 14px; 
+         width: auto; 
+         box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+  Admin Panel
+</button>
   <div class="login-container">
     <h2>Select Room</h2>
     <form id="roomForm">
       <input type="text" id="roomName" placeholder="Room ID" required />
       <button type="submit">Join</button>
     </form>
+
     <div class="list" id="recentRooms">
       <h3>Recent Rooms</h3>
       <div id="roomsList"></div>
     </div>
   </div>
 
-  <script type="module">
-    import DOMPurify from 'https://unpkg.com/dompurify@3.0.6/dist/purify.min.js';
-
+  <script>
     function logOut() {
       localStorage.removeItem('username');
-      localStorage.removeItem('userId'); // Fixed typo: userID -> userId
-      localStorage.removeItem('isAdmin');
-      window.location.href = 'login.html';
+      localStorage.removeItem('userid');
+      window.location.href = "login.html";
     }
-
-    function goToAdminPanel() {
-      window.location.href = 'adminPanel.html';
-    }
-
     document.getElementById('roomForm').addEventListener('submit', function (e) {
       e.preventDefault();
       const input = document.getElementById('roomName');
-      const room = DOMPurify.sanitize(input.value.trim());
-
-      // Validate room name
-      if (!room || !/^[a-zA-Z0-9_]+$/.test(room)) {
-        alert('Room ID must contain only letters, numbers, or underscores.');
-        return;
-      }
+      const room = input.value.trim();
 
       if (room.toLowerCase() === '/clear') {
         localStorage.removeItem('rooms');
         document.getElementById('roomsList').innerHTML = '';
         input.value = '';
-        alert('Recent rooms cleared');
+        alert("Recent rooms cleared");
         return;
       }
 
-      saveToStorage('rooms', room);
-      window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
+      if (room) {
+        saveToStorage('rooms', room);
+        window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
+      }
     });
 
     function saveToStorage(key, value) {
@@ -78,35 +84,33 @@
       const items = JSON.parse(localStorage.getItem(key)) || [];
       container.innerHTML = items.map(item => `
         <div class="list-item">
-          <a href="chat.html?room=${encodeURIComponent(DOMPurify.sanitize(item))}" class="link-underline">${DOMPurify.sanitize(item)}</a>
+          <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
         </div>
       `).join('');
     }
 
-    // Check admin status
-    const currentUserId = localStorage.getItem('userId');
-    if (currentUserId) {
-      try {
-        const res = await fetch('/check-admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: currentUserId }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.admin) {
-            document.getElementById('adminBtn').style.display = 'inline-block';
-          }
-        } else {
-          console.error('Failed to check admin status:', res.status);
-        }
-      } catch (err) {
-        console.error('Error checking admin status:', err);
-      }
+    function goToAdminPanel() {
+      window.location.href = "adminPanel.html";
     }
 
-    // Render recent rooms
+    const currentUserId = localStorage.getItem('userID');
+    if (currentUserId) {
+      fetch('/check-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentUserId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (Boolean(data.admin)) {
+          document.getElementById('adminBtn').style.display = 'inline-block';
+        }
+      })
+      .catch(err => {
+        console.error("Failed to check admin:", err);
+      });
+    }
+
     renderList('roomsList', 'rooms');
   </script>
 </body>
