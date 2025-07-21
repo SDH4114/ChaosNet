@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
   <title>ChaosNet - Select Room</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
 </head>
@@ -46,6 +47,10 @@
   </div>
 
   <script>
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
+    }
+
     function logOut() {
       localStorage.removeItem('username');
       localStorage.removeItem('userid');
@@ -82,11 +87,16 @@
     function renderList(id, key) {
       const container = document.getElementById(id);
       const items = JSON.parse(localStorage.getItem(key)) || [];
-      container.innerHTML = items.map(item => `
-        <div class="list-item">
-          <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
-        </div>
-      `).join('');
+      container.innerHTML = items.map(item => {
+        const safeItem = item.replace(/[&<>"']/g, c => (
+          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+        return `
+          <div class="list-item">
+            <a href="chat.html?room=${encodeURIComponent(safeItem)}" class="link-underline">${safeItem}</a>
+          </div>
+        `;
+      }).join('');
     }
 
     function goToAdminPanel() {

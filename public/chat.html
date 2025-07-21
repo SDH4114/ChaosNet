@@ -5,6 +5,7 @@
   <title>ChaosNet - Chat</title>
   <link rel="stylesheet" href="css/chatStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src wss://* http://* https://*;">
 </head>
 <body>
 
@@ -36,7 +37,16 @@
 </div>
 
 <script>
+  function sanitize(input) {
+    const div = document.createElement('div');
+    div.textContent = input;
+    return div.innerHTML;
+  }
   const socket = new WebSocket("wss://" + location.host);
+  // Enforce HTTPS in production
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+    location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
+  }
   const form = document.getElementById('form');
   const input = document.getElementById('input');
   const imageInput = document.getElementById('imageInput');
@@ -91,7 +101,7 @@
     if (msg.type === 'system') {
       div.className = 'bubble system';
       const text = document.createElement('div');
-      text.textContent = msg.text;
+      text.innerHTML = sanitize(msg.text);
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
@@ -106,7 +116,7 @@
       div.className = 'bubble system';
 
       const text = document.createElement('div');
-      text.textContent = `${msg.user} joined`;
+      text.innerHTML = sanitize(`${msg.user} joined`);
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
@@ -121,7 +131,7 @@
       div.className = 'bubble system';
 
       const text = document.createElement('div');
-      text.textContent = `${msg.user} left`;
+      text.innerHTML = sanitize(`${msg.user} left`);
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
@@ -144,7 +154,7 @@
 
       if (msg.text) {
         const caption = document.createElement('div');
-        caption.textContent = msg.text;
+        caption.innerHTML = sanitize(msg.text);
         caption.style.color = 'white';
         caption.style.marginTop = '6px';
         caption.style.fontWeight = 'normal';
@@ -178,7 +188,7 @@
       }
 
       const text = document.createElement('div');
-      text.textContent = msg.text;
+      text.innerHTML = sanitize(msg.text);
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
@@ -190,7 +200,7 @@
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const message = input.value.trim();
+    const message = sanitize(input.value.trim());
     const file = imageInput.files[0];
 
     if (file) {
@@ -203,7 +213,7 @@
           target,
           image: reader.result,
           filename: file.name,
-          text: message
+          text: sanitize(message)
         }));
       };
       reader.readAsDataURL(file);

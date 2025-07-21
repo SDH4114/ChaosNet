@@ -1,14 +1,21 @@
 const WebSocket = require('ws');
 const http = require('http');
 const express = require('express');
+const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
+const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
+const crypto = require("crypto");
 
 const PORT = process.env.PORT || 10000;
 const app = express();
+
+app.use(cors({ origin: 'https://yourdomain.com' })); // замените на реальный домен
+
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -19,12 +26,32 @@ const BUCKET = 'chat-uploads';
 
 app.use(express.static('public'));
 app.use(express.json());
+app.use(helmet());
+app.disable('x-powered-by');
+
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 минута
+  max: 10, // максимум 10 запросов
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/auth", limiter);
+app.use("/register", limiter);
+app.use("/admin-action", limiter);
 
 const upload = multer({ dest: 'temp_uploads/' });
 
 
 app.post('/register', async (req, res) => {
   const { id, nick, password } = req.body;
+
+  if (typeof nick !== 'string' || nick.length < 3 || nick.length > 30 || /[^a-zA-Z0-9_]/.test(nick)) {
+    return res.status(400).send("Invalid nickname");
+  }
+  if (typeof password !== 'string' || password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    return res.status(400).send("Password must be at least 8 chars with numbers and uppercase letters");
+  }
 
   if (!id || !nick || !password) {
     return res.status(400).send("All fields required");
@@ -59,6 +86,14 @@ app.post('/register', async (req, res) => {
 
 app.post('/auth', async (req, res) => {
   const { id, nick, password } = req.body;
+
+  if (typeof nick !== 'string' || nick.length < 3 || nick.length > 30 || /[^a-zA-Z0-9_]/.test(nick)) {
+    return res.status(400).send("Invalid nickname");
+  }
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).send("Password too weak");
+  }
+
   const { data: users, error } = await supabase
     .from('users')
     .select('*')
@@ -148,6 +183,9 @@ app.post('/admin-action', async (req, res) => {
   const killMatch = command.match(/^\/kill (\w+)$/i);
   if (killMatch) {
     const nick = killMatch[1];
+    if (nick.length < 3 || nick.length > 30 || /[^a-zA-Z0-9_]/.test(nick)) {
+      return res.status(400).send("Invalid nickname");
+    }
     const { error } = await supabase
       .from('users')
       .delete()
@@ -159,6 +197,9 @@ app.post('/admin-action', async (req, res) => {
 
   if (giveMatch) {
     const nick = giveMatch[1];
+    if (nick.length < 3 || nick.length > 30 || /[^a-zA-Z0-9_]/.test(nick)) {
+      return res.status(400).send("Invalid nickname");
+    }
     const { error, data } = await supabase
       .from('users')
       .update({ AdminStatus: true })
@@ -170,6 +211,9 @@ app.post('/admin-action', async (req, res) => {
 
   if (takeMatch) {
     const nick = takeMatch[1];
+    if (nick.length < 3 || nick.length > 30 || /[^a-zA-Z0-9_]/.test(nick)) {
+      return res.status(400).send("Invalid nickname");
+    }
     const { error, data } = await supabase
       .from('users')
       .update({ AdminStatus: false })
@@ -242,6 +286,14 @@ wss.on('connection', (ws) => {
           timestamp: m.timestamp
         }));
       });
+      // Save system join message
+      await supabase.from('messages').insert({
+        room: userData.room,
+        user: 'system',
+        text: `${userData.nick} joined`,
+        image_url: '',
+        timestamp: now
+      });
       // Broadcast join message
       broadcast(userData.room, {
         type: 'join',
@@ -280,6 +332,14 @@ wss.on('connection', (ws) => {
 
   ws.on('close', async () => {
     const now = new Date().toISOString();
+    // Save system leave message
+    await supabase.from('messages').insert({
+      room: userData.room,
+      user: 'system',
+      text: `${userData.nick} left`,
+      image_url: '',
+      timestamp: now
+    });
     broadcast(userData.room, {
       type: 'leave',
       user: userData.nick,
@@ -308,7 +368,11 @@ function broadcast(room, data) {
   const json = JSON.stringify(data);
   for (const [client, u] of clients.entries()) {
     if (u.room === room && client.readyState === WebSocket.OPEN) {
-      client.send(json);
+      try {
+        client.send(json);
+      } catch (err) {
+        console.error("WebSocket send error:", err);
+      }
     }
   }
 }
@@ -326,7 +390,7 @@ function sendEmail(content) {
     from: process.env.EMAIL_USER,
     to: process.env.EMAIL_USER,
     subject: 'ChaosNet: chat log on empty room',
-    text: content
+    text: encryptMessage(content)
   };
 
   transporter.sendMail(mailOptions, (err, info) => {
@@ -350,6 +414,20 @@ async function deleteOldMessages(room) {
   }
 }
 
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data:;");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
+
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+function encryptMessage(message) {
+  const cipher = crypto.createCipher('aes-256-cbc', process.env.ENCRYPT_KEY || 'default_key_123456789012345678901234');
+  let encrypted = cipher.update(message, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+}

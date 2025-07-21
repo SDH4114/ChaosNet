@@ -5,6 +5,7 @@
   <title>ChaosNet - Register</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 </head>
 <body>
   <div class="register-container">
@@ -21,16 +22,32 @@
   </div>
 
   <script>
+    function sanitize(input) {
+      return input.replace(/[<>&"']/g, (char) => ({
+        '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
+      }[char]));
+    }
+
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nick = document.getElementById('nick').value;
-      const id = document.getElementById('id').value;
+
+      let nick = document.getElementById('nick').value.trim();
+      let id = document.getElementById('id').value.trim();
+      let password = document.getElementById('password').value.trim();
+
       const idPattern = /^[A-Z]{2}\d{4}$/;
       if (!idPattern.test(id)) {
         alert("User ID must be in the format AA0000.");
         return;
       }
-      const password = document.getElementById('password').value;
+
+      if (nick.length < 3 || password.length < 6) {
+        alert("Nick must be at least 3 characters and password at least 6.");
+        return;
+      }
+
+      nick = sanitize(nick);
+      password = sanitize(password);
 
       try {
         const res = await fetch('/register', {
@@ -43,7 +60,8 @@
           alert("User registered successfully!");
           window.location.href = 'login.html';
         } else {
-          alert("Registration failed.");
+          const text = await res.text();
+          alert("Registration failed: " + text);
         }
       } catch (err) {
         alert("Error: " + err.message);
