@@ -10,6 +10,7 @@ const { createClient } = require('@supabase/supabase-js');
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
 const crypto = require("crypto");
+require('dotenv').config();
 
 const PORT = process.env.PORT || 10000;
 const app = express();
