@@ -5,7 +5,7 @@
   <title>ChaosNet - Chat</title>
   <link rel="stylesheet" href="css/chatStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src wss://* http://* https://*;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' wss: https:; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';">
 </head>
 <body>
 
@@ -42,7 +42,7 @@
     div.textContent = input;
     return div.innerHTML;
   }
-  const socket = new WebSocket("wss://" + location.host);
+  const socket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
   // Enforce HTTPS in production
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
@@ -65,7 +65,6 @@
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
     // Notify admin panel about room usage
     socket.send(JSON.stringify({ type: 'activeRoom', room }));
-    socket.send(JSON.stringify({ type: 'requestUserList', room }));
   });
 
   document.getElementById('photoBtn').addEventListener('click', () => {

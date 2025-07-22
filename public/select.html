@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss:;">
   <title>ChaosNet - Select Room</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
 </head>
@@ -100,10 +100,10 @@
     }
 
     function goToAdminPanel() {
-      window.location.href = "adminPanel.html";
+      window.location.href = "./adminPanel.html";
     }
 
-    const currentUserId = localStorage.getItem('userID');
+    const currentUserId = localStorage.getItem('userid');
     if (currentUserId) {
       fetch('/check-admin', {
         method: 'POST',

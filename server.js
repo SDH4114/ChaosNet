@@ -15,7 +15,7 @@ require('dotenv').config();
 const PORT = process.env.PORT || 10000;
 const app = express();
 
-app.use(cors({ origin: 'https://chaosnet.onrender.com/login.html' })); // замените на реальный домен
+app.use(cors({ origin: 'https://chaosnet.onrender.com' })); // замените на реальный домен
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });

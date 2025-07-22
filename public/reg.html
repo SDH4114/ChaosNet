@@ -41,8 +41,14 @@
         return;
       }
 
-      if (nick.length < 3 || password.length < 6) {
-        alert("Nick must be at least 3 characters and password at least 6.");
+      const nickPattern = /^[a-zA-Z0-9_]{3,30}$/;
+      if (!nickPattern.test(nick)) {
+        alert("Nick must be 3-30 characters and only letters, numbers, or underscore.");
+        return;
+      }
+
+      if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+        alert("Password must be at least 8 characters, with at least one uppercase letter and one number.");
         return;
       }
 
@@ -58,6 +64,8 @@
 
         if (res.ok) {
           alert("User registered successfully!");
+          localStorage.setItem("username", nick);
+          localStorage.setItem("userID", id);
           window.location.href = 'login.html';
         } else {
           const text = await res.text();
