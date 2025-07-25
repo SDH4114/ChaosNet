@@ -1,3 +1,4 @@
+/* Глобально для всех элементов — чтобы padding и border входили в размеры */
 * {
   box-sizing: border-box;
 }

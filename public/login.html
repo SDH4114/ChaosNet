@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>ChaosNet - Login</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss: http: https:;">
 </head>
 <body>
 
@@ -26,18 +25,12 @@
   </div>
 
   <script>
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
-    }
-    console.log("Login form script loaded");
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const sanitize = (str) => str.replace(/[<>"'`]/g, '');
-
-      const nick = sanitize(document.getElementById('nick').value.trim());
-      const id = sanitize(document.getElementById('id').value.trim());
-      const password = sanitize(document.getElementById('password').value.trim());
+      const nick = document.getElementById('nick').value.trim();
+      const id = document.getElementById('id').value.trim();
+      const password = document.getElementById('password').value.trim();
 
       const res = await fetch('/auth', {
         method: 'POST',

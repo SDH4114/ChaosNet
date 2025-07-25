@@ -5,7 +5,6 @@
   <title>ChaosNet - Chat</title>
   <link rel="stylesheet" href="css/chatStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' wss: https:; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline';">
 </head>
 <body>
 
@@ -43,16 +42,7 @@
 </div>
 
 <script>
-  function sanitize(input) {
-    const div = document.createElement('div');
-    div.textContent = input;
-    return div.innerHTML;
-  }
-  const socket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-  // Enforce HTTPS in production
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
-  }
+  const socket = new WebSocket("wss://" + location.host);
   const form = document.getElementById('form');
   const input = document.getElementById('input');
   const imageInput = document.getElementById('imageInput');
@@ -113,6 +103,7 @@
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
     // Notify admin panel about room usage
     socket.send(JSON.stringify({ type: 'activeRoom', room }));
+    socket.send(JSON.stringify({ type: 'requestUserList', room }));
   });
 
   document.getElementById('photoBtn').addEventListener('click', () => {
@@ -148,7 +139,7 @@
     if (msg.type === 'system') {
       div.className = 'bubble system';
       const text = document.createElement('div');
-      text.innerHTML = sanitize(msg.text);
+      text.textContent = msg.text;
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
@@ -163,7 +154,7 @@
       div.className = 'bubble system';
 
       const text = document.createElement('div');
-      text.innerHTML = sanitize(`${msg.user} joined`);
+      text.textContent = `${msg.user} joined`;
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
@@ -174,11 +165,24 @@
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
+
+      // Отправка системного сообщения на сервер
+      fetch('/log-system-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: msg.user,
+          text: `${msg.user} joined`,
+          type: 'system',
+          room,
+          timestamp: msg.timestamp
+        })
+      });
     } else if (msg.type === 'leave') {
       div.className = 'bubble system';
 
       const text = document.createElement('div');
-      text.innerHTML = sanitize(`${msg.user} left`);
+      text.textContent = `${msg.user} left`;
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
@@ -189,6 +193,19 @@
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
+
+      // Отправка системного сообщения на сервер
+      fetch('/log-system-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: msg.user,
+          text: `${msg.user} left`,
+          type: 'system',
+          room,
+          timestamp: msg.timestamp
+        })
+      });
     } else if (msg.type === 'image') {
       div.classList.add(msg.user === username ? 'self' : 'other');
 
@@ -201,7 +218,7 @@
 
       if (msg.text) {
         const caption = document.createElement('div');
-        caption.innerHTML = sanitize(msg.text);
+        caption.textContent = msg.text;
         caption.style.color = 'white';
         caption.style.marginTop = '6px';
         caption.style.fontWeight = 'normal';
@@ -235,7 +252,7 @@
       }
 
       const text = document.createElement('div');
-      text.innerHTML = sanitize(msg.text);
+      text.textContent = msg.text;
       div.appendChild(text);
       div.appendChild(time);
       div.appendChild(date);
@@ -247,7 +264,7 @@
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const message = sanitize(input.value.trim());
+    const message = input.value.trim();
     const file = imageInput.files[0];
 
     if (file) {
@@ -260,7 +277,7 @@
           target,
           image: reader.result,
           filename: file.name,
-          text: sanitize(message)
+          text: message
         }));
       };
       reader.readAsDataURL(file);
@@ -307,3 +324,5 @@
 </body>
 </html>
 
+
+// да да

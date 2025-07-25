@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' wss:;">
   <title>ChaosNet - Select Room</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
 </head>
@@ -47,10 +46,6 @@
   </div>
 
   <script>
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
-    }
-
     function logOut() {
       localStorage.removeItem('username');
       localStorage.removeItem('userid');
@@ -87,23 +82,18 @@
     function renderList(id, key) {
       const container = document.getElementById(id);
       const items = JSON.parse(localStorage.getItem(key)) || [];
-      container.innerHTML = items.map(item => {
-        const safeItem = item.replace(/[&<>"']/g, c => (
-          { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-        ));
-        return `
-          <div class="list-item">
-            <a href="chat.html?room=${encodeURIComponent(safeItem)}" class="link-underline">${safeItem}</a>
-          </div>
-        `;
-      }).join('');
+      container.innerHTML = items.map(item => `
+        <div class="list-item">
+          <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
+        </div>
+      `).join('');
     }
 
     function goToAdminPanel() {
-      window.location.href = "./adminPanel.html";
+      window.location.href = "adminPanel.html";
     }
 
-    const currentUserId = localStorage.getItem('userid');
+    const currentUserId = localStorage.getItem('userID');
     if (currentUserId) {
       fetch('/check-admin', {
         method: 'POST',

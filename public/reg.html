@@ -5,7 +5,6 @@
   <title>ChaosNet - Register</title>
   <link rel="stylesheet" href="css/mainStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 </head>
 <body>
   <div class="register-container">
@@ -22,38 +21,16 @@
   </div>
 
   <script>
-    function sanitize(input) {
-      return input.replace(/[<>&"']/g, (char) => ({
-        '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;'
-      }[char]));
-    }
-
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-
-      let nick = document.getElementById('nick').value.trim();
-      let id = document.getElementById('id').value.trim();
-      let password = document.getElementById('password').value.trim();
-
+      const nick = document.getElementById('nick').value;
+      const id = document.getElementById('id').value;
       const idPattern = /^[A-Z]{2}\d{4}$/;
       if (!idPattern.test(id)) {
         alert("User ID must be in the format AA0000.");
         return;
       }
-
-      const nickPattern = /^[a-zA-Z0-9_]{3,30}$/;
-      if (!nickPattern.test(nick)) {
-        alert("Nick must be 3-30 characters and only letters, numbers, or underscore.");
-        return;
-      }
-
-      if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-        alert("Password must be at least 8 characters, with at least one uppercase letter and one number.");
-        return;
-      }
-
-      nick = sanitize(nick);
-      password = sanitize(password);
+      const password = document.getElementById('password').value;
 
       try {
         const res = await fetch('/register', {
@@ -64,12 +41,9 @@
 
         if (res.ok) {
           alert("User registered successfully!");
-          localStorage.setItem("username", nick);
-          localStorage.setItem("userID", id);
           window.location.href = 'login.html';
         } else {
-          const text = await res.text();
-          alert("Registration failed: " + text);
+          alert("Registration failed.");
         }
       } catch (err) {
         alert("Error: " + err.message);
