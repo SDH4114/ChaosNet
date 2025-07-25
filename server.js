@@ -182,6 +182,7 @@ app.post('/admin-action', async (req, res) => {
   return res.status(400).send("Invalid command");
 });
 
+
 app.post('/upload', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).send('No file');
 
@@ -200,6 +201,32 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(fileName);
   res.status(200).json({ url: data.publicUrl });
+});
+
+// Download image from Supabase Storage
+app.get('/download', async (req, res) => {
+  const { filename } = req.query;
+  if (!filename) return res.status(400).send('No filename provided');
+
+  try {
+    const { data, error } = await supabase
+      .storage
+      .from(BUCKET)
+      .download(filename);
+
+    if (error || !data) {
+      console.error("Download error:", error?.message);
+      return res.status(404).send('File not found');
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+
+    data.pipe(res);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    res.status(500).send('Internal server error');
+  }
 });
 
 const clients = new Map();
