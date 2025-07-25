@@ -331,17 +331,15 @@
   const modalImg = document.getElementById('modalImage');
   const closeBtn = document.querySelector('.close');
   const downloadBtn = document.createElement('button');
-  downloadBtn.textContent = 'Скачать';
+  downloadBtn.innerHTML = '<img src="/img/download.png" alt="Скачать" style="width:20px; height:20px;" />';
+  downloadBtn.style.background = 'transparent';
+  downloadBtn.style.border = 'none';
+  downloadBtn.style.padding = '0';
   downloadBtn.style.position = 'absolute';
   downloadBtn.style.top = '10px';
   downloadBtn.style.right = '60px';
-  downloadBtn.style.background = '#2b2b2b';
-  downloadBtn.style.color = '#ff8c00';
-  downloadBtn.style.border = 'none';
-  downloadBtn.style.padding = '6px 12px';
-  downloadBtn.style.borderRadius = '6px';
-  downloadBtn.style.cursor = 'pointer';
   downloadBtn.style.zIndex = '1001';
+  downloadBtn.style.cursor = 'pointer';
   modal.appendChild(downloadBtn);
 
   downloadBtn.onclick = () => {
