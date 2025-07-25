@@ -331,15 +331,17 @@
   const modalImg = document.getElementById('modalImage');
   const closeBtn = document.querySelector('.close');
   const downloadBtn = document.createElement('button');
-  downloadBtn.innerHTML = '<img src="/img/download.png" alt="Скачать" style="width:20px; height:20px;" />';
+  // Only icon, no text
+  downloadBtn.innerHTML = '<img src="/img/download.png" style="width:20px; height:20px;" />';
+  // Button styles: under close "X", only icon, no text
+  downloadBtn.style.position = 'absolute';
+  downloadBtn.style.top = '40px'; // ниже кнопки закрытия
+  downloadBtn.style.right = '10px';
   downloadBtn.style.background = 'transparent';
   downloadBtn.style.border = 'none';
   downloadBtn.style.padding = '0';
-  downloadBtn.style.position = 'absolute';
-  downloadBtn.style.top = '10px';
-  downloadBtn.style.right = '60px';
-  downloadBtn.style.zIndex = '1001';
   downloadBtn.style.cursor = 'pointer';
+  downloadBtn.style.zIndex = '1001';
   modal.appendChild(downloadBtn);
 
   downloadBtn.onclick = () => {
