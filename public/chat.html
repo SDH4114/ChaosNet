@@ -26,7 +26,7 @@
     <button type="button" id="photoBtn">Photo</button>
     <button type="submit">↑</button>
   </div>
-  <input type="file" id="imageInput" accept="image/*" />
+  <input type="file" id="imageInput" accept="image/*" multiple />
 </form>
 <!-- Предпросмотр загруженного изображения -->
 <div id="preview-container" style="display: none; padding: 10px;">
@@ -57,7 +57,7 @@
       const reader = new FileReader();
       reader.onload = () => {
         previewImage.src = reader.result;
-        previewFilename.textContent = file.name;
+        previewFilename.textContent = `${imageInput.files.length} file(s) selected`;
         previewContainer.style.display = 'block';
       };
       reader.readAsDataURL(file);
@@ -265,22 +265,25 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
-    const file = imageInput.files[0];
+    const files = imageInput.files;
 
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        socket.send(JSON.stringify({
-          type: 'image',
-          user: username,
-          room,
-          target,
-          image: reader.result,
-          filename: file.name,
-          text: message
-        }));
-      };
-      reader.readAsDataURL(file);
+    if (files.length > 0) {
+      Array.from(files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          socket.send(JSON.stringify({
+            type: 'image',
+            user: username,
+            room,
+            target,
+            image: reader.result,
+            filename: file.name,
+            text: index === 0 ? message : ''
+          }));
+        };
+        reader.readAsDataURL(file);
+      });
+
       input.value = '';
       imageInput.value = '';
       previewContainer.style.display = 'none';
@@ -316,6 +319,29 @@
     }
   };
 
+  // Обработка перетаскивания изображения в окно
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+    if (files.length > 0) {
+      const dataTransfer = new DataTransfer();
+      files.forEach(file => dataTransfer.items.add(file));
+      imageInput.files = dataTransfer.files;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewImage.src = reader.result;
+        previewFilename.textContent = `${files.length} file(s) dropped`;
+        previewContainer.style.display = 'block';
+      };
+      reader.readAsDataURL(files[0]);
+    }
+  });
+
   window.addEventListener('beforeunload', () => {
     socket.send(JSON.stringify({ type: 'leave', user: username, id: userId, room }));
   });
@@ -325,4 +351,3 @@
 </html>
 
 
-// да да
