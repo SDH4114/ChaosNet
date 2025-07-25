@@ -272,15 +272,27 @@ wss.on('connection', (ws) => {
     }
 
     if (data.type === 'image') {
-      const message = {
-        room,
-        user: userData.nick,
-        text: data.text || '',
-        image_url: data.image,
-        timestamp: now
-      };
-      await supabase.from('messages').insert(message);
-      broadcast(room, { type: 'image', text: data.text, image: data.image, user: userData.nick, timestamp: now });
+      const images = Array.isArray(data.images)
+        ? data.images
+        : [{ image: data.image, filename: data.filename }];
+      for (const img of images) {
+        const message = {
+          room,
+          user: userData.nick,
+          text: data.text || '',
+          image_url: img.image,
+          timestamp: now
+        };
+        await supabase.from('messages').insert(message);
+        broadcast(room, {
+          type: 'image',
+          text: data.text,
+          image: img.image,
+          filename: img.filename,
+          user: userData.nick,
+          timestamp: now
+        });
+      }
       activeMessages.set(room, true);
     }
   });

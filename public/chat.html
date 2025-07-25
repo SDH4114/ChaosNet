@@ -30,8 +30,8 @@
 </form>
 <!-- Предпросмотр загруженного изображения -->
 <div id="preview-container" style="display: none; padding: 10px;">
-  <div style="margin-bottom: 8px; font-size: 14px; color: #ccc;">Selected image:</div>
-  <img id="preview-image" style="max-height: 100px; border-radius: 6px; margin-bottom: 6px;" />
+  <div style="margin-bottom: 8px; font-size: 14px; color: #ccc;">Selected images:</div>
+  <div id="preview-images" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
   <div id="preview-filename" style="color: #ff8c00; font-size: 13px;"></div>
 </div>
 
@@ -49,21 +49,30 @@
   const messages = document.getElementById('messages');
   const chatTitle = document.getElementById('chat-title');
   const previewContainer = document.getElementById('preview-container');
-  const previewImage = document.getElementById('preview-image');
   const previewFilename = document.getElementById('preview-filename');
   imageInput.addEventListener('change', () => {
-    const file = imageInput.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        previewImage.src = reader.result;
-        previewFilename.textContent = `${imageInput.files.length} file(s) selected`;
-        previewContainer.style.display = 'block';
-      };
-      reader.readAsDataURL(file);
+    const files = imageInput.files;
+    const previewImages = document.getElementById('preview-images');
+    previewImages.innerHTML = '';
+
+    if (files.length > 0) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = document.createElement('img');
+          img.src = reader.result;
+          img.style.maxHeight = '60px';
+          img.style.borderRadius = '6px';
+          img.style.border = '1px solid #444';
+          previewImages.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      previewFilename.textContent = `${files.length} file(s) selected`;
+      previewContainer.style.display = 'block';
     } else {
       previewContainer.style.display = 'none';
-      previewImage.src = '';
       previewFilename.textContent = '';
     }
   });
@@ -77,7 +86,15 @@
         if (file) {
           const reader = new FileReader();
           reader.onload = () => {
-            previewImage.src = reader.result;
+            // Update preview images for clipboard as well
+            const previewImages = document.getElementById('preview-images');
+            previewImages.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = reader.result;
+            img.style.maxHeight = '60px';
+            img.style.borderRadius = '6px';
+            img.style.border = '1px solid #444';
+            previewImages.appendChild(img);
             previewFilename.textContent = 'Clipboard Image';
             previewContainer.style.display = 'block';
             // Установим файл в imageInput через DataTransfer (эмуляция выбора)
@@ -332,13 +349,24 @@
       files.forEach(file => dataTransfer.items.add(file));
       imageInput.files = dataTransfer.files;
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        previewImage.src = reader.result;
-        previewFilename.textContent = `${files.length} file(s) dropped`;
-        previewContainer.style.display = 'block';
-      };
-      reader.readAsDataURL(files[0]);
+      const previewImages = document.getElementById('preview-images');
+      previewImages.innerHTML = '';
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = document.createElement('img');
+          img.src = reader.result;
+          img.style.maxHeight = '60px';
+          img.style.borderRadius = '6px';
+          img.style.border = '1px solid #444';
+          previewImages.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      previewFilename.textContent = `${files.length} file(s) dropped`;
+      previewContainer.style.display = 'block';
     }
   });
 
@@ -349,5 +377,3 @@
 
 </body>
 </html>
-
-
