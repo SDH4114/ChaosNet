@@ -62,6 +62,7 @@
           const img = document.createElement('img');
           img.src = reader.result;
           img.style.maxHeight = '60px';
+          img.style.marginTop = '-4px';
           img.style.borderRadius = '6px';
           img.style.border = '1px solid #444';
           previewImages.appendChild(img);
@@ -92,6 +93,7 @@
             const img = document.createElement('img');
             img.src = reader.result;
             img.style.maxHeight = '60px';
+            img.style.marginTop = '-4px';
             img.style.borderRadius = '6px';
             img.style.border = '1px solid #444';
             previewImages.appendChild(img);
@@ -285,6 +287,7 @@
     const files = imageInput.files;
 
     if (files.length > 0) {
+      const previewImages = document.getElementById('preview-images');
       Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -303,8 +306,9 @@
 
       input.value = '';
       imageInput.value = '';
+      previewImages.innerHTML = '';
       previewContainer.style.display = 'none';
-      previewImage.src = '';
+      document.getElementById('preview-images').innerHTML = '';
       previewFilename.textContent = '';
       return;
     }
@@ -358,6 +362,7 @@
           const img = document.createElement('img');
           img.src = reader.result;
           img.style.maxHeight = '60px';
+          img.style.marginTop = '-4px';
           img.style.borderRadius = '6px';
           img.style.border = '1px solid #444';
           previewImages.appendChild(img);
