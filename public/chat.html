@@ -12,7 +12,9 @@
 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
   <h2 id="chat-title" style="margin: 0; color: #ff8c00;">Room: example</h2>
   <a href="select.html" style="text-decoration: none;">
-    <button style="background-color: #2b2b2b; color: #ff8c00; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">Leave</button>
+    <button style="background-color: #2b2b2b; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+      <img src="img/leave.png" alt="Leave" style="height: 24px;" />
+    </button>
   </a>
 </div>
 
@@ -335,11 +337,16 @@
   const modalImg = document.getElementById('modalImage');
   const closeBtn = document.querySelector('.close');
   const downloadBtn = document.createElement('button');
-  // Only icon, no text
-  downloadBtn.innerHTML = '<img src="img/downloadWhite.png" style="width:37px; height:35px;" />';
-  // Button styles: under close "X", only icon, no text
+  const imgIcon = document.createElement('img');
+  imgIcon.src = 'img/downloadWhite.png';
+  imgIcon.alt = 'Download';
+  imgIcon.style.width = '39px';
+  imgIcon.style.height = '35px';
+  imgIcon.style.transition = 'opacity 0.2s';
+  downloadBtn.appendChild(imgIcon);
+
   downloadBtn.style.position = 'absolute';
-  downloadBtn.style.top = '60px'; // ниже кнопки закрытия
+  downloadBtn.style.top = '60px';
   downloadBtn.style.right = '25px';
   downloadBtn.style.background = 'transparent';
   downloadBtn.style.border = 'none';
@@ -347,6 +354,13 @@
   downloadBtn.style.cursor = 'pointer';
   downloadBtn.style.zIndex = '1001';
   modal.appendChild(downloadBtn);
+
+  downloadBtn.addEventListener('mouseenter', () => {
+    imgIcon.src = 'img/downloadOranje.png';
+  });
+  downloadBtn.addEventListener('mouseleave', () => {
+    imgIcon.src = 'img/downloadWhite.png';
+  });
 
   downloadBtn.onclick = () => {
     const link = document.createElement('a');
