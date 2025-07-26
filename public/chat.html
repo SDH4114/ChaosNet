@@ -12,7 +12,10 @@
 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
   <h2 id="chat-title" style="margin: 0; color: #ff8c00;">Room: example</h2>
   <a href="select.html" style="text-decoration: none;">
-    <button style="background-color: #2b2b2b; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+    <button style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+
+      <!-- box-shadow: 0 0 10px rgba(255, 140, 0, 0.2); -->
+
       <img src="img/leave.png" alt="Leave" style="height: 24px;" />
     </button>
   </a>
@@ -105,7 +108,7 @@
             if (!existingSrcs.includes(reader.result)) {
               const img = document.createElement('img');
               img.src = reader.result;
-              img.style.maxHeight = '60px';
+              img.style.maxHeight = '80px';
               img.style.marginTop = '-8px';
               img.style.borderRadius = '6px';
               img.style.border = '1px solid #444';
@@ -347,7 +350,7 @@
 
   downloadBtn.style.position = 'absolute';
   downloadBtn.style.top = '60px';
-  downloadBtn.style.right = '25px';
+  downloadBtn.style.right = '27px';
   downloadBtn.style.background = 'transparent';
   downloadBtn.style.border = 'none';
   downloadBtn.style.padding = '0';
