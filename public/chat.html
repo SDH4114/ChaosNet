@@ -31,10 +31,10 @@
 <form id="form">
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" />
-    <button type="button" id="photoBtn" style="background-color: transparent; border: none; padding: 0; cursor: pointer;">
+    <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 6px; border-radius: 50%; cursor: pointer;">
       <img src="img/gallery.png" alt="Upload Photo" style="height: 24px;" />
     </button>
-    <button type="submit" style="background-color: transparent; border: none; padding: 0; cursor: pointer;">
+    <button type="submit" style="background-color: #ff8c00; border: none; padding: 6px; border-radius: 50%; cursor: pointer;">
       <img src="img/send.png" alt="Send" style="height: 24px;" />
     </button>
   </div>
@@ -338,7 +338,7 @@
   const closeBtn = document.querySelector('.close');
   const downloadBtn = document.createElement('button');
   // Only icon, no text
-  downloadBtn.innerHTML = '<img src="img/downloadWhite.png" style="width:35px; height:35px;" />';
+  downloadBtn.innerHTML = '<img src="img/downloadWhite.png" style="width:37px; height:35px;" />';
   // Button styles: under close "X", only icon, no text
   downloadBtn.style.position = 'absolute';
   downloadBtn.style.top = '60px'; // ниже кнопки закрытия
