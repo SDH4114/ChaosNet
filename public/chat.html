@@ -24,25 +24,25 @@
 <!-- Контейнер для сообщений -->
 <div id="messages"></div>
 
-<div class="input-block">
-  <div id="preview-container" style="display: none; padding: 10px; margin-top: 0; margin-bottom: 4px;">
-    <div style="margin-bottom: 8px; font-size: 14px; color: #ff8c00;">Selected images:</div>
-    <div id="preview-images" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
-    <div id="preview-filename" style="color: #ff8c00; font-size: 13px;"></div>
-  </div>
-  <form id="form">
-    <div class="form-row">
-      <input id="input" autocomplete="off" placeholder="Message or caption" style="color: white;" />
-      <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
-        <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
-      </button>
-      <button type="submit" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
-        <img src="img/send.png" alt="Send" style="height: 22px;" />
-      </button>
-    </div>
-    <input type="file" id="imageInput" accept="image/*" multiple />
-  </form>
+<!-- Предпросмотр загруженного изображения -->
+<div id="preview-container" style="display: none; padding: 10px 16px 0 16px; margin: 0; position: relative;">
+  <div style="margin-bottom: 8px; font-size: 14px; color: #ff8c00;">Selected images:</div>
+  <div id="preview-images" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+  <div id="preview-filename" style="color: #ff8c00; font-size: 13px;"></div>
 </div>
+<!-- Форма ввода -->
+<form id="form">
+  <div class="form-row">
+    <input id="input" autocomplete="off" placeholder="Message or caption" style="color: white;" />
+    <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
+      <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
+    </button>
+    <button type="submit" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
+      <img src="img/send.png" alt="Send" style="height: 22px;" />
+    </button>
+  </div>
+  <input type="file" id="imageInput" accept="image/*" multiple />
+</form>
 
 <!-- Модальное окно для изображений -->
 <div id="imageModal" class="modal">
