@@ -26,7 +26,7 @@
 
 <!-- Предпросмотр загруженного изображения -->
 <div id="preview-container" style="display: none; padding: 10px; margin-top: -10px; margin-bottom: 8px;">
-  <div style="margin-bottom: 8px; font-size: 14px; color: #ccc;">Selected images:</div>
+  <div style="margin-bottom: 8px; font-size: 14px; color: #ff8c00;">Selected images:</div>
   <div id="preview-images" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
   <div id="preview-filename" style="color: #ff8c00; font-size: 13px;"></div>
 </div>
@@ -74,7 +74,7 @@
             const img = document.createElement('img');
             img.src = reader.result;
             img.style.maxHeight = '60px';
-            img.style.marginTop = '-8px';
+            img.style.marginTop = '-18px';
             img.style.borderRadius = '6px';
             img.style.border = '1px solid #444';
             previewImages.appendChild(img);
@@ -109,7 +109,7 @@
               const img = document.createElement('img');
               img.src = reader.result;
               img.style.maxHeight = '80px';
-              img.style.marginTop = '-8px';
+              img.style.marginTop = '-18px';
               img.style.borderRadius = '6px';
               img.style.border = '1px solid #444';
               previewImages.appendChild(img);
@@ -350,7 +350,7 @@
 
   downloadBtn.style.position = 'absolute';
   downloadBtn.style.top = '60px';
-  downloadBtn.style.right = '26px';
+  downloadBtn.style.right = '26.5px';
   downloadBtn.style.background = 'transparent';
   downloadBtn.style.border = 'none';
   downloadBtn.style.padding = '0';
@@ -416,7 +416,7 @@
             const img = document.createElement('img');
             img.src = reader.result;
             img.style.maxHeight = '60px';
-            img.style.marginTop = '-8px';
+            img.style.marginTop = '-18px';
             img.style.borderRadius = '6px';
             img.style.border = '1px solid #444';
             previewImages.appendChild(img);
