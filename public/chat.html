@@ -21,12 +21,6 @@
 <!-- Контейнер для сообщений -->
 <div id="messages"></div>
 
-<!-- Предпросмотр загруженного изображения -->
-<div id="preview-container" style="display: none; padding: 16px 16px 16 16px; margin: 0; position: relative;">
-  <div style="margin-bottom: 8px; font-size: 14px; color: #ff8c00;">Selected images:</div>
-  <div id="preview-images" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
-  <div id="preview-filename" style="color: #ff8c00; font-size: 13px;"></div>
-</div>
 
 <!-- Форма ввода -->
 <form id="form">
@@ -55,39 +49,8 @@
   const imageInput = document.getElementById('imageInput');
   const messages = document.getElementById('messages');
   const chatTitle = document.getElementById('chat-title');
-  const previewContainer = document.getElementById('preview-container');
-  const previewFilename = document.getElementById('preview-filename');
-  imageInput.addEventListener('change', () => {
-    const files = imageInput.files;
-    const previewImages = document.getElementById('preview-images');
-    // previewImages.innerHTML = ''; // Do not clear previous images
-
-    if (files.length > 0) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          // Prevent duplicates
-          const existingSrcs = Array.from(previewImages.querySelectorAll('img')).map(img => img.src);
-          if (!existingSrcs.includes(reader.result)) {
-            const img = document.createElement('img');
-            img.src = reader.result;
-            img.style.maxHeight = '60px';
-            img.style.marginTop = '-18px';
-            img.style.borderRadius = '6px';
-            img.style.border = '1px solid #444';
-            previewImages.appendChild(img);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-
-      previewFilename.textContent = `${files.length} file(s) selected`;
-      previewContainer.style.display = 'block';
-    } else {
-      previewContainer.style.display = 'none';
-      previewFilename.textContent = '';
-    }
-  });
+  // const previewContainer = document.getElementById('preview-container');
+  // const previewFilename = document.getElementById('preview-filename');
 
   // Обработчик вставки изображения из буфера обмена
   document.addEventListener('paste', (event) => {
@@ -96,30 +59,7 @@
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            // Update preview images for clipboard as well
-            const previewImages = document.getElementById('preview-images');
-            // previewImages.innerHTML = ''; // Do not clear previous images
-            // Prevent duplicates
-            const existingSrcs = Array.from(previewImages.querySelectorAll('img')).map(img => img.src);
-            if (!existingSrcs.includes(reader.result)) {
-              const img = document.createElement('img');
-              img.src = reader.result;
-              img.style.maxHeight = '80px';
-              img.style.marginTop = '18px';
-              img.style.borderRadius = '6px';
-              img.style.border = '1px solid #444';
-              previewImages.appendChild(img);
-            }
-            previewFilename.textContent = 'Clipboard Image';
-            previewContainer.style.display = 'block';
-            // Установим файл в imageInput через DataTransfer (эмуляция выбора)
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            imageInput.files = dataTransfer.files;
-          };
-          reader.readAsDataURL(file);
+          // No preview or imageInput.files manipulation
         }
       }
     }
@@ -302,7 +242,6 @@
     const files = imageInput.files;
 
     if (files.length > 0) {
-      const previewImages = document.getElementById('preview-images');
       Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -321,10 +260,6 @@
 
       input.value = '';
       imageInput.value = '';
-      previewImages.innerHTML = '';
-      previewContainer.style.display = 'none';
-      document.getElementById('preview-images').innerHTML = '';
-      previewFilename.textContent = '';
       return;
     }
 
@@ -401,30 +336,7 @@
       const dataTransfer = new DataTransfer();
       files.forEach(file => dataTransfer.items.add(file));
       imageInput.files = dataTransfer.files;
-
-      const previewImages = document.getElementById('preview-images');
-      // previewImages.innerHTML = ''; // Do not clear previous images
-
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          // Prevent duplicates
-          const existingSrcs = Array.from(previewImages.querySelectorAll('img')).map(img => img.src);
-          if (!existingSrcs.includes(reader.result)) {
-            const img = document.createElement('img');
-            img.src = reader.result;
-            img.style.maxHeight = '60px';
-            img.style.marginTop = '-18px';
-            img.style.borderRadius = '6px';
-            img.style.border = '1px solid #444';
-            previewImages.appendChild(img);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-
-      previewFilename.textContent = `${files.length} file(s) dropped`;
-      previewContainer.style.display = 'block';
+      // No preview or previewFilename/previewContainer manipulation
     }
   });
 

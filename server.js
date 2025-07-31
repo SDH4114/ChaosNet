@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
 const PORT = process.env.PORT || 10000;
 const app = express();
@@ -21,6 +22,7 @@ app.use(express.static('public'));
 app.use(express.json());
 
 const upload = multer({ dest: 'temp_uploads/' });
+
 
 
 app.post('/register', async (req, res) => {
