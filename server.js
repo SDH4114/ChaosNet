@@ -296,7 +296,7 @@ wss.on('connection', (ws) => {
           .eq('id', userData.id)
           .maybeSingle();
 
-        const isSubscribed = userDataSub?.Subscription === true;
+        const isSubscribed = userDataSub?.Subscription === TRUE;
 
         if (!isSubscribed && data.text && data.text.length > 444) {
           ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
@@ -323,7 +323,7 @@ wss.on('connection', (ws) => {
           .eq('id', userData.id)
           .maybeSingle();
 
-        const isSubscribed = userDataSub?.Subscription === true;
+        const isSubscribed = userDataSub?.Subscription === TRUE;
 
         const maxSizeBytes = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
@@ -451,6 +451,3 @@ async function deleteOldMessages(room) {
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
-
-
-// да это полная жопа (Absolute Ass)
