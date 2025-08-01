@@ -407,6 +407,22 @@
     }
   });
 
+  // Double-tap zoom for modal image (mobile)
+  let lastTapTime = 0;
+  modalImg.addEventListener('touchend', (e) => {
+    const currentTime = new Date().getTime();
+    if (currentTime - lastTapTime < 300) {
+      // Double tap detected
+      if (scale > 1 || scale < 1) {
+        scale = 1;
+      } else if (scale === 1) {
+        scale = 0.5;
+      }
+      modalImg.style.transform = `scale(${scale})`;
+    }
+    lastTapTime = currentTime;
+  });
+
   modalImg.addEventListener('mousedown', (e) => {
     e.preventDefault();
     let startX = e.clientX;
