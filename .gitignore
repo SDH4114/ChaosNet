@@ -1,0 +1,38 @@
+# Node.js
+node_modules/
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Multer temp uploads
+temp_uploads/
+
+# OS & misc
+Thumbs.db
+.idea/
+
+# Build artifacts (если вдруг будешь собирать фронт)
+dist/
+build/
+
+# Supabase metadata cache (если вдруг используешь CLI)
+.supabase/
+
+# Chat uploads (если локально хранишь)
+chat-uploads/
+
+# Public files you don't want to track (например, временные картинки)
+public/uploads/

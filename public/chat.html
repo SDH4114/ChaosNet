@@ -24,6 +24,10 @@
 
 <!-- Форма ввода -->
 <form id="form">
+  <div id="selectedImagesContainer" style="display: none; margin-bottom: 10px; color: white;">
+    <div style="font-size: 14px; margin-bottom: 6px;">Selected images:</div>
+    <div id="imageThumbnails" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+  </div>
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" style="color: white;" />
     <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
@@ -49,6 +53,8 @@
   const imageInput = document.getElementById('imageInput');
   const messages = document.getElementById('messages');
   const chatTitle = document.getElementById('chat-title');
+  const selectedImagesContainer = document.getElementById('selectedImagesContainer');
+  const imageThumbnails = document.getElementById('imageThumbnails');
   // const previewContainer = document.getElementById('preview-container');
   // const previewFilename = document.getElementById('preview-filename');
 
@@ -82,6 +88,30 @@
 
   document.getElementById('photoBtn').addEventListener('click', () => {
     imageInput.click();
+  });
+
+  imageInput.addEventListener('change', () => {
+    imageThumbnails.innerHTML = '';
+    const files = Array.from(imageInput.files);
+    if (files.length > 0) {
+      selectedImagesContainer.style.display = 'block';
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = document.createElement('img');
+          img.src = reader.result;
+          img.style.width = '60px';
+          img.style.height = '60px';
+          img.style.objectFit = 'cover';
+          img.style.borderRadius = '6px';
+          img.style.border = '1px solid #888';
+          imageThumbnails.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    } else {
+      selectedImagesContainer.style.display = 'none';
+    }
   });
 
   socket.addEventListener('message', (event) => {
@@ -260,6 +290,8 @@
 
       input.value = '';
       imageInput.value = '';
+      selectedImagesContainer.style.display = 'none';
+      imageThumbnails.innerHTML = '';
       return;
     }
 
@@ -267,6 +299,8 @@
       socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
       input.value = '';
     }
+    selectedImagesContainer.style.display = 'none';
+    imageThumbnails.innerHTML = '';
   });
 
   const modal = document.getElementById('imageModal');
@@ -311,6 +345,12 @@
     if (e.target.tagName === 'IMG') {
       modal.style.display = "block";
       modalImg.src = e.target.src;
+      // Reset scale and position when opening modal
+      scale = 1;
+      modalImg.style.transform = `scale(${scale})`;
+      modalImg.style.left = '';
+      modalImg.style.top = '';
+      modalImg.style.position = '';
     }
   });
 
@@ -323,6 +363,42 @@
       modal.style.display = "none";
     }
   };
+
+  // Масштабирование и перетаскивание изображения в модальном окне
+  let scale = 1;
+  modalImg.style.transition = 'transform 0.2s ease';
+
+  modalImg.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    scale += delta;
+    scale = Math.min(Math.max(0.5, scale), 3); // ограничение от 0.5x до 3x
+    modalImg.style.transform = `scale(${scale})`;
+  });
+
+  modalImg.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    let startX = e.clientX;
+    let startY = e.clientY;
+    let initialLeft = modalImg.offsetLeft;
+    let initialTop = modalImg.offsetTop;
+
+    const onMouseMove = (moveEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      modalImg.style.position = 'relative';
+      modalImg.style.left = `${initialLeft + dx}px`;
+      modalImg.style.top = `${initialTop + dy}px`;
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  });
 
   // Обработка перетаскивания изображения в окно
   document.addEventListener('dragover', (e) => {
