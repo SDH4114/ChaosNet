@@ -261,3 +261,11 @@ form button[type="submit"]:hover,
     font-size: 8px;
   }
 }
+
+.input-field {
+    color: white;
+  }
+
+  .input-field::placeholder {
+    color: #ff8c00;
+  }

@@ -29,7 +29,7 @@
     <div id="imageThumbnails" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
   </div>
   <div class="form-row">
-    <input id="input" autocomplete="off" placeholder="Message or caption" style="color: white;" />
+    <input id="input" autocomplete="off" placeholder="Message or caption" class="input-field" />
     <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
       <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
     </button>
@@ -37,7 +37,7 @@
       <img src="img/send.png" alt="Send" style="height: 22px;" />
     </button>
   </div>
-  <input type="file" id="imageInput" accept="image/*" multiple />
+  <input type="file" id="imageInput" accept="image/*,video/*" multiple />
 </form>
 
 <!-- Модальное окно для изображений -->
@@ -235,6 +235,31 @@
 
       div.appendChild(time);
       div.appendChild(date);
+    } else if (msg.type === 'video') {
+      div.classList.add(msg.user === username ? 'self' : 'other');
+
+      const video = document.createElement('video');
+      video.src = msg.image;
+      video.controls = true;
+      video.style.maxWidth = '200px';
+      video.style.borderRadius = '10px';
+      div.appendChild(video);
+
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text;
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = msg.user === username ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+
+      time.style.textAlign = msg.user === username ? 'right' : 'left';
+      date.style.textAlign = msg.user === username ? 'right' : 'left';
+
+      div.appendChild(time);
+      div.appendChild(date);
     } else {
       div.classList.add(msg.user === username ? 'self' : 'other');
 
@@ -282,16 +307,23 @@
     if (files.length > 0) {
       const maxSize = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
       for (const file of files) {
-        if (file.size > maxSize) {
+        const isVideo = file.type.startsWith("video/");
+        const maxVideoSize = 15 * 1024 * 1024;
+        if (isVideo && file.size > maxVideoSize) {
+          alert(`Video "${file.name}" is too large. Max size is 15MB.`);
+          return;
+        }
+        if (!isVideo && file.size > maxSize) {
           alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`);
           return;
         }
       }
       Array.from(files).forEach((file, index) => {
+        const isVideo = file.type.startsWith("video/");
         const reader = new FileReader();
         reader.onload = () => {
           socket.send(JSON.stringify({
-            type: 'image',
+            type: isVideo ? 'video' : 'image',
             user: username,
             room,
             target,
@@ -469,7 +501,7 @@
 
   document.addEventListener('drop', (e) => {
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+    const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
     if (files.length > 0) {
       const dataTransfer = new DataTransfer();
       files.forEach(file => dataTransfer.items.add(file));

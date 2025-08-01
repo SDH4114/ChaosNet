@@ -341,7 +341,7 @@ wss.on('connection', (ws) => {
       activeMessages.set(room, true);
     }
 
-    if (data.type === 'image') {
+    if (data.type === 'image' || data.type === 'video') {
       if (!userData.id.startsWith('guest_')) {
         const { data: userDataSub } = await supabase
           .from('users')
@@ -351,21 +351,18 @@ wss.on('connection', (ws) => {
 
         const isSubscribed = userDataSub?.Subscription === true;
 
-        const maxSizeBytes = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+        const maxSizeBytes = 15 * 1024 * 1024; // 15MB limit for videos and images
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
-        if (!isSubscribed && base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: 'Image too large. Max size is 2MB for non-subscribed users.' }));
-          return;
-        } else if (isSubscribed && base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: 'Image too large. Max size is 7MB for subscribed users.' }));
+        if (base64Length > maxSizeBytes) {
+          ws.send(JSON.stringify({ type: 'error', text: `File too large. Max size is 15MB.` }));
           return;
         }
       } else {
         // For guests, treat as non-subscribed
-        const maxSizeBytes = 2 * 1024 * 1024;
+        const maxSizeBytes = 15 * 1024 * 1024;
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
         if (base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: 'Image too large. Max size is 2MB for non-subscribed users.' }));
+          ws.send(JSON.stringify({ type: 'error', text: 'File too large. Max size is 15MB.' }));
           return;
         }
       }
@@ -383,7 +380,7 @@ wss.on('connection', (ws) => {
         };
         await supabase.from('messages').insert(message);
         broadcast(room, {
-          type: 'image',
+          type: data.type,
           text: data.text,
           image: img.image,
           filename: img.filename,
