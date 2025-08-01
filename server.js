@@ -211,7 +211,7 @@ app.post('/admin-action', async (req, res) => {
 });
 
 
-app.post('/upload', upload.single('image'), async (req, res) => {
+app.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).send('No file');
 
   const fileExt = path.extname(req.file.originalname);
@@ -220,7 +220,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
   const fileBuffer = fs.readFileSync(filePath);
 
   const { error } = await supabase.storage.from(BUCKET).upload(fileName, fileBuffer, {
-    contentType: req.file.mimetype,
+    contentType: req.file.mimetype || 'application/octet-stream',
     upsert: false
   });
   fs.unlinkSync(filePath);
@@ -341,7 +341,7 @@ wss.on('connection', (ws) => {
       activeMessages.set(room, true);
     }
 
-    if (data.type === 'image' || data.type === 'video') {
+    if (['image', 'video', 'file'].includes(data.type)) {
       if (!userData.id.startsWith('guest_')) {
         const { data: userDataSub } = await supabase
           .from('users')
@@ -351,39 +351,39 @@ wss.on('connection', (ws) => {
 
         const isSubscribed = userDataSub?.Subscription === true;
 
-        const maxSizeBytes = 15 * 1024 * 1024; // 15MB limit for videos and images
+        const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for videos and images
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
         if (base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: `File too large. Max size is 15MB.` }));
+          ws.send(JSON.stringify({ type: 'error', text: `File too large. Max size is 30MB.` }));
           return;
         }
       } else {
         // For guests, treat as non-subscribed
-        const maxSizeBytes = 15 * 1024 * 1024;
+        const maxSizeBytes = 30 * 1024 * 1024;
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
         if (base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: 'File too large. Max size is 15MB.' }));
+          ws.send(JSON.stringify({ type: 'error', text: 'File too large. Max size is 30MB.' }));
           return;
         }
       }
 
-      const images = Array.isArray(data.images)
+      const files = Array.isArray(data.images)
         ? data.images
         : [{ image: data.image, filename: data.filename }];
-      for (const img of images) {
+      for (const file of files) {
         const message = {
           room,
           user: userData.nick,
           text: data.text || '',
-          image_url: img.image,
+          image_url: file.image,
           timestamp: now
         };
         await supabase.from('messages').insert(message);
         broadcast(room, {
           type: data.type,
           text: data.text,
-          image: img.image,
-          filename: img.filename,
+          image: file.image,
+          filename: file.filename,
           user: userData.nick,
           timestamp: now
         });
