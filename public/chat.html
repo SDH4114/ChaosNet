@@ -241,9 +241,40 @@
       const video = document.createElement('video');
       video.src = msg.image;
       video.controls = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('controlsList', 'nodownload');
       video.style.maxWidth = '200px';
       video.style.borderRadius = '10px';
       div.appendChild(video);
+
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text;
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = msg.user === username ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+
+      time.style.textAlign = msg.user === username ? 'right' : 'left';
+      date.style.textAlign = msg.user === username ? 'right' : 'left';
+
+      div.appendChild(time);
+      div.appendChild(date);
+    } else if (msg.type === 'file') {
+      div.classList.add(msg.user === username ? 'self' : 'other');
+
+      const fileLink = document.createElement('a');
+      fileLink.href = msg.image;
+      fileLink.download = msg.filename || 'file';
+      fileLink.textContent = `📎 ${msg.filename || 'Download file'}`;
+      fileLink.style.color = '#ff8c00';
+      fileLink.style.display = 'inline-block';
+      fileLink.style.marginBottom = '6px';
+      fileLink.style.textDecoration = 'underline';
+      fileLink.target = '_blank';
+      div.appendChild(fileLink);
 
       if (msg.text) {
         const caption = document.createElement('div');
