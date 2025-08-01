@@ -288,6 +288,19 @@ wss.on('connection', (ws) => {
     }
 
     if (data.type === 'message') {
+      // Subscription check and message length limit for non-subscribed users
+      if (!userData.id.startsWith('guest_')) {
+        const { data: user } = await supabase
+          .from('users')
+          .select('Subscription')
+          .eq('id', userData.id)
+          .maybeSingle();
+        const isSubscribed = user?.Subscription === true;
+        if (!isSubscribed && data.text && data.text.length > 444) {
+          ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
+          return;
+        }
+      }
       const message = {
         room,
         user: userData.nick,
@@ -301,6 +314,30 @@ wss.on('connection', (ws) => {
     }
 
     if (data.type === 'image') {
+      let isSubscribed = false;
+      if (!userData.id.startsWith('guest_')) {
+        const { data: user } = await supabase
+          .from('users')
+          .select('Subscription')
+          .eq('id', userData.id)
+          .maybeSingle();
+        isSubscribed = user?.Subscription === true;
+        if (!isSubscribed && data.text && data.text.length > 444) {
+          ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
+          return;
+        }
+      }
+
+      const maxSizeBytes = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+      const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
+      if (!isSubscribed && base64Length > maxSizeBytes) {
+        ws.send(JSON.stringify({ type: 'error', text: 'Image too large. Max size is 2MB for non-subscribed users.' }));
+        return;
+      } else if (isSubscribed && base64Length > maxSizeBytes) {
+        ws.send(JSON.stringify({ type: 'error', text: 'Image too large. Max size is 7MB for subscribed users.' }));
+        return;
+      }
+
       const images = Array.isArray(data.images)
         ? data.images
         : [{ image: data.image, filename: data.filename }];

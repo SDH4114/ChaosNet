@@ -269,9 +269,24 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
+    const isSubscribed = localStorage.getItem('Subscription') === 'true';
     const files = imageInput.files;
 
+    // Character limit check
+    if (!isSubscribed && message.length > 444) {
+      alert("You can send up to 444 characters in a single message.");
+      return;
+    }
+
+    // File size check per subscription
     if (files.length > 0) {
+      const maxSize = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+      for (const file of files) {
+        if (file.size > maxSize) {
+          alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`);
+          return;
+        }
+      }
       Array.from(files).forEach((file, index) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -356,15 +371,11 @@
 
   closeBtn.onclick = () => {
     modal.style.display = "none";
-    scale = 1;
-    modalImg.style.transform = `scale(${scale})`;
   };
 
   window.onclick = (e) => {
     if (e.target === modal) {
       modal.style.display = "none";
-      scale = 1;
-      modalImg.style.transform = `scale(${scale})`;
     }
   };
 
