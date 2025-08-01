@@ -290,12 +290,14 @@ wss.on('connection', (ws) => {
     if (data.type === 'message') {
       // Subscription check and message length limit for non-subscribed users
       if (!userData.id.startsWith('guest_')) {
-        const { data: user } = await supabase
+        const { data } = await supabase
           .from('users')
           .select('Subscription')
           .eq('id', userData.id)
           .maybeSingle();
-        const isSubscribed = user?.Subscription === true;
+        const isSubscribed = data && typeof data.Subscription !== 'undefined'
+          ? data.Subscription === true
+          : false;
         if (!isSubscribed && data.text && data.text.length > 444) {
           ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
           return;
@@ -316,12 +318,14 @@ wss.on('connection', (ws) => {
     if (data.type === 'image') {
       let isSubscribed = false;
       if (!userData.id.startsWith('guest_')) {
-        const { data: user } = await supabase
+        const { data } = await supabase
           .from('users')
           .select('Subscription')
           .eq('id', userData.id)
           .maybeSingle();
-        isSubscribed = user?.Subscription === true;
+        isSubscribed = data && typeof data.Subscription !== 'undefined'
+          ? data.Subscription === true
+          : false;
         if (!isSubscribed && data.text && data.text.length > 444) {
           ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
           return;
