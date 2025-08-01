@@ -269,7 +269,8 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
-    const isSubscribed = localStorage.getItem('Subscription') === 'true';
+    const subValue = localStorage.getItem('Subscription');
+    const isSubscribed = subValue === true || subValue === 'true' || subValue === 'TRUE';
     const files = imageInput.files;
 
     // Character limit check
