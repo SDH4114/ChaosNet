@@ -41,6 +41,18 @@
       if (res.ok) {
         localStorage.setItem("username", nick);
         localStorage.setItem("userID", id);
+        fetch('/check-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        })
+        .then(r => r.json())
+        .then(data => {
+          localStorage.setItem("Subscription", data.subscription ? "true" : "false");
+        })
+        .catch(() => {
+          localStorage.setItem("Subscription", "false");
+        });
 
         fetch('/check-admin', {
           method: 'POST',

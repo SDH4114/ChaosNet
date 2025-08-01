@@ -74,6 +74,7 @@ app.post('/auth', async (req, res) => {
   res.status(200).send("OK");
 });
 
+
 app.post('/check-admin', async (req, res) => {
   const { id } = req.body;
 
@@ -96,6 +97,31 @@ app.post('/check-admin', async (req, res) => {
   } catch (err) {
     console.error("Unexpected error during admin check:", err);
     return res.status(500).json({ admin: false });
+  }
+});
+
+app.post('/check-subscription', async (req, res) => {
+  const { id } = req.body;
+
+  if (!id) return res.status(400).json({ subscription: false });
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('Subscription')
+      .eq('id', id)
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      console.error("Supabase subscription check error:", error?.message || "No data");
+      return res.status(500).json({ subscription: false });
+    }
+
+    return res.status(200).json({ subscription: data.Subscription === true });
+  } catch (err) {
+    console.error("Unexpected error during subscription check:", err);
+    return res.status(500).json({ subscription: false });
   }
 });
 
