@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>ChaosNet - Chat</title>
+  <link rel="icon" type="image/png" href="img/ChaosNetLogo.png" />
+  <link rel="shortcut icon" href="img/ChaosNetLogo.png" type="image/png"/>
   <link rel="stylesheet" href="css/chatStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -37,7 +39,7 @@
       <img src="img/send.png" alt="Send" style="height: 22px;" />
     </button>
   </div>
-  <input type="file" id="imageInput" accept="image/*,video/*" multiple />
+  <input type="file" id="imageInput" accept="image/*,video/*,.pdf,.zip,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp3,.wav,.mov,.mp4" multiple />
 </form>
 
 <!-- Модальное окно для изображений -->
@@ -240,9 +242,10 @@
 
       const video = document.createElement('video');
       video.src = msg.image;
-      video.controls = true;
+      video.setAttribute('controls', '');
       video.setAttribute('playsinline', '');
       video.setAttribute('controlsList', 'nodownload');
+      video.setAttribute('webkit-playsinline', '');
       video.style.maxWidth = '200px';
       video.style.borderRadius = '10px';
       div.appendChild(video);
