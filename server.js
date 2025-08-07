@@ -419,7 +419,7 @@ wss.on('connection', (ws) => {
         .order('timestamp');
 
       const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text || '[image]'}`).join('\n');
-      sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
+      // sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
       activeMessages.delete(room);
     }
   });
@@ -434,27 +434,27 @@ function broadcast(room, data) {
   }
 }
 
-function sendEmail(content) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
-  });
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_USER,
-    subject: 'ChaosNet: chat log on empty room',
-    text: content
-  };
-
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) console.error('Email error:', err);
-    else console.log('Email sent:', info.response);
-  });
-}
+// function sendEmail(content) {
+//   const transporter = nodemailer.createTransport({
+//     service: 'gmail',
+//     auth: {
+//       user: process.env.EMAIL_USER,
+//       pass: process.env.EMAIL_PASSWORD
+//     }
+//   });
+//
+//   const mailOptions = {
+//     from: process.env.EMAIL_USER,
+//     to: process.env.EMAIL_USER,
+//     subject: 'ChaosNet: chat log on empty room',
+//     text: content
+//   };
+//
+//   transporter.sendMail(mailOptions, (err, info) => {
+//     if (err) console.error('Email error:', err);
+//     else console.log('Email sent:', info.response);
+//   });
+// }
 
 async function deleteOldMessages(room) {
   const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
