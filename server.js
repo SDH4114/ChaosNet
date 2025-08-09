@@ -260,6 +260,23 @@ app.get('/download', async (req, res) => {
 const clients = new Map();
 const activeMessages = new Map();
 
+function base64Size(b64) {
+  if (!b64 || typeof b64 !== 'string') return 0;
+  const idx = b64.indexOf(',');
+  const raw = idx >= 0 ? b64.slice(idx + 1) : b64;
+  // 3/4 rule minus padding
+  let size = Math.floor(raw.length * 3 / 4);
+  if (raw.endsWith('==')) size -= 2;
+  else if (raw.endsWith('=')) size -= 1;
+  return size;
+}
+
+function normalizeIncomingType(t, media) {
+  const allowed = new Set(['image', 'video', 'audio', 'file']);
+  if (allowed.has(t)) return t;
+  return inferTypeFromData(media);
+}
+
 function inferTypeFromData(media) {
   if (!media) return 'message';
   if (typeof media !== 'string') return 'file';
@@ -305,6 +322,7 @@ wss.on('connection', (ws) => {
           type: inferredType,
           text: m.text,
           image: m.image_url,
+          filename: m.filename || undefined,
           user: m.user,
           timestamp: m.timestamp
         }));
@@ -353,7 +371,12 @@ wss.on('connection', (ws) => {
       activeMessages.set(room, true);
     }
 
-    if ([ 'image', 'video', 'audio', 'file' ].includes(data.type)) {
+    const incomingType = normalizeIncomingType(data.type, data.image);
+    if (['image', 'video', 'audio', 'file'].includes(incomingType)) {
+      if (!data.image && !Array.isArray(data.images)) {
+        ws.send(JSON.stringify({ type: 'error', text: 'No media provided.' }));
+        return;
+      }
       if (!userData.id.startsWith('guest_')) {
         const { data: userDataSub } = await supabase
           .from('users')
@@ -364,7 +387,7 @@ wss.on('connection', (ws) => {
         const isSubscribed = userDataSub?.Subscription === true;
 
         const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for video/audio/any files
-        const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
+        const base64Length = base64Size(data.image);
         if (base64Length > maxSizeBytes) {
           ws.send(JSON.stringify({ type: 'error', text: `File too large. Max size is 30MB.` }));
           return;
@@ -372,7 +395,7 @@ wss.on('connection', (ws) => {
       } else {
         // For guests, treat as non-subscribed
         const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for video/audio/any files
-        const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
+        const base64Length = base64Size(data.image);
         if (base64Length > maxSizeBytes) {
           ws.send(JSON.stringify({ type: 'error', text: 'File too large. Max size is 30MB.' }));
           return;
@@ -392,7 +415,7 @@ wss.on('connection', (ws) => {
         };
         await supabase.from('messages').insert(message);
         broadcast(room, {
-          type: data.type,
+          type: incomingType,
           text: data.text,
           image: file.image,
           filename: file.filename,

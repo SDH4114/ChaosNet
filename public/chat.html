@@ -23,7 +23,6 @@
 <!-- Контейнер для сообщений -->
 <div id="messages"></div>
 
-
 <!-- Форма ввода -->
 <form id="form">
   <div id="selectedImagesContainer" style="display: none; margin-bottom: 10px; color: white;">
@@ -45,6 +44,9 @@
   <input type="file" id="imageInput" accept="image/*,video/*,audio/*,.pdf,.zip,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp3,.wav,.mov,.mp4" multiple />
 </form>
 
+<!-- Предзагруженный звук уведомления -->
+<audio id="notif-audio" src="sound/water.mp3" preload="auto" hidden></audio>
+
 <!-- Модальное окно для изображений -->
 <div id="imageModal" class="modal">
   <span class="close">&times;</span>
@@ -60,6 +62,7 @@
   const chatTitle = document.getElementById('chat-title');
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
+  const micBtn = document.getElementById('micBtn');
 
   // === Notifications & sound helpers ===
   let notificationAsked = false;
@@ -82,25 +85,19 @@
     } catch (_) {}
   }
 
+  function isChatInactive() {
+    return document.hidden || !document.hasFocus();
+  }
+
   function playBeep() {
+    if (!isChatInactive()) return; // не пищим, если вкладка активна
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      _audioCtx = _audioCtx || new AudioContext();
-      if (_audioCtx.state === 'suspended') {
-        _audioCtx.resume().catch(() => {});
-      }
-      const osc = _audioCtx.createOscillator();
-      const gain = _audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.value = 0.0001;
-      osc.connect(gain);
-      gain.connect(_audioCtx.destination);
-      const now = _audioCtx.currentTime;
-      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-      osc.start(now);
-      osc.stop(now + 0.2);
+      const el = document.getElementById('notif-audio');
+      if (!el) return;
+      el.volume = 0.85;
+      try { el.pause(); el.currentTime = 0; } catch(_) {}
+      const p = el.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch (_) {}
   }
 
@@ -113,50 +110,36 @@
     return (msg.text || '').slice(0, 80) || 'Message';
   }
 
-  // Prime AudioContext on first user interaction (mobile autoplay policies)
   function _primeAudioCtx() {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       _audioCtx = _audioCtx || new AudioContext();
       if (_audioCtx.state === 'suspended') _audioCtx.resume();
+      try {
+        const _el = document.getElementById('notif-audio');
+        if (_el) {
+          const wasMuted = _el.muted; _el.muted = true;
+          const pr = _el.play();
+          if (pr && typeof pr.finally === 'function') {
+            pr.finally(() => { try { _el.pause(); _el.currentTime = 0; } catch(_) {} _el.muted = wasMuted; });
+          } else {
+            try { _el.pause(); _el.currentTime = 0; _el.muted = wasMuted; } catch(_) {}
+          }
+        }
+      } catch(_) {}
     } catch (_) {}
   }
   document.addEventListener('click', _primeAudioCtx, { once: true });
   document.addEventListener('touchstart', _primeAudioCtx, { once: true });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) ensureNotifyPermission();
-  });
-  // const previewContainer = document.getElementById('preview-container');
-  // const previewFilename = document.getElementById('preview-filename');
+  document.addEventListener('visibilitychange', () => { if (document.hidden) ensureNotifyPermission(); });
 
-  const micBtn = document.getElementById('micBtn');
-  let mediaRecorder = null;
-  let audioChunks = [];
-  let recordingMime = '';
-
-  function pickAudioMime() {
-    const candidates = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
-      'audio/ogg',
-      'audio/mp4'
-    ];
-    for (const m of candidates) {
-      if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
-    }
-    return '';
-  }
-
-  // Обработчик вставки изображения из буфера обмена
+  // Обычный paste handler (изображения)
   document.addEventListener('paste', (event) => {
-    const items = event.clipboardData.items;
+    const items = event.clipboardData?.items || [];
     for (const item of items) {
-      if (item.type.startsWith('image/')) {
+      if (item.type && item.type.startsWith('image/')) {
         const file = item.getAsFile();
-        if (file) {
-          // No preview or imageInput.files manipulation
-        }
+        // можно добавить автоприкрепление, если нужно
       }
     }
   });
@@ -166,19 +149,15 @@
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room") || "main";
   const target = urlParams.get("target");
-
   chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
-    // Notify admin panel about room usage
     socket.send(JSON.stringify({ type: 'activeRoom', room }));
     socket.send(JSON.stringify({ type: 'requestUserList', room }));
   });
 
-  document.getElementById('photoBtn').addEventListener('click', () => {
-    imageInput.click();
-  });
+  document.getElementById('photoBtn').addEventListener('click', () => imageInput.click());
 
   imageInput.addEventListener('change', () => {
     imageThumbnails.innerHTML = '';
@@ -206,12 +185,10 @@
 
   socket.addEventListener('message', (event) => {
     const msg = JSON.parse(event.data);
-
     if (msg.type === 'activeRoom') return;
-
     if (msg.type === 'userlist') {
       const usersOnline = document.getElementById('users-online');
-      usersOnline.textContent = msg.users.join(', ');
+      if (usersOnline) usersOnline.textContent = msg.users.join(', ');
       return;
     }
 
@@ -237,219 +214,103 @@
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
-
       time.style.textAlign = 'center';
       date.style.textAlign = 'center';
-
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
+      div.appendChild(text); div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'join') {
       div.className = 'bubble system';
-
       const text = document.createElement('div');
       text.textContent = `${msg.user} joined`;
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
-
       time.style.textAlign = 'center';
       date.style.textAlign = 'center';
-
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-
-      // Отправка системного сообщения на сервер
-      fetch('/log-system-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user: msg.user,
-          text: `${msg.user} joined`,
-          type: 'system',
-          room,
-          timestamp: msg.timestamp
-        })
-      });
+      div.appendChild(text); div.appendChild(time); div.appendChild(date);
+      fetch('/log-system-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: msg.user, text: `${msg.user} joined`, type: 'system', room, timestamp: msg.timestamp }) });
     } else if (msg.type === 'leave') {
       div.className = 'bubble system';
-
       const text = document.createElement('div');
       text.textContent = `${msg.user} left`;
       text.style.textAlign = 'center';
       text.style.fontStyle = 'italic';
       text.style.color = 'white';
-
       time.style.textAlign = 'center';
       date.style.textAlign = 'center';
-
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
-
-      // Отправка системного сообщения на сервер
-      fetch('/log-system-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user: msg.user,
-          text: `${msg.user} left`,
-          type: 'system',
-          room,
-          timestamp: msg.timestamp
-        })
-      });
+      div.appendChild(text); div.appendChild(time); div.appendChild(date);
+      fetch('/log-system-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: msg.user, text: `${msg.user} left`, type: 'system', room, timestamp: msg.timestamp }) });
     } else if (msg.type === 'image') {
       div.classList.add(msg.user === username ? 'self' : 'other');
-
       const img = document.createElement('img');
-      img.src = msg.image;
-      img.alt = msg.filename || 'image';
-      img.style.maxWidth = '200px';
-      img.style.borderRadius = '10px';
+      img.src = msg.image; img.alt = msg.filename || 'image';
+      img.style.maxWidth = '200px'; img.style.borderRadius = '10px';
       div.appendChild(img);
-
-      if (msg.text) {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = 'white';
-        caption.style.marginTop = '6px';
-        caption.style.fontWeight = 'normal';
-        caption.style.textAlign = msg.user === username ? 'right' : 'left';
-        div.appendChild(caption);
-      }
-
+      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
       time.style.textAlign = msg.user === username ? 'right' : 'left';
       date.style.textAlign = msg.user === username ? 'right' : 'left';
-
-      div.appendChild(time);
-      div.appendChild(date);
+      div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'video') {
       div.classList.add(msg.user === username ? 'self' : 'other');
-
       const video = document.createElement('video');
       video.src = msg.image;
-      video.setAttribute('controls', '');
-      video.setAttribute('playsinline', '');
-      video.setAttribute('webkit-playsinline', '');
-      video.setAttribute('controlsList', 'nodownload');
+      video.setAttribute('controls','');
+      video.setAttribute('playsinline','');
+      video.setAttribute('webkit-playsinline','');
+      video.setAttribute('controlsList','nodownload');
       video.preload = 'metadata';
-      video.style.maxWidth = '200px';
-      video.style.borderRadius = '10px';
+      video.style.maxWidth = '200px'; video.style.borderRadius = '10px';
       div.appendChild(video);
-
-      if (msg.text) {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = 'white';
-        caption.style.marginTop = '6px';
-        caption.style.fontWeight = 'normal';
-        caption.style.textAlign = msg.user === username ? 'right' : 'left';
-        div.appendChild(caption);
-      }
-
+      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
       time.style.textAlign = msg.user === username ? 'right' : 'left';
       date.style.textAlign = msg.user === username ? 'right' : 'left';
-
-      div.appendChild(time);
-      div.appendChild(date);
-    }
-    else if (msg.type === 'audio') {
+      div.appendChild(time); div.appendChild(date);
+    } else if (msg.type === 'audio') {
       div.classList.add(msg.user === username ? 'self' : 'other');
-
       const audio = document.createElement('audio');
       audio.src = msg.image;
-      audio.setAttribute('controls', '');
-      audio.setAttribute('playsinline', '');
-      audio.setAttribute('preload', 'metadata');
-      audio.style.maxWidth = '200px';
-      audio.style.display = 'block';
+      audio.setAttribute('controls','');
+      audio.setAttribute('playsinline','');
+      audio.setAttribute('preload','metadata');
+      audio.style.maxWidth = '200px'; audio.style.display = 'block';
       div.appendChild(audio);
-
-      if (msg.text) {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = 'white';
-        caption.style.marginTop = '6px';
-        caption.style.fontWeight = 'normal';
-        caption.style.textAlign = msg.user === username ? 'right' : 'left';
-        div.appendChild(caption);
-      }
-
+      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
       time.style.textAlign = msg.user === username ? 'right' : 'left';
       date.style.textAlign = msg.user === username ? 'right' : 'left';
-
-      div.appendChild(time);
-      div.appendChild(date);
+      div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'file') {
       div.classList.add(msg.user === username ? 'self' : 'other');
-
       const fileLink = document.createElement('a');
-      fileLink.href = msg.image;
-      fileLink.download = msg.filename || 'file';
+      fileLink.href = msg.image; fileLink.download = msg.filename || 'file';
       fileLink.textContent = `${msg.filename || 'Download file'}`;
-      fileLink.style.color = '#ff8c00';
-      fileLink.style.display = 'inline-block';
-      fileLink.style.marginBottom = '6px';
-      fileLink.style.textDecoration = 'underline';
+      fileLink.style.color = '#ff8c00'; fileLink.style.display = 'inline-block';
+      fileLink.style.marginBottom = '6px'; fileLink.style.textDecoration = 'underline';
       fileLink.target = '_blank';
       div.appendChild(fileLink);
-
-      if (msg.text) {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = 'white';
-        caption.style.marginTop = '6px';
-        caption.style.fontWeight = 'normal';
-        caption.style.textAlign = msg.user === username ? 'right' : 'left';
-        div.appendChild(caption);
-      }
-
+      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
       time.style.textAlign = msg.user === username ? 'right' : 'left';
       date.style.textAlign = msg.user === username ? 'right' : 'left';
-
-      div.appendChild(time);
-      div.appendChild(date);
+      div.appendChild(time); div.appendChild(date);
     } else {
       div.classList.add(msg.user === username ? 'self' : 'other');
-
       if (msg.user !== username) {
         const name = document.createElement('div');
-        name.textContent = msg.user;
-        name.style.fontSize = '12px';
-        name.style.marginBottom = '4px';
-        name.style.opacity = '0.9';
-        name.style.color = '#ff8c00';
+        name.textContent = msg.user; name.style.fontSize = '12px';
+        name.style.marginBottom = '4px'; name.style.opacity = '0.9'; name.style.color = '#ff8c00';
         div.appendChild(name);
-        // Set alignment for time and date for messages from others
-        time.style.textAlign = 'left';
-        date.style.textAlign = 'left';
+        time.style.textAlign = 'left'; date.style.textAlign = 'left';
       }
-      if (msg.user === username) {
-        time.style.textAlign = 'right';
-        date.style.textAlign = 'right';
-      }
-
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      div.appendChild(text);
-      div.appendChild(time);
-      div.appendChild(date);
+      if (msg.user === username) { time.style.textAlign = 'right'; date.style.textAlign = 'right'; }
+      const text = document.createElement('div'); text.textContent = msg.text; div.appendChild(text);
+      div.appendChild(time); div.appendChild(date);
     }
 
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
-    // Notify only for messages from others (and not system)
-    if (msg.user !== username && msg.type !== 'system') {
-      // Play short beep (we are in the same chat)
-      playBeep();
 
-      // Desktop notification only when tab is hidden
-      if (document.hidden) {
-        ensureNotifyPermission();
-        showDesktopNotification(`New in ${room}`, `${msg.user}: ${previewTextFor(msg)}`);
-      }
+    // Уведомления только для чужих сообщений (кроме system/leave)
+    if (msg.user !== username && msg.type !== 'system' && msg.type !== 'leave') {
+      if (isChatInactive()) playBeep();
+      if (document.hidden) { ensureNotifyPermission(); showDesktopNotification(`New in ${room}`, `${msg.user}: ${previewTextFor(msg)}`); }
     }
   });
 
@@ -459,35 +320,24 @@
     const isSubscribed = localStorage.getItem("Subscription") === "true";
     const files = imageInput.files;
 
-    // Character limit check
     if (!isSubscribed && message.length > 444) {
       alert("You can send up to 444 characters in a single message.");
       return;
     }
 
-    // File size check per subscription
     if (files.length > 0) {
-      const maxImage = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024; // images by subscription
-      const maxBig = 30 * 1024 * 1024; // videos / audio / other files up to 30MB
-
+      const maxImage = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+      const maxBig = 30 * 1024 * 1024;
       for (const file of files) {
         const isVideo = file.type && file.type.startsWith('video/');
         const isImage = file.type && file.type.startsWith('image/');
         const isAudio = file.type && file.type.startsWith('audio/');
-
         if (isImage) {
-          if (file.size > maxImage) {
-            alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`);
-            return;
-          }
+          if (file.size > maxImage) { alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`); return; }
         } else if (isVideo || isAudio || !file.type) {
-          if (file.size > maxBig) {
-            alert(`File "${file.name}" is too large. Max size is 30MB.`);
-            return;
-          }
+          if (file.size > maxBig) { alert(`File "${file.name}" is too large. Max size is 30MB.`); return; }
         }
       }
-
       Array.from(files).forEach((file, index) => {
         const isVideo = file.type && file.type.startsWith('video/');
         const isImage = file.type && file.type.startsWith('image/');
@@ -506,7 +356,6 @@
         };
         reader.readAsDataURL(file);
       });
-
       input.value = '';
       imageInput.value = '';
       selectedImagesContainer.style.display = 'none';
@@ -522,155 +371,42 @@
     imageThumbnails.innerHTML = '';
   });
 
+  // Модалка
   const modal = document.getElementById('imageModal');
   const modalImg = document.getElementById('modalImage');
   const closeBtn = document.querySelector('.close');
   const downloadBtn = document.createElement('button');
   const imgIcon = document.createElement('img');
-  imgIcon.src = 'img/downloadWhite.png';
-  imgIcon.alt = 'Download';
-  imgIcon.style.width = '39px';
-  imgIcon.style.height = '35px';
-  imgIcon.style.transition = 'opacity 0.2s';
+  imgIcon.src = 'img/downloadWhite.png'; imgIcon.alt = 'Download';
+  imgIcon.style.width = '39px'; imgIcon.style.height = '35px'; imgIcon.style.transition = 'opacity 0.2s';
   downloadBtn.appendChild(imgIcon);
-
-  downloadBtn.style.position = 'absolute';
-  downloadBtn.style.top = '60px';
-  downloadBtn.style.right = '26.5px';
-  downloadBtn.style.background = 'transparent';
-  downloadBtn.style.border = 'none';
-  downloadBtn.style.padding = '0';
-  downloadBtn.style.cursor = 'pointer';
-  downloadBtn.style.zIndex = '1001';
+  downloadBtn.style.position = 'absolute'; downloadBtn.style.top = '60px'; downloadBtn.style.right = '26.5px';
+  downloadBtn.style.background = 'transparent'; downloadBtn.style.border = 'none'; downloadBtn.style.padding = '0'; downloadBtn.style.cursor = 'pointer'; downloadBtn.style.zIndex = '1001';
   modal.appendChild(downloadBtn);
-
-  downloadBtn.addEventListener('mouseenter', () => {
-    imgIcon.src = 'img/downloadOranje.png';
-  });
-  downloadBtn.addEventListener('mouseleave', () => {
-    imgIcon.src = 'img/downloadWhite.png';
-  });
-
-  downloadBtn.onclick = () => {
-    const link = document.createElement('a');
-    link.href = modalImg.src;
-    link.download = 'image.jpg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  downloadBtn.addEventListener('mouseenter', () => { imgIcon.src = 'img/downloadOranje.png'; });
+  downloadBtn.addEventListener('mouseleave', () => { imgIcon.src = 'img/downloadWhite.png'; });
+  downloadBtn.onclick = () => { const link = document.createElement('a'); link.href = modalImg.src; link.download = 'image.jpg'; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
 
   messages.addEventListener('click', (e) => {
     if (e.target.tagName === 'IMG') {
-      modal.style.display = "block";
-      modalImg.src = e.target.src;
-      // Reset scale and position when opening modal
-      scale = 1;
-      modalImg.style.transform = `scale(${scale})`;
-      modalImg.style.left = '';
-      modalImg.style.top = '';
-      modalImg.style.position = '';
+      modal.style.display = 'block'; modalImg.src = e.target.src;
+      scale = 1; modalImg.style.transform = `scale(${scale})`;
+      modalImg.style.left = ''; modalImg.style.top = ''; modalImg.style.position = '';
     }
   });
+  closeBtn.onclick = () => { modal.style.display = 'none'; };
+  window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
 
-  closeBtn.onclick = () => {
-    modal.style.display = "none";
-  };
+  let scale = 1; modalImg.style.transition = 'transform 0.2s ease';
+  modalImg.addEventListener('wheel', (e) => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.1 : 0.1; scale += delta; scale = Math.min(Math.max(0.5, scale), 3); modalImg.style.transform = `scale(${scale})`; });
 
-  window.onclick = (e) => {
-    if (e.target === modal) {
-      modal.style.display = "none";
-    }
-  };
+  let initialDistance = null; let lastScale = 1; let lastTapTime = 0;
+  modalImg.addEventListener('touchstart', (e) => { if (e.touches.length === 2) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; initialDistance = Math.sqrt(dx*dx + dy*dy); } });
+  modalImg.addEventListener('touchmove', (e) => { if (e.touches.length === 2 && initialDistance !== null) { const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; const currentDistance = Math.sqrt(dx*dx + dy*dy); const pinchScale = currentDistance / initialDistance; scale = lastScale * pinchScale; scale = Math.min(Math.max(0.5, scale), 3); modalImg.style.transform = `scale(${scale})`; } });
+  modalImg.addEventListener('touchend', (e) => { if (e.touches.length < 2) { lastScale = scale; initialDistance = null; } const currentTime = Date.now(); if (currentTime - lastTapTime < 300) { scale = (scale !== 1) ? 1 : 0.5; modalImg.style.transform = `scale(${scale})`; } lastTapTime = currentTime; });
 
-  // Масштабирование и перетаскивание изображения в модальном окне
-  let scale = 1;
-  modalImg.style.transition = 'transform 0.2s ease';
-
-  modalImg.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    scale += delta;
-    scale = Math.min(Math.max(0.5, scale), 3); // ограничение от 0.5x до 3x
-    modalImg.style.transform = `scale(${scale})`;
-  });
-
-  let initialDistance = null;
-  let lastScale = 1;
-
-  modalImg.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      initialDistance = Math.sqrt(dx * dx + dy * dy);
-    }
-  });
-
-  modalImg.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2 && initialDistance !== null) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const currentDistance = Math.sqrt(dx * dx + dy * dy);
-      const pinchScale = currentDistance / initialDistance;
-
-      scale = lastScale * pinchScale;
-      scale = Math.min(Math.max(0.5, scale), 3);
-      modalImg.style.transform = `scale(${scale})`;
-    }
-  });
-
-  modalImg.addEventListener('touchend', (e) => {
-    if (e.touches.length < 2) {
-      lastScale = scale;
-      initialDistance = null;
-    }
-  });
-
-  // Double-tap zoom for modal image (mobile)
-  let lastTapTime = 0;
-  modalImg.addEventListener('touchend', (e) => {
-    const currentTime = new Date().getTime();
-    if (currentTime - lastTapTime < 300) {
-      // Double tap detected
-      if (scale > 1 || scale < 1) {
-        scale = 1;
-      } else if (scale === 1) {
-        scale = 0.5;
-      }
-      modalImg.style.transform = `scale(${scale})`;
-    }
-    lastTapTime = currentTime;
-  });
-
-  modalImg.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    let startX = e.clientX;
-    let startY = e.clientY;
-    let initialLeft = modalImg.offsetLeft;
-    let initialTop = modalImg.offsetTop;
-
-    const onMouseMove = (moveEvent) => {
-      const dx = moveEvent.clientX - startX;
-      const dy = moveEvent.clientY - startY;
-      modalImg.style.position = 'relative';
-      modalImg.style.left = `${initialLeft + dx}px`;
-      modalImg.style.top = `${initialTop + dy}px`;
-    };
-
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  });
-
-  // Обработка перетаскивания изображения в окно
-  document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-  });
-
+  // Drag&Drop в окно
+  document.addEventListener('dragover', (e) => e.preventDefault());
   document.addEventListener('drop', (e) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter(file => file.type || file.name);
@@ -678,7 +414,17 @@
       const dataTransfer = new DataTransfer();
       files.forEach(file => dataTransfer.items.add(file));
       imageInput.files = dataTransfer.files;
-      // No preview or previewFilename/previewContainer manipulation
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    const el = document.getElementById('notif-audio');
+    if (el) { try { el.pause(); el.currentTime = 0; } catch(_) {} }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const el = document.getElementById('notif-audio');
+      if (el) { try { el.pause(); el.currentTime = 0; } catch(_) {} }
     }
   });
 
@@ -687,6 +433,12 @@
   });
 
   // Voice message recording
+  let mediaRecorder = null; let audioChunks = []; let recordingMime = '';
+  function pickAudioMime() {
+    const candidates = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4'];
+    for (const m of candidates) { if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m; }
+    return '';
+  }
   if (micBtn) {
     micBtn.addEventListener('click', async () => {
       try {
@@ -695,11 +447,7 @@
           recordingMime = pickAudioMime();
           mediaRecorder = new MediaRecorder(stream, recordingMime ? { mimeType: recordingMime } : undefined);
           audioChunks = [];
-
-          // UI hint: turn button background to red while recording
-          const prevBg = micBtn.style.backgroundColor;
-          micBtn.style.backgroundColor = '#ffc176';
-
+          const prevBg = micBtn.style.backgroundColor; micBtn.style.backgroundColor = '#ffc176';
           mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) audioChunks.push(e.data); };
           mediaRecorder.onstop = () => {
             micBtn.style.backgroundColor = prevBg;
@@ -708,19 +456,14 @@
             reader.onload = () => {
               const caption = input.value.trim();
               socket.send(JSON.stringify({
-                type: 'audio',
-                user: username,
-                room,
-                target,
-                image: reader.result,
-                filename: `voice_${Date.now()}.${(recordingMime || 'audio/webm').includes('mp4') ? 'm4a' : (recordingMime.includes('ogg') ? 'ogg' : 'webm')}`,
+                type: 'audio', user: username, room, target,
+                image: reader.result, filename: `voice_${Date.now()}.${(recordingMime || 'audio/webm').includes('mp4') ? 'm4a' : (recordingMime.includes('ogg') ? 'ogg' : 'webm')}`,
                 text: caption
               }));
               input.value = '';
             };
             reader.readAsDataURL(blob);
           };
-
           mediaRecorder.start();
         } else if (mediaRecorder.state === 'recording') {
           mediaRecorder.stop();
