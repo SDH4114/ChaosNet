@@ -60,6 +60,72 @@
   const chatTitle = document.getElementById('chat-title');
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
+
+  // === Notifications & sound helpers ===
+  let notificationAsked = false;
+  let _audioCtx;
+
+  function ensureNotifyPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default' && !notificationAsked) {
+      notificationAsked = true;
+      Notification.requestPermission().catch(() => {});
+    }
+  }
+
+  function showDesktopNotification(title, body) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    try {
+      const n = new Notification(title, { body, icon: 'img/ChaosNetLogo.png' });
+      setTimeout(() => n.close(), 4000);
+    } catch (_) {}
+  }
+
+  function playBeep() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      _audioCtx = _audioCtx || new AudioContext();
+      if (_audioCtx.state === 'suspended') {
+        _audioCtx.resume().catch(() => {});
+      }
+      const osc = _audioCtx.createOscillator();
+      const gain = _audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.0001;
+      osc.connect(gain);
+      gain.connect(_audioCtx.destination);
+      const now = _audioCtx.currentTime;
+      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (_) {}
+  }
+
+  function previewTextFor(msg) {
+    if (!msg) return '';
+    if (msg.type === 'image') return '📷 Image';
+    if (msg.type === 'video') return '🎥 Video';
+    if (msg.type === 'audio') return '🎤 Voice message';
+    if (msg.type === 'file')  return `📎 ${msg.filename || 'File'}`;
+    return (msg.text || '').slice(0, 80) || 'Message';
+  }
+
+  // Prime AudioContext on first user interaction (mobile autoplay policies)
+  function _primeAudioCtx() {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      _audioCtx = _audioCtx || new AudioContext();
+      if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    } catch (_) {}
+  }
+  document.addEventListener('click', _primeAudioCtx, { once: true });
+  document.addEventListener('touchstart', _primeAudioCtx, { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) ensureNotifyPermission();
+  });
   // const previewContainer = document.getElementById('preview-container');
   // const previewFilename = document.getElementById('preview-filename');
 
@@ -374,6 +440,17 @@
 
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+    // Notify only for messages from others (and not system)
+    if (msg.user !== username && msg.type !== 'system') {
+      // Play short beep (we are in the same chat)
+      playBeep();
+
+      // Desktop notification only when tab is hidden
+      if (document.hidden) {
+        ensureNotifyPermission();
+        showDesktopNotification(`New in ${room}`, `${msg.user}: ${previewTextFor(msg)}`);
+      }
+    }
   });
 
   form.addEventListener('submit', (e) => {
@@ -621,7 +698,7 @@
 
           // UI hint: turn button background to red while recording
           const prevBg = micBtn.style.backgroundColor;
-          micBtn.style.backgroundColor = '#ffff00';
+          micBtn.style.backgroundColor = '#ffc176';
 
           mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) audioChunks.push(e.data); };
           mediaRecorder.onstop = () => {
