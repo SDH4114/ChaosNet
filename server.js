@@ -260,6 +260,17 @@ app.get('/download', async (req, res) => {
 const clients = new Map();
 const activeMessages = new Map();
 
+function inferTypeFromData(media) {
+  if (!media) return 'message';
+  if (typeof media !== 'string') return 'file';
+  const head = media.slice(0, 40).toLowerCase();
+  if (head.startsWith('data:image')) return 'image';
+  if (head.startsWith('data:video')) return 'video';
+  if (head.startsWith('data:audio')) return 'audio';
+  // If it's a URL without data URI, treat as a generic file
+  return 'file';
+}
+
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
@@ -289,8 +300,9 @@ wss.on('connection', (ws) => {
         .order('timestamp', { ascending: true });
 
       history.forEach(m => {
+        const inferredType = inferTypeFromData(m.image_url);
         ws.send(JSON.stringify({
-          type: m.image_url ? 'image' : 'message',
+          type: inferredType,
           text: m.text,
           image: m.image_url,
           user: m.user,
@@ -341,7 +353,7 @@ wss.on('connection', (ws) => {
       activeMessages.set(room, true);
     }
 
-    if (['image', 'video', 'file'].includes(data.type)) {
+    if ([ 'image', 'video', 'audio', 'file' ].includes(data.type)) {
       if (!userData.id.startsWith('guest_')) {
         const { data: userDataSub } = await supabase
           .from('users')
@@ -351,7 +363,7 @@ wss.on('connection', (ws) => {
 
         const isSubscribed = userDataSub?.Subscription === true;
 
-        const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for videos and images
+        const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for video/audio/any files
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
         if (base64Length > maxSizeBytes) {
           ws.send(JSON.stringify({ type: 'error', text: `File too large. Max size is 30MB.` }));
@@ -359,7 +371,7 @@ wss.on('connection', (ws) => {
         }
       } else {
         // For guests, treat as non-subscribed
-        const maxSizeBytes = 30 * 1024 * 1024;
+        const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for video/audio/any files
         const base64Length = data.image ? (data.image.length * 3 / 4) : 0;
         if (base64Length > maxSizeBytes) {
           ws.send(JSON.stringify({ type: 'error', text: 'File too large. Max size is 30MB.' }));
@@ -418,7 +430,7 @@ wss.on('connection', (ws) => {
         .eq('room', room)
         .order('timestamp');
 
-      const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text || '[image]'}`).join('\n');
+      const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text || '[attachment]'}`).join('\n');
       // sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
       activeMessages.delete(room);
     }

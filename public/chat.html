@@ -35,11 +35,14 @@
     <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
       <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
     </button>
+    <button type="button" id="micBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
+      <img src="img/mic.png" alt="Voice" style="height: 22px;" />
+    </button>
     <button type="submit" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
       <img src="img/send.png" alt="Send" style="height: 22px;" />
     </button>
   </div>
-  <input type="file" id="imageInput" accept="image/*,video/*,.pdf,.zip,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp3,.wav,.mov,.mp4" multiple />
+  <input type="file" id="imageInput" accept="image/*,video/*,audio/*,.pdf,.zip,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp3,.wav,.mov,.mp4" multiple />
 </form>
 
 <!-- Модальное окно для изображений -->
@@ -59,6 +62,25 @@
   const imageThumbnails = document.getElementById('imageThumbnails');
   // const previewContainer = document.getElementById('preview-container');
   // const previewFilename = document.getElementById('preview-filename');
+
+  const micBtn = document.getElementById('micBtn');
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordingMime = '';
+
+  function pickAudioMime() {
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/ogg',
+      'audio/mp4'
+    ];
+    for (const m of candidates) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
+    }
+    return '';
+  }
 
   // Обработчик вставки изображения из буфера обмена
   document.addEventListener('paste', (event) => {
@@ -94,7 +116,7 @@
 
   imageInput.addEventListener('change', () => {
     imageThumbnails.innerHTML = '';
-    const files = Array.from(imageInput.files);
+    const files = Array.from(imageInput.files).filter(f => f.type && f.type.startsWith('image/'));
     if (files.length > 0) {
       selectedImagesContainer.style.display = 'block';
       files.forEach(file => {
@@ -244,6 +266,62 @@
       video.src = msg.image;
       video.setAttribute('controls', '');
       video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      video.setAttribute('controlsList', 'nodownload');
+      video.preload = 'metadata';
+      video.style.maxWidth = '200px';
+      video.style.borderRadius = '10px';
+      div.appendChild(video);
+
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text;
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = msg.user === username ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+
+      time.style.textAlign = msg.user === username ? 'right' : 'left';
+      date.style.textAlign = msg.user === username ? 'right' : 'left';
+
+      div.appendChild(time);
+      div.appendChild(date);
+    }
+    else if (msg.type === 'audio') {
+      div.classList.add(msg.user === username ? 'self' : 'other');
+
+      const audio = document.createElement('audio');
+      audio.src = msg.image;
+      audio.setAttribute('controls', '');
+      audio.setAttribute('playsinline', '');
+      audio.setAttribute('preload', 'metadata');
+      audio.style.maxWidth = '200px';
+      audio.style.display = 'block';
+      div.appendChild(audio);
+
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text;
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = msg.user === username ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+
+      time.style.textAlign = msg.user === username ? 'right' : 'left';
+      date.style.textAlign = msg.user === username ? 'right' : 'left';
+
+      div.appendChild(time);
+      div.appendChild(date);
+      div.classList.add(msg.user === username ? 'self' : 'other');
+
+      const video = document.createElement('video');
+      video.src = msg.image;
+      video.setAttribute('controls', '');
+      video.setAttribute('playsinline', '');
       video.setAttribute('controlsList', 'nodownload');
       video.setAttribute('webkit-playsinline', '');
       video.style.maxWidth = '200px';
@@ -339,25 +417,35 @@
 
     // File size check per subscription
     if (files.length > 0) {
-      const maxSize = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+      const maxImage = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024; // images by subscription
+      const maxBig = 30 * 1024 * 1024; // videos / audio / other files up to 30MB
+
       for (const file of files) {
-        const isVideo = file.type.startsWith("video/");
-        const maxVideoSize = 15 * 1024 * 1024;
-        if (isVideo && file.size > maxVideoSize) {
-          alert(`Video "${file.name}" is too large. Max size is 15MB.`);
-          return;
-        }
-        if (!isVideo && file.size > maxSize) {
-          alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`);
-          return;
+        const isVideo = file.type && file.type.startsWith('video/');
+        const isImage = file.type && file.type.startsWith('image/');
+        const isAudio = file.type && file.type.startsWith('audio/');
+
+        if (isImage) {
+          if (file.size > maxImage) {
+            alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`);
+            return;
+          }
+        } else if (isVideo || isAudio || !file.type) {
+          if (file.size > maxBig) {
+            alert(`File "${file.name}" is too large. Max size is 30MB.`);
+            return;
+          }
         }
       }
+
       Array.from(files).forEach((file, index) => {
-        const isVideo = file.type.startsWith("video/");
+        const isVideo = file.type && file.type.startsWith('video/');
+        const isImage = file.type && file.type.startsWith('image/');
+        const isAudio = file.type && file.type.startsWith('audio/');
         const reader = new FileReader();
         reader.onload = () => {
           socket.send(JSON.stringify({
-            type: isVideo ? 'video' : 'image',
+            type: isVideo ? 'video' : isImage ? 'image' : isAudio ? 'audio' : 'file',
             user: username,
             room,
             target,
@@ -535,7 +623,7 @@
 
   document.addEventListener('drop', (e) => {
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
+    const files = Array.from(e.dataTransfer.files).filter(file => file.type || file.name);
     if (files.length > 0) {
       const dataTransfer = new DataTransfer();
       files.forEach(file => dataTransfer.items.add(file));
@@ -547,6 +635,52 @@
   window.addEventListener('beforeunload', () => {
     socket.send(JSON.stringify({ type: 'leave', user: username, id: userId, room }));
   });
+
+  // Voice message recording
+  if (micBtn) {
+    micBtn.addEventListener('click', async () => {
+      try {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recordingMime = pickAudioMime();
+          mediaRecorder = new MediaRecorder(stream, recordingMime ? { mimeType: recordingMime } : undefined);
+          audioChunks = [];
+
+          // UI hint: turn button background to red while recording
+          const prevBg = micBtn.style.backgroundColor;
+          micBtn.style.backgroundColor = '#d54242';
+
+          mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) audioChunks.push(e.data); };
+          mediaRecorder.onstop = () => {
+            micBtn.style.backgroundColor = prevBg;
+            const blob = new Blob(audioChunks, { type: recordingMime || 'audio/webm' });
+            const reader = new FileReader();
+            reader.onload = () => {
+              const caption = input.value.trim();
+              socket.send(JSON.stringify({
+                type: 'audio',
+                user: username,
+                room,
+                target,
+                image: reader.result,
+                filename: `voice_${Date.now()}.${(recordingMime || 'audio/webm').includes('mp4') ? 'm4a' : (recordingMime.includes('ogg') ? 'ogg' : 'webm')}`,
+                text: caption
+              }));
+              input.value = '';
+            };
+            reader.readAsDataURL(blob);
+          };
+
+          mediaRecorder.start();
+        } else if (mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+        }
+      } catch (err) {
+        alert('Microphone access error. Please allow microphone permissions.');
+        console.error('Mic error:', err);
+      }
+    });
+  }
 </script>
 
 </body>
