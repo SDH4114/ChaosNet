@@ -36,7 +36,7 @@
       <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
     </button>
     <button type="button" id="micBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
-      <img src="img/mic.png" alt="Voice" style="height: 22px;" />
+      <img src="img/wave-sound.png" alt="Voice" style="height: 22px;" />
     </button>
     <button type="submit" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
       <img src="img/send.png" alt="Send" style="height: 22px;" />
@@ -316,40 +316,13 @@
 
       div.appendChild(time);
       div.appendChild(date);
-      div.classList.add(msg.user === username ? 'self' : 'other');
-
-      const video = document.createElement('video');
-      video.src = msg.image;
-      video.setAttribute('controls', '');
-      video.setAttribute('playsinline', '');
-      video.setAttribute('controlsList', 'nodownload');
-      video.setAttribute('webkit-playsinline', '');
-      video.style.maxWidth = '200px';
-      video.style.borderRadius = '10px';
-      div.appendChild(video);
-
-      if (msg.text) {
-        const caption = document.createElement('div');
-        caption.textContent = msg.text;
-        caption.style.color = 'white';
-        caption.style.marginTop = '6px';
-        caption.style.fontWeight = 'normal';
-        caption.style.textAlign = msg.user === username ? 'right' : 'left';
-        div.appendChild(caption);
-      }
-
-      time.style.textAlign = msg.user === username ? 'right' : 'left';
-      date.style.textAlign = msg.user === username ? 'right' : 'left';
-
-      div.appendChild(time);
-      div.appendChild(date);
     } else if (msg.type === 'file') {
       div.classList.add(msg.user === username ? 'self' : 'other');
 
       const fileLink = document.createElement('a');
       fileLink.href = msg.image;
       fileLink.download = msg.filename || 'file';
-      fileLink.textContent = `📎 ${msg.filename || 'Download file'}`;
+      fileLink.textContent = `${msg.filename || 'Download file'}`;
       fileLink.style.color = '#ff8c00';
       fileLink.style.display = 'inline-block';
       fileLink.style.marginBottom = '6px';
@@ -648,7 +621,7 @@
 
           // UI hint: turn button background to red while recording
           const prevBg = micBtn.style.backgroundColor;
-          micBtn.style.backgroundColor = '#d54242';
+          micBtn.style.backgroundColor = '#ffff00';
 
           mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) audioChunks.push(e.data); };
           mediaRecorder.onstop = () => {
