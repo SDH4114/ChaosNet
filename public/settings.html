@@ -133,7 +133,7 @@
         <div class="buttons">
           <button type="button" class="btn" id="saveLocal" style="color:#000000;">Save</button>
           <!-- убраны Sign in / Register -->
-          <button type="button" class="btn secondary" id="logoutBtn">Log out</button>
+          <button type="button" class="btn secondary" id="logoutBtn" style="color:#ff8c00;">Log out</button>
         </div>
 
         <div class="note">“Save” — только локально (LocalStorage).</div>
@@ -220,13 +220,13 @@
 
     // Toggle password visibility
     try {
-      const pwdInput = el('password');
+      const pwdInput2 = el('password');
       const toggleBtn = document.getElementById('togglePwd');
       const toggleIcon = document.getElementById('togglePwdIcon');
-      if (pwdInput && toggleBtn && toggleIcon) {
+      if (pwdInput2 && toggleBtn && toggleIcon) {
         toggleBtn.addEventListener('click', () => {
-          const nowHidden = pwdInput.type === 'password';
-          pwdInput.type = nowHidden ? 'text' : 'password';
+          const nowHidden = pwdInput2.type === 'password';
+          pwdInput2.type = nowHidden ? 'text' : 'password';
           toggleIcon.src = nowHidden ? 'img/hide.png' : 'img/view.png';
         });
       }
