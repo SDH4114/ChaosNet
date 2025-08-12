@@ -17,6 +17,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const BUCKET = 'chat-uploads';
+const AVATARS_BUCKET = 'avatars';
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -133,7 +134,7 @@ app.post('/get-user', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, nick, password, AdminStatus, Subscription')
+      .select('id, nick, password, AdminStatus, Subscription, avatar_url')
       .eq('id', id)
       .maybeSingle();
 
@@ -179,6 +180,88 @@ app.post('/update-user', async (req, res) => {
     return res.status(200).json(data);
   } catch (err) {
     console.error('Unexpected error in /update-user:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ---------- Avatar upload/remove ----------
+app.post('/avatar/upload', upload.single('avatar'), async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'No id' });
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+
+  try {
+    const mime = req.file.mimetype || '';
+    const allowed = new Set(['image/png','image/jpeg','image/webp']);
+    if (!allowed.has(mime)) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(415).json({ error: 'Only png/jpeg/webp' });
+    }
+
+    // size limit by subscription
+    const { data: userRow } = await supabase.from('users').select('Subscription').eq('id', id).maybeSingle();
+    const limit = (userRow?.Subscription === true) ? 7*1024*1024 : 2*1024*1024;
+    if (req.file.size > limit) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(413).json({ error: `Too large. Max ${userRow?.Subscription === true ? '7MB' : '2MB'}` });
+    }
+
+    // determine extension
+    const ext = mime === 'image/png' ? 'png' : (mime === 'image/webp' ? 'webp' : 'jpg');
+    const objectName = `${id}.${ext}`;
+
+    const buffer = fs.readFileSync(req.file.path);
+    const { error: upErr } = await supabase
+      .storage.from(AVATARS_BUCKET)
+      .upload(objectName, buffer, { contentType: mime, upsert: true, cacheControl: '3600' });
+    fs.unlink(req.file.path, () => {});
+    if (upErr) {
+      console.error('avatar upload error:', upErr.message);
+      return res.status(500).json({ error: 'Upload failed' });
+    }
+
+    const { data: pub } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(objectName);
+    const publicUrl = pub.publicUrl;
+
+    const { data: updated, error: updErr } = await supabase
+      .from('users')
+      .update({ avatar_url: publicUrl })
+      .eq('id', id)
+      .select('id, nick, password, AdminStatus, Subscription, avatar_url')
+      .maybeSingle();
+    if (updErr) {
+      console.error('avatar db update error:', updErr.message);
+      return res.status(500).json({ error: 'DB update failed' });
+    }
+
+    return res.status(200).json(updated);
+  } catch (e) {
+    console.error('avatar upload exception:', e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/avatar/remove', async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'No id' });
+  try {
+    // try removing all common extensions
+    const names = [`${id}.jpg`, `${id}.png`, `${id}.webp`];
+    await Promise.all(names.map(n => supabase.storage.from(AVATARS_BUCKET).remove([n]).catch(() => null)));
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ avatar_url: null })
+      .eq('id', id)
+      .select('id, nick, password, AdminStatus, Subscription, avatar_url')
+      .maybeSingle();
+    if (error) {
+      console.error('avatar remove db error:', error.message);
+      return res.status(500).json({ error: 'DB update failed' });
+    }
+    return res.status(200).json(data);
+  } catch (e) {
+    console.error('avatar remove exception:', e);
     return res.status(500).json({ error: 'Server error' });
   }
 });
