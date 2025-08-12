@@ -21,6 +21,19 @@
          box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
   Log out
 </button>
+<button onclick="goToSettings()" 
+  style="position: fixed; top: 10px; right: 110px; 
+         background-color: #2b2b2b; 
+         color: #ff8c00; 
+         border: none; 
+         padding: 8px 14px; 
+         border-radius: 8px; 
+         cursor: pointer; 
+         font-size: 14px; 
+         width: auto; 
+         box-shadow: 0 0 10px rgba(255, 140, 0, 0.2);">
+  Settings
+</button>
 <button id="adminBtn" onclick="goToAdminPanel()" 
   style="display: none; position: fixed; top: 10px; right: 110px; 
          background-color: #2b2b2b; 
@@ -93,6 +106,10 @@
 
     function goToAdminPanel() {
       window.location.href = "adminPanel.html";
+    }
+
+    function goToSettings() {
+      window.location.href = "settings.html";
     }
 
     const currentUserId = localStorage.getItem('userID');

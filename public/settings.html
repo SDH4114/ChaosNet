@@ -48,6 +48,17 @@
     input::placeholder{ color:#ff8c00; opacity:.9; }
     input:focus{ border-color:#666; }
 
+    .password-row { position: relative; }
+    .password-row .pwd-toggle {
+      position: absolute; right: 12px;
+      background: transparent; border: none; padding: 0; cursor: pointer;
+      line-height: 0;
+      display: flex; align-items: flex-end; justify-content: center;
+      height: 100%; /* ensures full height for flex vertical centering */
+      padding-bottom: 11px;
+    }
+    .password-row .pwd-toggle img { display: block; width: 20px; height: 20px; }
+
     .buttons{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
     .btn{ background:var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; }
     .btn.secondary{ background:#3a3a3a; }
@@ -90,9 +101,12 @@
           <label for="userid">ID</label>
           <input id="userid" type="text" placeholder="Unique ID" />
         </div>
-        <div class="row">
+        <div class="row password-row">
           <label for="password">Password</label>
-          <input id="password" type="password" placeholder="••••••••" />
+          <button type="button" class="pwd-toggle" id="togglePwd" aria-label="Toggle password visibility" title="Show/Hide password">
+            <img id="togglePwdIcon" src="img/view.png" alt="Toggle" />
+          </button>
+          <input id="password" type="password" placeholder="••••••••" style="padding:12px 14px; padding-right:44px;" />
         </div>
 
         <div class="buttons">
@@ -171,6 +185,20 @@
       }catch(e){}
       window.location.assign('login.html');
     });
+
+    // Toggle password visibility
+    try {
+      const pwdInput = el('password');
+      const toggleBtn = document.getElementById('togglePwd');
+      const toggleIcon = document.getElementById('togglePwdIcon');
+      if (pwdInput && toggleBtn && toggleIcon) {
+        toggleBtn.addEventListener('click', () => {
+          const nowHidden = pwdInput.type === 'password';
+          pwdInput.type = nowHidden ? 'text' : 'password';
+          toggleIcon.src = nowHidden ? 'img/hide.png' : 'img/view.png';
+        });
+      }
+    } catch(e){}
   </script>
 </body>
 </html>
