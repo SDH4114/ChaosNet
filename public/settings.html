@@ -136,7 +136,7 @@
           <button type="button" class="btn secondary" id="logoutBtn" style="color:#ff8c00;">Log out</button>
         </div>
 
-        <div class="note">“Save” — только локально (LocalStorage).</div>
+        <div class="note">“Save” — сохраняет пароль в Supabase и локально.</div>
         <div id="status" class="status"></div>
       </form>
     </section>
@@ -152,7 +152,52 @@
         el('nick').value = localStorage.getItem('username') || '';
         // В проекте встречаются и userid, и userID — заполним из любого
         el('userid').value = localStorage.getItem('userid') || localStorage.getItem('userID') || '';
-        el('password').value = localStorage.getItem('password') || '';
+        const savedPwd = localStorage.getItem('password');
+        if (savedPwd !== null && savedPwd !== undefined) {
+          el('password').value = savedPwd;
+        } else {
+          el('password').value = '';
+        }
+
+        // Try to refresh fields from server (Supabase) if we know the user id
+        try {
+          const uid = localStorage.getItem('userid') || localStorage.getItem('userID');
+          if (uid) {
+            fetch('/get-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: uid })
+            })
+            .then(r => r.ok ? r.json() : Promise.reject(r))
+            .then(user => {
+              // Update inputs and localStorage from authoritative server data
+              if (user.nick) {
+                el('nick').value = user.nick;
+                localStorage.setItem('username', user.nick);
+                const userNameDisplay = document.getElementById('userNameDisplay');
+                if (userNameDisplay) userNameDisplay.textContent = user.nick;
+              }
+              if (user.id) {
+                el('userid').value = user.id;
+                localStorage.setItem('userid', user.id);
+                localStorage.setItem('userID', user.id);
+              }
+              if (typeof user.password === 'string') {
+                el('password').value = user.password; // will be shown/hidden by the eye button
+                localStorage.setItem('password', user.password);
+              }
+              if (typeof user.Subscription === 'boolean') {
+                localStorage.setItem('Subscription', user.Subscription ? 'true' : 'false');
+              }
+              if (typeof user.AdminStatus === 'boolean') {
+                localStorage.setItem('isAdmin', user.AdminStatus ? 'true' : 'false');
+                const adminStatusDisplay = document.getElementById('adminStatusDisplay');
+                if (adminStatusDisplay) adminStatusDisplay.textContent = user.AdminStatus ? 'Admin' : '';
+              }
+            })
+            .catch(err => { try { console.debug('get-user failed', err); } catch(_){} });
+          }
+        } catch(_){}
       }catch(e){}
     })();
 
@@ -178,19 +223,50 @@
     }
 
     // Save only local
-    el('saveLocal').addEventListener('click', ()=>{
+    el('saveLocal').addEventListener('click', async ()=>{
       const nick = el('nick').value.trim();
       const id = el('userid').value.trim();
       const password = el('password').value;
-      if(!nick || !id){ return setStatus('Nick и ID обязательны для сохранения.', false); }
-      try{
-        localStorage.setItem('username', nick);
-        // синхронизируем оба ключа ID, чтобы избежать рассинхрона в других страницах
-        localStorage.setItem('userid', id);
-        localStorage.setItem('userID', id);
-        localStorage.setItem('password', password);
-        setStatus('Сохранено локально.', true);
-      }catch(e){ setStatus('Не удалось сохранить локально.', false); }
+      if(!nick || !id){ return setStatus('Nick и ID обязательны.', false); }
+
+      // блокируем кнопку на время запроса
+      const btn = document.getElementById('saveLocal');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/update-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password })
+        });
+
+        if (!res.ok) {
+          const tx = await res.text().catch(()=> 'Server error');
+          setStatus('Не удалось сохранить в Supabase: ' + tx, false);
+        } else {
+          const user = await res.json();
+          // синхронизируем локально теми данными, что вернул сервер
+          localStorage.setItem('username', user.nick || nick);
+          localStorage.setItem('userid', user.id || id);
+          localStorage.setItem('userID', user.id || id);
+          if (typeof user.password === 'string') {
+            localStorage.setItem('password', user.password);
+          } else {
+            localStorage.setItem('password', password);
+          }
+          if (typeof user.Subscription === 'boolean') {
+            localStorage.setItem('Subscription', user.Subscription ? 'true' : 'false');
+          }
+          if (typeof user.AdminStatus === 'boolean') {
+            localStorage.setItem('isAdmin', user.AdminStatus ? 'true' : 'false');
+          }
+          setStatus('Сохранено в Supabase.', true);
+        }
+      } catch (e) {
+        setStatus('Ошибка сети при сохранении.', false);
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     // Logout: очистить локальные данные и перейти на login.html
@@ -234,3 +310,6 @@
   </script>
 </body>
 </html>
+
+
+// adada

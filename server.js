@@ -100,6 +100,7 @@ app.post('/check-admin', async (req, res) => {
   }
 });
 
+
 app.post('/check-subscription', async (req, res) => {
   const { id } = req.body;
 
@@ -122,6 +123,63 @@ app.post('/check-subscription', async (req, res) => {
   } catch (err) {
     console.error("Unexpected error during subscription check:", err);
     return res.status(500).json({ subscription: false });
+  }
+});
+
+app.post('/get-user', async (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.status(400).json({ error: 'No id provided' });
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, nick, password, AdminStatus, Subscription')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase get-user error:', error.message);
+      return res.status(500).json({ error: 'Server error' });
+    }
+    if (!data) return res.status(404).json({ error: 'User not found' });
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('Unexpected error in /get-user:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/update-user', async (req, res) => {
+  const { id, password } = req.body;
+
+  if (!id || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Invalid data' });
+  }
+  if (password.length > 128) {
+    return res.status(400).json({ error: 'Password too long' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ password })
+      .eq('id', id)
+      .select('id, nick, password, AdminStatus, Subscription')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase update-user error:', error.message);
+      return res.status(500).json({ error: 'Server error' });
+    }
+    if (!data) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json(data);
+  } catch (err) {
+    console.error('Unexpected error in /update-user:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
