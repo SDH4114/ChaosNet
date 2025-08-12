@@ -134,7 +134,7 @@ app.post('/get-user', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, nick, password, AdminStatus, Subscription, avatar_url')
+      .select('id, nick, password, AdminStatus, Subscription, avatar')
       .eq('id', id)
       .maybeSingle();
 
@@ -217,7 +217,7 @@ app.post('/avatar/upload', upload.single('avatar'), async (req, res) => {
     fs.unlink(req.file.path, () => {});
     if (upErr) {
       console.error('avatar upload error:', upErr.message);
-      return res.status(500).json({ error: 'Upload failed' });
+      return res.status(500).json({ error: 'Upload failed', details: upErr.message });
     }
 
     const { data: pub } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(objectName);
@@ -225,9 +225,9 @@ app.post('/avatar/upload', upload.single('avatar'), async (req, res) => {
 
     const { data: updated, error: updErr } = await supabase
       .from('users')
-      .update({ avatar_url: publicUrl })
+      .update({ avatar: publicUrl })
       .eq('id', id)
-      .select('id, nick, password, AdminStatus, Subscription, avatar_url')
+      .select('id, nick, password, AdminStatus, Subscription, avatar')
       .maybeSingle();
     if (updErr) {
       console.error('avatar db update error:', updErr.message);
@@ -251,9 +251,9 @@ app.post('/avatar/remove', async (req, res) => {
 
     const { data, error } = await supabase
       .from('users')
-      .update({ avatar_url: null })
+      .update({ avatar: null })
       .eq('id', id)
-      .select('id, nick, password, AdminStatus, Subscription, avatar_url')
+      .select('id, nick, password, AdminStatus, Subscription, avatar')
       .maybeSingle();
     if (error) {
       console.error('avatar remove db error:', error.message);
