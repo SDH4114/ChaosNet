@@ -28,6 +28,14 @@
       width:100%;
       aspect-ratio: 1 / 1;            /* квадратная область */
       display:flex; align-items:center; justify-content:center; /* круг по центру */
+      position: relative;
+    }
+    .avatar-bg{
+      position:absolute; width:200px; height:200px; border-radius:50%;
+      background:#000000;
+      top:50%; left:50%; transform:translate(-50%, -50%);
+      /* optional soft look */
+      z-index: 0;
     }
     .avatar-circle{
       width:220px; height:220px; border-radius:50%;
@@ -58,6 +66,15 @@
       padding-bottom: 11px;
     }
     .password-row .pwd-toggle img { display: block; width: 20px; height: 20px; }
+    .password-row .pwd-edit {
+      position: absolute; right: 44px;
+      background: transparent; border: none; padding: 0; cursor: pointer;
+      line-height: 0;
+      display: flex; align-items: flex-end; justify-content: center;
+      height: 100%;
+      padding-bottom: 13px;
+    }
+    .password-row .pwd-edit img { display: block; width: 20px; height: 20px; }
 
     .buttons{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
     .btn{ background:var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; }
@@ -83,9 +100,10 @@
     <!-- Left side: avatar (без надписей) -->
     <section class="avatar-card">
       <div class="avatar-box">
-        <img src="img/user.png" alt="Avatar" style="width:220px;height:220px;border-radius:50%;object-fit:cover;" />
+        <div class="avatar-bg"></div>
+        <img src="img/user.png" alt="Avatar" style="width:220px;height:220px;border-radius:50%;object-fit:cover;position:relative;z-index:1;" />
       </div>
-      <div id="userNameDisplay" style="color:white; text-align:center; margin-top:12px; font-weight:500;"></div>
+      <div id="userNameDisplay" style="color:#ff8c00; text-align:center; margin-top:12px; font-weight:500;"></div>
       <div id="adminStatusDisplay" style="color:#ff8c00; text-align:center; font-size:14px;"></div>
     </section>
 
@@ -95,18 +113,21 @@
       <form id="settings-form" class="form" autocomplete="off">
         <div class="row">
           <label for="nick">Nick</label>
-          <input id="nick" type="text" placeholder="Your nickname" />
+          <input id="nick" type="text" placeholder="Your nickname" readonly aria-readonly="true" />
         </div>
         <div class="row">
           <label for="userid">ID</label>
-          <input id="userid" type="text" placeholder="Unique ID" />
+          <input id="userid" type="text" placeholder="Unique ID" readonly aria-readonly="true" />
         </div>
         <div class="row password-row">
-          <label for="password">Password</label>
+          <button type="button" class="pwd-edit" id="editPwd" aria-label="Edit password" title="Edit password">
+            <img src="img/edit.png" alt="Edit" />
+          </button>
           <button type="button" class="pwd-toggle" id="togglePwd" aria-label="Toggle password visibility" title="Show/Hide password">
             <img id="togglePwdIcon" src="img/view.png" alt="Toggle" />
           </button>
-          <input id="password" type="password" placeholder="••••••••" style="padding:12px 14px; padding-right:44px;" />
+          <label for="password">Password</label>
+          <input id="password" type="password" placeholder="••••••••" style="padding:12px 74px 12px 14px;" readonly aria-readonly="true" />
         </div>
 
         <div class="buttons">
@@ -185,6 +206,17 @@
       }catch(e){}
       window.location.assign('login.html');
     });
+
+    try {
+      const pwdInput = el('password');
+      const editBtn = document.getElementById('editPwd');
+      let editable = false;
+      editBtn.addEventListener('click', () => {
+        editable = !editable;
+        pwdInput.readOnly = !editable;
+        pwdInput.setAttribute('aria-readonly', String(!editable));
+      });
+    } catch(e){}
 
     // Toggle password visibility
     try {
