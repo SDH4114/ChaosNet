@@ -139,7 +139,7 @@
           <button type="button" class="btn secondary" id="logoutBtn" style="color:#ff8c00;">Log out</button>
         </div>
 
-        <div class="note">“Save” — сохраняет пароль и аватар в Supabase (и синхронизирует локально).</div>
+        <div class="note">“Save” — сохраняет пароль и аватар в Supabase.</div>
         <div id="status" class="status"></div>
       </form>
     </section>
@@ -186,6 +186,14 @@
               if (typeof user.password === 'string') {
                 el('password').value = user.password; // will be shown/hidden by the eye button
               }
+              // Set avatar from server (supports both `avatar` and legacy `avatar_url`)
+              try {
+                const avatarLink = user.avatar || user.avatar_url;
+                if (avatarLink) {
+                  const avatarImg = document.querySelector('.avatar-box img');
+                  if (avatarImg) avatarImg.src = avatarLink;
+                }
+              } catch (_) {}
               if (typeof user.AdminStatus === 'boolean') {
                 const adminStatusDisplay = document.getElementById('adminStatusDisplay');
                 if (adminStatusDisplay) adminStatusDisplay.textContent = user.AdminStatus ? 'Admin' : '';
@@ -278,10 +286,10 @@
                 const up = await fetch('/avatar/upload', { method:'POST', body: fd });
                 if (up.ok) {
                   const updated = await up.json();
-                  if (updated.avatar_url) {
+                  const newLink = updated.avatar || updated.avatar_url;
+                  if (newLink) {
                     const avatarImg = document.querySelector('.avatar-box img');
-                    if (avatarImg) avatarImg.src = updated.avatar_url;
-                    // Do not store avatar_url in localStorage
+                    if (avatarImg) avatarImg.src = newLink;
                     setStatus('Аватар сохранён в Supabase.', true);
                     _avatarSelectedFile = null; // reset selection after success
                   }
