@@ -211,16 +211,33 @@ app.post('/avatar/upload', upload.single('avatar'), async (req, res) => {
     const objectName = `${id}.${ext}`;
 
     const buffer = fs.readFileSync(req.file.path);
-    const { error: upErr } = await supabase
-      .storage.from(AVATARS_BUCKET)
-      .upload(objectName, buffer, { contentType: mime, upsert: true, cacheControl: '3600' });
-    fs.unlink(req.file.path, () => {});
+    let targetBucket = AVATARS_BUCKET;
+    let upErr = null;
+    try {
+      // Try avatars bucket first
+      let { error } = await supabase
+        .storage.from(targetBucket)
+        .upload(objectName, buffer, { contentType: mime, upsert: true, cacheControl: '3600' });
+      upErr = error || null;
+
+      // Fallback to the main uploads bucket if avatars bucket does not exist
+      if (upErr && /bucket not found|not found/i.test(String(upErr.message))) {
+        targetBucket = BUCKET; // typically 'chat-uploads'
+        const res2 = await supabase
+          .storage.from(targetBucket)
+          .upload(objectName, buffer, { contentType: mime, upsert: true, cacheControl: '3600' });
+        upErr = res2.error || null;
+      }
+    } finally {
+      fs.unlink(req.file.path, () => {});
+    }
+
     if (upErr) {
       console.error('avatar upload error:', upErr.message);
       return res.status(500).json({ error: 'Upload failed', details: upErr.message });
     }
 
-    const { data: pub } = supabase.storage.from(AVATARS_BUCKET).getPublicUrl(objectName);
+    const { data: pub } = supabase.storage.from(targetBucket).getPublicUrl(objectName);
     const publicUrl = pub.publicUrl;
 
     const { data: updated, error: updErr } = await supabase
@@ -247,7 +264,12 @@ app.post('/avatar/remove', async (req, res) => {
   try {
     // try removing all common extensions
     const names = [`${id}.jpg`, `${id}.png`, `${id}.webp`];
-    await Promise.all(names.map(n => supabase.storage.from(AVATARS_BUCKET).remove([n]).catch(() => null)));
+    await Promise.all(
+      names.flatMap(n => [
+        supabase.storage.from(AVATARS_BUCKET).remove([n]).catch(() => null),
+        supabase.storage.from(BUCKET).remove([n]).catch(() => null)
+      ])
+    );
 
     const { data, error } = await supabase
       .from('users')
