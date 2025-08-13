@@ -70,18 +70,29 @@ app.post('/register', async (req, res) => {
 
 
 app.post('/auth', async (req, res) => {
-  const { id, nick, password } = req.body;
-  const { data: users, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', id)
-    .eq('nick', nick)
-    .eq('password', password)
-    .maybeSingle();
+  const { id, password } = req.body;
+  if (!id || !password) {
+    return res.status(400).send("ID and password required");
+  }
 
-  if (error) return res.status(500).send("Server error");
-  if (!users) return res.status(401).send("Unauthorized");
-  res.status(200).send("OK");
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', id)
+      .eq('password', password)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Auth error:', error.message);
+      return res.status(500).send("Server error");
+    }
+    if (!user) return res.status(401).send("Unauthorized");
+    return res.status(200).send("OK");
+  } catch (e) {
+    console.error('Unexpected auth error:', e);
+    return res.status(500).send("Server error");
+  }
 });
 
 

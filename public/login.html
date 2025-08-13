@@ -12,7 +12,7 @@
   <div class="login-container">
     <h2>Log In</h2>
     <form id="loginForm">
-      <input type="text" id="nick" placeholder="Nick" required />
+      <input type="hidden" id="nick" />
       <input type="text" id="id" placeholder="ID" pattern="[A-Z]{2}\d{4}" title="ID must be in the format AA0000" required />
       <input type="password" id="password" placeholder="Password" required />
       <button type="submit">Log In</button>
@@ -30,10 +30,37 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const nick = document.getElementById('nick').value.trim();
       const id = document.getElementById('id').value.trim();
       const password = document.getElementById('password').value.trim();
+      const nickInput = document.getElementById('nick'); // hidden
+      const errorEl = document.getElementById('error');
+      errorEl.textContent = '';
 
+      // 1) Получаем ник по ID с сервера (чтобы пользователь не вводил Nick)
+      let nick = '';
+      try {
+        const getUserRes = await fetch('/get-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id })
+        });
+        if (!getUserRes.ok) {
+          errorEl.textContent = 'User ID not found.';
+          return;
+        }
+        const user = await getUserRes.json();
+        nick = (user && user.nick) ? String(user.nick) : '';
+        if (!nick) {
+          errorEl.textContent = 'Nick is missing for this ID.';
+          return;
+        }
+        nickInput.value = nick; // заполняем скрытое поле, чтобы совместимо со старым /auth
+      } catch (err) {
+        errorEl.textContent = 'Network error while fetching user.';
+        return;
+      }
+
+      // 2) Аутентификация с id+nick+password (совместимо с текущим бэком)
       const res = await fetch('/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,8 +68,12 @@
       });
 
       if (res.ok) {
-        localStorage.setItem("username", nick);
-        localStorage.setItem("userID", id);
+        // храним как раньше, чтобы остальной фронт не ломался
+        try {
+          localStorage.setItem("username", nick);
+          localStorage.setItem("userID", id);
+        } catch (_) {}
+
         fetch('/check-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -50,10 +81,10 @@
         })
         .then(r => r.json())
         .then(data => {
-          localStorage.setItem("Subscription", data.subscription ? "true" : "false");
+          try { localStorage.setItem("Subscription", data.subscription ? "true" : "false"); } catch(_) {}
         })
         .catch(() => {
-          localStorage.setItem("Subscription", "false");
+          try { localStorage.setItem("Subscription", "false"); } catch(_) {}
         });
 
         fetch('/check-admin', {
@@ -63,15 +94,15 @@
         })
         .then(r => r.json())
         .then(data => {
-          localStorage.setItem("isAdmin", data.admin ? "true" : "false");
+          try { localStorage.setItem("isAdmin", data.admin ? "true" : "false"); } catch(_) {}
           window.location.href = "/select.html";
         })
         .catch(() => {
-          localStorage.setItem("isAdmin", "false");
+          try { localStorage.setItem("isAdmin", "false"); } catch(_) {}
           window.location.href = "/select.html";
         });
       } else {
-        document.getElementById('error').textContent = "Incorrect credentials!";
+        errorEl.textContent = "Incorrect credentials!";
       }
     });
   </script>
