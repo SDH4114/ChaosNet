@@ -26,24 +26,23 @@
     .avatar-card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; }
     .avatar-box{
       width:100%;
-      aspect-ratio: 1 / 1;            /* квадратная область */
-      display:flex; align-items:center; justify-content:center; /* круг по центру */
+      aspect-ratio: 1 / 1;
+      display:flex; align-items:center; justify-content:center;
       position: relative;
     }
     .avatar-bg{
       position:absolute; width:200px; height:200px; border-radius:50%;
-      background:var(--bg);
+      background:var(--bg); /* цвет нижнего слоя */
       top:50%; left:50%; transform:translate(-50%, -50%);
       z-index: 0;
     }
-    /* make avatar clickable */
     .avatar-box img { cursor: pointer; }
     .avatar-pick{ display:inline-block; position:relative; z-index:1; cursor:pointer; border-radius:50%; }
     .avatar-pick img{ pointer-events:none; }
 
     /* Right side: form */
     .card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; }
-    .card h3{ margin:0 0 16px; color:#ff8c00; font-size:18px; } /* Профиль — оранжевым */
+    .card h3{ margin:0 0 16px; color:#ff8c00; font-size:18px; }
 
     .form{ display:flex; flex-direction:column; gap:14px; }
     .row{ display:flex; flex-direction:column; gap:6px; }
@@ -62,7 +61,7 @@
       line-height: 0;
       display: flex; align-items: flex-end; justify-content: center;
       height: 100%;
-      padding-bottom: 11px;
+      padding-bottom: 11px; /* тонкая подстройка по вертикали */
     }
     .password-row .pwd-toggle img { display: block; width: 20px; height: 20px; }
     .password-row .pwd-edit {
@@ -71,7 +70,7 @@
       line-height: 0;
       display: flex; align-items: flex-end; justify-content: center;
       height: 100%;
-      padding-bottom: 13px;
+      padding-bottom: 13px; /* на 2px выше глаза */
     }
     .password-row .pwd-edit img { display: block; width: 20px; height: 20px; }
 
@@ -85,6 +84,7 @@
     .status{ margin-top:10px; font-size:14px; }
     .ok{ color:#78d18b; }
     .err{ color:#ff6b6b; }
+
     /* Avatar cropper modal */
     .crop-modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:9999; }
     .crop-modal.show{ display:flex; }
@@ -111,14 +111,14 @@
   </div>
 
   <main class="wrap">
-    <!-- Left side: avatar (без надписей) -->
+    <!-- Left side: avatar -->
     <section class="avatar-card">
       <div class="avatar-box">
-      <div class="avatar-bg"></div>
-      <label for="avatarInput" class="avatar-pick">
-        <img src="img/user.png" alt="Avatar" style="width:220px;height:220px;border-radius:50%;object-fit:cover;display:block;" />
-      </label>
-      <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" class="file-hidden" />
+        <div class="avatar-bg"></div>
+        <label for="avatarInput" class="avatar-pick">
+          <img src="img/user.png" alt="Avatar" style="width:220px;height:220px;border-radius:50%;object-fit:cover;display:block;" />
+        </label>
+        <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" class="file-hidden" />
       </div>
       <div id="userNameDisplay" style="color:#ff8c00; text-align:center; margin-top:12px; font-weight:500;"></div>
       <div id="adminStatusDisplay" style="color:#ff8c00; text-align:center; font-size:14px;"></div>
@@ -162,56 +162,49 @@
     const statusEl = el('status');
     let _avatarSelectedFile = null; // holds file chosen for upload until Save
 
-    // Prefill from localStorage (read-only; we do not write to localStorage anywhere here)
+    // Init: do NOT prefill from localStorage; only use userID to fetch real data from server.
     (function init(){
       try{
-        el('nick').value = localStorage.getItem('username') || '';
-        el('userid').value = localStorage.getItem('userid') || localStorage.getItem('userID') || '';
-        const savedPwd = localStorage.getItem('password');
-        if (savedPwd !== null && savedPwd !== undefined) {
-          el('password').value = savedPwd;
-        } else {
-          el('password').value = '';
+        el('nick').value = '';
+        el('userid').value = '';
+        el('password').value = '';
+
+        const uid = localStorage.getItem('userid') || localStorage.getItem('userID');
+        if (uid) {
+          fetch('/get-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: uid })
+          })
+          .then(r => r.ok ? r.json() : Promise.reject(r))
+          .then(user => {
+            if (user.nick) {
+              el('nick').value = user.nick;
+              const userNameDisplay = document.getElementById('userNameDisplay');
+              if (userNameDisplay) userNameDisplay.textContent = user.nick;
+            }
+            if (user.id) el('userid').value = user.id;
+            if (typeof user.password === 'string') el('password').value = user.password;
+
+            const avatarLink = user.avatar || user.avatar_url;
+            if (avatarLink) {
+              const avatarImg = document.querySelector('.avatar-box img');
+              if (avatarImg) {
+                const bust = avatarLink + (avatarLink.includes('?') ? '&' : '?') + 'v=' + Date.now();
+                avatarImg.src = bust; // cache-busting
+              }
+            }
+            if (typeof user.AdminStatus === 'boolean') {
+              const adminStatusDisplay = document.getElementById('adminStatusDisplay');
+              if (adminStatusDisplay) adminStatusDisplay.textContent = user.AdminStatus ? 'Admin' : '';
+            }
+          })
+          .catch(err => { try { console.debug('get-user failed', err); } catch(_){} });
         }
-        // Refresh fields from server (Supabase) if we know the user id
-        try {
-          const uid = localStorage.getItem('userid') || localStorage.getItem('userID');
-          if (uid) {
-            fetch('/get-user', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: uid })
-            })
-            .then(r => r.ok ? r.json() : Promise.reject(r))
-            .then(user => {
-              if (user.nick) {
-                el('nick').value = user.nick;
-                const userNameDisplay = document.getElementById('userNameDisplay');
-                if (userNameDisplay) userNameDisplay.textContent = user.nick;
-              }
-              if (user.id) {
-                el('userid').value = user.id;
-              }
-              if (typeof user.password === 'string') {
-                el('password').value = user.password;
-              }
-              const avatarLink = user.avatar || user.avatar_url;
-              if (avatarLink) {
-                const avatarImg = document.querySelector('.avatar-box img');
-                if (avatarImg) avatarImg.src = avatarLink;
-              }
-              if (typeof user.AdminStatus === 'boolean') {
-                const adminStatusDisplay = document.getElementById('adminStatusDisplay');
-                if (adminStatusDisplay) adminStatusDisplay.textContent = user.AdminStatus ? 'Admin' : '';
-              }
-            })
-            .catch(err => { try { console.debug('get-user failed', err); } catch(_){} });
-          }
-        } catch(_){}
-      }catch(e){}
+      } catch(e) {}
     })();
 
-    // Avatar picker + cropper (init after DOM is ready so modal elements exist)
+    // Avatar picker + cropper (run after DOM ready)
     document.addEventListener('DOMContentLoaded', () => {
       const avatarImg = document.querySelector('.avatar-box img');
       const avatarInput = document.getElementById('avatarInput');
@@ -235,38 +228,34 @@
       function updateMaskDiameter(){
         if (!cropStage || !cropMask) return;
         const avatarEl = document.querySelector('.avatar-box img');
-        const targetDiameter = avatarEl ? avatarEl.clientWidth : 220; // fallback
+        const targetDiameter = avatarEl ? avatarEl.clientWidth : 220;
         const stageRect = cropStage.getBoundingClientRect();
         const diameter = Math.min(targetDiameter, stageRect.width, stageRect.height);
         maskDiameter = diameter;
         const r = Math.floor(diameter / 2);
-        // radial-gradient with pixel radius so the preview circle visually matches settings avatar
         cropMask.style.background = `radial-gradient(circle ${r}px at 50% 50%, transparent ${r - 0.5}px, rgba(0,0,0,.55) ${r}px)`;
       }
-      // Keep mask size in sync when window resizes
       window.addEventListener('resize', () => {
         if (cropModal && cropModal.classList.contains('show')) updateMaskDiameter();
       });
 
       let ctx, img, scale=1, minScale=1, maxScale=4, tx=0, ty=0;
-      let dragging=false, lastX=0, lastY=0; // mouse pan
-      let touchMode=false, lastDist=0; // pinch zoom
+      let dragging=false, lastX=0, lastY=0;
+      let touchMode=false, lastDist=0;
 
       function openCropper(dataUrl){
-        // size canvas square
         const size = Math.min(window.innerWidth*0.9, 480);
         cropCanvas.width = size; cropCanvas.height = size;
         ctx = cropCanvas.getContext('2d');
 
         img = new Image();
         img.onload = () => {
-          // cover strategy: image fully covers canvas
           const sx = size / img.width;
           const sy = size / img.height;
-          minScale = Math.max(sx, sy); // cover
+          minScale = Math.max(sx, sy);
           scale = Math.max(minScale, 1);
           maxScale = Math.max(4, minScale*4);
-          tx = size/2; ty = size/2; // center
+          tx = size/2; ty = size/2;
           zoomRange.min = Math.max(0.2, minScale * 0.25).toFixed(2);
           zoomRange.max = maxScale.toFixed(2);
           zoomRange.value = scale.toFixed(2);
@@ -291,18 +280,15 @@
       }
 
       function setScale(s, cx, cy){
-        // zoom towards point (cx,cy) in canvas coords
         const prev = scale;
         scale = Math.min(Math.max(s, parseFloat(zoomRange.min)), parseFloat(zoomRange.max));
         const k = scale/prev;
-        // adjust translation so zoom focal point remains under cursor
         tx = cx - (cx - tx) * k;
         ty = cy - (cy - ty) * k;
         zoomRange.value = scale.toFixed(2);
         render();
       }
 
-      // Mouse events
       cropCanvas.addEventListener('mousedown', e=>{
         dragging = true; lastX = e.offsetX; lastY = e.offsetY;
       });
@@ -321,7 +307,6 @@
         setScale(scale * delta, cx, cy);
       }, { passive:false });
 
-      // Touch events
       cropCanvas.addEventListener('touchstart', e=>{
         if (e.touches.length === 1){
           touchMode = true; dragging = true;
@@ -358,7 +343,6 @@
       }, { passive:false });
       cropCanvas.addEventListener('touchend', ()=>{ dragging=false; touchMode=false; lastDist=0; }, { passive:true });
 
-      // Controls
       zoomRange.addEventListener('input', ()=> setScale(parseFloat(zoomRange.value), cropCanvas.width/2, cropCanvas.height/2));
       zoomInBtn.addEventListener('click', ()=> setScale(scale*1.12, cropCanvas.width/2, cropCanvas.height/2));
       zoomOutBtn.addEventListener('click', ()=> setScale(scale/1.12, cropCanvas.width/2, cropCanvas.height/2));
@@ -366,19 +350,18 @@
       cropCancel.addEventListener('click', ()=>{ cropModal.classList.remove('show'); cropModal.setAttribute('aria-hidden','true'); avatarInput.value=''; });
 
       cropApply.addEventListener('click', ()=>{
-        // Export full square canvas; the UI circle is only a preview. The final <img> is round via CSS.
-        const outSize = 512; // good quality, will be resized by server if needed
+        const outSize = 512;
         const off = document.createElement('canvas');
         off.width = outSize; off.height = outSize;
         const octx = off.getContext('2d');
-        // map current canvas content to offscreen: draw img with same transform but scaled so mask circle maps to output
-        const D = maskDiameter && maskDiameter > 0 ? maskDiameter : cropCanvas.width; // mask diameter or fallback
-        const k = outSize / D; // scale so mask diameter maps to outSize
-        const size = cropCanvas.width; // canvas side (square)
+
+        const D = maskDiameter && maskDiameter > 0 ? maskDiameter : cropCanvas.width;
+        const k = outSize / D;
+        const size = cropCanvas.width;
+
         octx.fillStyle = '#1e1e1e';
         octx.fillRect(0,0,outSize,outSize);
         octx.save();
-        // keep the same relative offset from canvas center, but scale to mask size
         octx.translate(
           (outSize/2) + (tx - size/2) * k,
           (outSize/2) + (ty - size/2) * k
@@ -399,10 +382,10 @@
         }, 'image/jpeg', 0.92);
       });
 
-      // Label click opens input natively; we listen for change only
+      // label triggers native picker; we only listen to change
       avatarInput.addEventListener('change', () => {
         const f = avatarInput.files && avatarInput.files[0];
-        _avatarSelectedFile = null; // reset; we will set after Apply
+        _avatarSelectedFile = null;
         if (f) {
           const reader = new FileReader();
           reader.onload = () => openCropper(reader.result);
@@ -411,17 +394,11 @@
       });
     });
 
-    // Name/Admin labels
+    // Name label (no localStorage reads)
     try {
       const userNameDisplay = el('userNameDisplay');
-      const adminStatusDisplay = el('adminStatusDisplay');
       const nickInput = el('nick');
       userNameDisplay.textContent = nickInput.value || '';
-      if(localStorage.getItem('isAdmin') === "true"){
-        adminStatusDisplay.textContent = "Admin";
-      } else {
-        adminStatusDisplay.textContent = "";
-      }
       nickInput.addEventListener('input', () => {
         userNameDisplay.textContent = nickInput.value;
       });
@@ -489,10 +466,9 @@
           setStatus('Saved.', true);
           if (_avatarSelectedFile) {
             try {
-              const isSub = localStorage.getItem('Subscription') === 'true';
-              const limit = isSub ? 7*1024*1024 : 2*1024*1024;
+              const limit = 7*1024*1024; // fixed limit; no localStorage involved
               if (_avatarSelectedFile.size > limit) {
-                setStatus(`Avatar is too large (max ${isSub? '7MB':'2MB'})`, false);
+                setStatus('Avatar is too large (max 7MB)', false);
               } else if (!/^image\/(png|jpeg|webp)$/.test(_avatarSelectedFile.type)) {
                 setStatus('Only PNG/JPEG/WebP are allowed', false);
               } else {
@@ -505,7 +481,10 @@
                   const newLink = updated.avatar || updated.avatar_url;
                   if (newLink) {
                     const avatarImg = document.querySelector('.avatar-box img');
-                    if (avatarImg) avatarImg.src = newLink;
+                    if (avatarImg) {
+                      const bustNew = newLink + (newLink.includes('?') ? '&' : '?') + 'v=' + Date.now();
+                      avatarImg.src = bustNew; // cache-busting
+                    }
                     setStatus('Avatar saved.', true);
                     _avatarSelectedFile = null;
                   }
@@ -566,23 +545,24 @@
       }
     } catch(e){}
   </script>
-<!-- Avatar Cropper Modal -->
-<div id="cropModal" class="crop-modal" aria-hidden="true">
-  <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="cropTitle">
-    <h3 id="cropTitle" class="crop-title">Adjust avatar</h3>
-    <div class="crop-stage">
-      <canvas id="cropCanvas"></canvas>
-      <div class="crop-mask"></div>
-    </div>
-    <div class="crop-controls">
-      <button type="button" class="crop-btn" id="zoomOut">−</button>
-      <input type="range" min="0.2" max="4" step="0.01" value="1" id="zoomRange" class="range" />
-      <button type="button" class="crop-btn" id="zoomIn">+</button>
-      <div style="flex:1"></div>
-      <button type="button" class="crop-btn" id="cropCancel">Cancel</button>
-      <button type="button" class="crop-btn primary" id="cropApply">Use this</button>
+
+  <!-- Avatar Cropper Modal -->
+  <div id="cropModal" class="crop-modal" aria-hidden="true">
+    <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="cropTitle">
+      <h3 id="cropTitle" class="crop-title">Adjust avatar</h3>
+      <div class="crop-stage">
+        <canvas id="cropCanvas"></canvas>
+        <div class="crop-mask"></div>
+      </div>
+      <div class="crop-controls">
+        <button type="button" class="crop-btn" id="zoomOut">−</button>
+        <input type="range" min="0.2" max="4" step="0.01" value="1" id="zoomRange" class="range" />
+        <button type="button" class="crop-btn" id="zoomIn">+</button>
+        <div style="flex:1"></div>
+        <button type="button" class="crop-btn" id="cropCancel">Cancel</button>
+        <button type="button" class="crop-btn primary" id="cropApply">Use this</button>
+      </div>
     </div>
   </div>
-</div>
 </body>
 </html>
