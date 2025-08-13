@@ -222,11 +222,28 @@
       const zoomOutBtn = document.getElementById('zoomOut');
       const cropCancel = document.getElementById('cropCancel');
       const cropApply = document.getElementById('cropApply');
+      const cropStage = document.querySelector('#cropModal .crop-stage');
+      const cropMask  = document.querySelector('#cropModal .crop-mask');
 
-      if (!avatarImg || !avatarInput || !cropModal || !cropCanvas || !zoomRange || !zoomInBtn || !zoomOutBtn || !cropCancel || !cropApply) {
+      if (!avatarImg || !avatarInput || !cropModal || !cropCanvas || !zoomRange || !zoomInBtn || !zoomOutBtn || !cropCancel || !cropApply || !cropStage || !cropMask) {
         console.warn('Cropper elements missing');
         return;
       }
+
+      function updateMaskDiameter(){
+        if (!cropStage || !cropMask) return;
+        const avatarEl = document.querySelector('.avatar-box img');
+        const targetDiameter = avatarEl ? avatarEl.clientWidth : 220; // fallback
+        const stageRect = cropStage.getBoundingClientRect();
+        const diameter = Math.min(targetDiameter, stageRect.width, stageRect.height);
+        const r = Math.floor(diameter / 2);
+        // radial-gradient with pixel radius so the preview circle visually matches settings avatar
+        cropMask.style.background = `radial-gradient(circle ${r}px at 50% 50%, transparent ${r - 0.5}px, rgba(0,0,0,.55) ${r}px)`;
+      }
+      // Keep mask size in sync when window resizes
+      window.addEventListener('resize', () => {
+        if (cropModal && cropModal.classList.contains('show')) updateMaskDiameter();
+      });
 
       let ctx, img, scale=1, minScale=1, maxScale=4, tx=0, ty=0;
       let dragging=false, lastX=0, lastY=0; // mouse pan
@@ -253,6 +270,7 @@
           render();
           cropModal.classList.add('show');
           cropModal.setAttribute('aria-hidden','false');
+          Promise.resolve().then(updateMaskDiameter);
         };
         img.src = dataUrl;
       }
