@@ -211,8 +211,8 @@
       }catch(e){}
     })();
 
-    // Avatar picker + cropper
-    try {
+    // Avatar picker + cropper (init after DOM is ready so modal elements exist)
+    document.addEventListener('DOMContentLoaded', () => {
       const avatarImg = document.querySelector('.avatar-box img');
       const avatarInput = document.getElementById('avatarInput');
       const cropModal = document.getElementById('cropModal');
@@ -222,6 +222,11 @@
       const zoomOutBtn = document.getElementById('zoomOut');
       const cropCancel = document.getElementById('cropCancel');
       const cropApply = document.getElementById('cropApply');
+
+      if (!avatarImg || !avatarInput || !cropModal || !cropCanvas || !zoomRange || !zoomInBtn || !zoomOutBtn || !cropCancel || !cropApply) {
+        console.warn('Cropper elements missing');
+        return;
+      }
 
       let ctx, img, scale=1, minScale=1, maxScale=4, tx=0, ty=0;
       let dragging=false, lastX=0, lastY=0; // mouse pan
@@ -368,18 +373,17 @@
         }, 'image/jpeg', 0.92);
       });
 
-      if (avatarImg && avatarInput) {
-        avatarInput.addEventListener('change', () => {
-          const f = avatarInput.files && avatarInput.files[0];
-          _avatarSelectedFile = null; // reset; we will set after Apply
-          if (f) {
-            const reader = new FileReader();
-            reader.onload = () => openCropper(reader.result);
-            reader.readAsDataURL(f);
-          }
-        });
-      }
-    } catch(_) {}
+      // Label click opens input natively; we listen for change only
+      avatarInput.addEventListener('change', () => {
+        const f = avatarInput.files && avatarInput.files[0];
+        _avatarSelectedFile = null; // reset; we will set after Apply
+        if (f) {
+          const reader = new FileReader();
+          reader.onload = () => openCropper(reader.result);
+          reader.readAsDataURL(f);
+        }
+      });
+    });
 
     // Name/Admin labels
     try {
