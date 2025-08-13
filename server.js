@@ -204,6 +204,53 @@ app.post('/update-user', async (req, res) => {
   }
 });
 
+app.post('/delete-user', async (req, res) => {
+  const { id, password } = req.body;
+  if (!id || typeof password !== 'string') {
+    return res.status(400).json({ error: 'ID and password required' });
+  }
+  try {
+    // Verify ownership
+    const { data: user, error: selErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', id)
+      .eq('password', password)
+      .maybeSingle();
+    if (selErr) {
+      console.error('Delete-user select error:', selErr.message);
+      return res.status(500).json({ error: 'Server error' });
+    }
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Best-effort: remove possible avatar files from both buckets
+    try {
+      const names = [`${id}.jpg`, `${id}.png`, `${id}.webp`];
+      await Promise.all(
+        names.flatMap(n => [
+          supabase.storage.from(AVATARS_BUCKET).remove([n]).catch(() => null),
+          supabase.storage.from(BUCKET).remove([n]).catch(() => null)
+        ])
+      );
+    } catch(_) {}
+
+    // Delete user row
+    const { error: delErr } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    if (delErr) {
+      console.error('Delete-user DB error:', delErr.message);
+      return res.status(500).json({ error: 'Failed to delete user' });
+    }
+
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('Unexpected delete-user error:', e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ---------- Avatar upload/remove ----------
 app.post('/avatar/upload', upload.single('avatar'), async (req, res) => {
   const { id } = req.body;

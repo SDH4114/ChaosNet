@@ -34,15 +34,10 @@
       position:absolute; width:200px; height:200px; border-radius:50%;
       background:var(--bg);
       top:50%; left:50%; transform:translate(-50%, -50%);
-      /* optional soft look */
       z-index: 0;
     }
     /* make avatar clickable */
     .avatar-box img { cursor: pointer; }
-    .avatar-circle{
-      width:220px; height:220px; border-radius:50%;
-      background:#b3b3b3;             /* темнее */
-    }
 
     /* Right side: form */
     .card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; }
@@ -64,7 +59,7 @@
       background: transparent; border: none; padding: 0; cursor: pointer;
       line-height: 0;
       display: flex; align-items: flex-end; justify-content: center;
-      height: 100%; /* ensures full height for flex vertical centering */
+      height: 100%;
       padding-bottom: 11px;
     }
     .password-row .pwd-toggle img { display: block; width: 20px; height: 20px; }
@@ -81,6 +76,7 @@
     .buttons{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
     .btn{ background:var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; }
     .btn.secondary{ background:#3a3a3a; }
+    #deleteAcc { margin-left: auto; }
 
     .note{ margin-top:8px; font-size:12px; color:var(--muted); }
     .status{ margin-top:10px; font-size:14px; }
@@ -135,11 +131,9 @@
 
         <div class="buttons">
           <button type="button" class="btn" id="saveLocal" style="color:#000000;">Save</button>
-          <!-- убраны Sign in / Register -->
           <button type="button" class="btn secondary" id="logoutBtn" style="color:#ff8c00;">Log out</button>
+          <button type="button" class="btn secondary" id="deleteAcc" style="color:#ff8c00;">Delete Account</button>
         </div>
-
-        <div class="note">“Save” — сохраняет пароль и аватар в Supabase.</div>
         <div id="status" class="status"></div>
       </form>
     </section>
@@ -150,11 +144,10 @@
     const statusEl = el('status');
     let _avatarSelectedFile = null; // holds file chosen for upload until Save
 
-    // Prefill from localStorage
+    // Prefill from localStorage (read-only; we do not write to localStorage anywhere here)
     (function init(){
       try{
         el('nick').value = localStorage.getItem('username') || '';
-        // В проекте встречаются и userid, и userID — заполним из любого
         el('userid').value = localStorage.getItem('userid') || localStorage.getItem('userID') || '';
         const savedPwd = localStorage.getItem('password');
         if (savedPwd !== null && savedPwd !== undefined) {
@@ -162,8 +155,7 @@
         } else {
           el('password').value = '';
         }
-
-        // Try to refresh fields from server (Supabase) if we know the user id
+        // Refresh fields from server (Supabase) if we know the user id
         try {
           const uid = localStorage.getItem('userid') || localStorage.getItem('userID');
           if (uid) {
@@ -174,7 +166,6 @@
             })
             .then(r => r.ok ? r.json() : Promise.reject(r))
             .then(user => {
-              // Update inputs from authoritative server data, but do not write to localStorage
               if (user.nick) {
                 el('nick').value = user.nick;
                 const userNameDisplay = document.getElementById('userNameDisplay');
@@ -184,16 +175,13 @@
                 el('userid').value = user.id;
               }
               if (typeof user.password === 'string') {
-                el('password').value = user.password; // will be shown/hidden by the eye button
+                el('password').value = user.password;
               }
-              // Set avatar from server (supports both `avatar` and legacy `avatar_url`)
-              try {
-                const avatarLink = user.avatar || user.avatar_url;
-                if (avatarLink) {
-                  const avatarImg = document.querySelector('.avatar-box img');
-                  if (avatarImg) avatarImg.src = avatarLink;
-                }
-              } catch (_) {}
+              const avatarLink = user.avatar || user.avatar_url;
+              if (avatarLink) {
+                const avatarImg = document.querySelector('.avatar-box img');
+                if (avatarImg) avatarImg.src = avatarLink;
+              }
               if (typeof user.AdminStatus === 'boolean') {
                 const adminStatusDisplay = document.getElementById('adminStatusDisplay');
                 if (adminStatusDisplay) adminStatusDisplay.textContent = user.AdminStatus ? 'Admin' : '';
@@ -205,6 +193,7 @@
       }catch(e){}
     })();
 
+    // Avatar picker + preview
     try {
       const avatarImg = document.querySelector('.avatar-box img');
       const avatarInput = document.getElementById('avatarInput');
@@ -214,7 +203,6 @@
           const f = avatarInput.files && avatarInput.files[0];
           _avatarSelectedFile = f || null;
           if (f) {
-            // preview
             const reader = new FileReader();
             reader.onload = () => { avatarImg.src = reader.result; };
             reader.readAsDataURL(f);
@@ -223,7 +211,7 @@
       }
     } catch(_) {}
 
-    // Populate userNameDisplay and adminStatusDisplay
+    // Name/Admin labels
     try {
       const userNameDisplay = el('userNameDisplay');
       const adminStatusDisplay = el('adminStatusDisplay');
@@ -244,14 +232,46 @@
       statusEl.className = 'status ' + (ok ? 'ok' : 'err');
     }
 
-    // Save only local
+    // Delete account
+    el('deleteAcc').addEventListener('click', async ()=>{
+      const id = el('userid').value.trim();
+      const password = el('password').value;
+      if (!id) return setStatus('Missing user ID.', false);
+      const agree = confirm('Delete account permanently? This action cannot be undone.');
+      if (!agree) return;
+      try {
+        const res = await fetch('/delete-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, password })
+        });
+        if (!res.ok) {
+          const tx = await res.text().catch(()=> 'Server error');
+          return setStatus('Failed to delete account: ' + tx, false);
+        }
+        setStatus('Account deleted.', true);
+        try {
+          localStorage.removeItem('username');
+          localStorage.removeItem('userid');
+          localStorage.removeItem('userID');
+          localStorage.removeItem('password');
+          localStorage.removeItem('Subscription');
+          localStorage.removeItem('isAdmin');
+          localStorage.removeItem('rooms');
+        } catch(_) {}
+        window.location.assign('login.html');
+      } catch (e) {
+        setStatus('Network error while deleting account.', false);
+      }
+    });
+
+    // Save → update password then (if selected) upload avatar
     el('saveLocal').addEventListener('click', async ()=>{
       const nick = el('nick').value.trim();
       const id = el('userid').value.trim();
       const password = el('password').value;
-      if(!nick || !id){ return setStatus('Nick и ID обязательны.', false); }
+      if(!nick || !id){ return setStatus('Nick and ID are required.', false); }
 
-      // блокируем кнопку на время запроса
       const btn = document.getElementById('saveLocal');
       btn.disabled = true;
 
@@ -264,21 +284,17 @@
 
         if (!res.ok) {
           const tx = await res.text().catch(()=> 'Server error');
-          setStatus('Не удалось сохранить в Supabase: ' + tx, false);
+          setStatus('Failed to save to Supabase: ' + tx, false);
         } else {
-          const user = await res.json();
-          // Do not write any user data to localStorage
-          setStatus('Сохранено в Supabase.', true);
-
-          // If a new avatar is selected, upload it now
+          setStatus('Saved to Supabase.', true);
           if (_avatarSelectedFile) {
             try {
               const isSub = localStorage.getItem('Subscription') === 'true';
               const limit = isSub ? 7*1024*1024 : 2*1024*1024;
               if (_avatarSelectedFile.size > limit) {
-                setStatus(`Аватар слишком большой (max ${isSub? '7MB':'2MB'})`, false);
+                setStatus(`Avatar is too large (max ${isSub? '7MB':'2MB'})`, false);
               } else if (!/^image\/(png|jpeg|webp)$/.test(_avatarSelectedFile.type)) {
-                setStatus('Допустимы только PNG/JPEG/WebP', false);
+                setStatus('Only PNG/JPEG/WebP are allowed', false);
               } else {
                 const fd = new FormData();
                 fd.append('avatar', _avatarSelectedFile);
@@ -290,32 +306,32 @@
                   if (newLink) {
                     const avatarImg = document.querySelector('.avatar-box img');
                     if (avatarImg) avatarImg.src = newLink;
-                    setStatus('Аватар сохранён в Supabase.', true);
-                    _avatarSelectedFile = null; // reset selection after success
+                    setStatus('Avatar saved to Supabase.', true);
+                    _avatarSelectedFile = null;
                   }
                 } else {
                   const tx = await up.text().catch(()=> 'Server error');
-                  setStatus('Не удалось сохранить аватар: ' + tx, false);
+                  setStatus('Failed to save avatar: ' + tx, false);
                 }
               }
             } catch(e) {
-              setStatus('Ошибка сети при сохранении аватара.', false);
+              setStatus('Network error while saving avatar.', false);
             }
           }
         }
       } catch (e) {
-        setStatus('Ошибка сети при сохранении.', false);
+        setStatus('Network error while saving.', false);
       } finally {
         btn.disabled = false;
       }
     });
 
-    // Logout: очистить локальные данные и перейти на login.html
+    // Logout
     el('logoutBtn').addEventListener('click', ()=>{
       try{
         localStorage.removeItem('username');
         localStorage.removeItem('userid');
-        localStorage.removeItem('userID');  // встречается в login/select
+        localStorage.removeItem('userID');
         localStorage.removeItem('password');
         localStorage.removeItem('Subscription');
         localStorage.removeItem('isAdmin');
@@ -324,6 +340,7 @@
       window.location.assign('login.html');
     });
 
+    // Edit password toggle (enable/disable readonly)
     try {
       const pwdInput = el('password');
       const editBtn = document.getElementById('editPwd');
@@ -335,7 +352,7 @@
       });
     } catch(e){}
 
-    // Toggle password visibility
+    // Show/Hide password
     try {
       const pwdInput2 = el('password');
       const toggleBtn = document.getElementById('togglePwd');
