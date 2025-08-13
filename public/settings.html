@@ -225,6 +225,8 @@
       const cropStage = document.querySelector('#cropModal .crop-stage');
       const cropMask  = document.querySelector('#cropModal .crop-mask');
 
+      let maskDiameter = 0;
+
       if (!avatarImg || !avatarInput || !cropModal || !cropCanvas || !zoomRange || !zoomInBtn || !zoomOutBtn || !cropCancel || !cropApply || !cropStage || !cropMask) {
         console.warn('Cropper elements missing');
         return;
@@ -236,6 +238,7 @@
         const targetDiameter = avatarEl ? avatarEl.clientWidth : 220; // fallback
         const stageRect = cropStage.getBoundingClientRect();
         const diameter = Math.min(targetDiameter, stageRect.width, stageRect.height);
+        maskDiameter = diameter;
         const r = Math.floor(diameter / 2);
         // radial-gradient with pixel radius so the preview circle visually matches settings avatar
         cropMask.style.background = `radial-gradient(circle ${r}px at 50% 50%, transparent ${r - 0.5}px, rgba(0,0,0,.55) ${r}px)`;
@@ -368,13 +371,18 @@
         const off = document.createElement('canvas');
         off.width = outSize; off.height = outSize;
         const octx = off.getContext('2d');
-        // map current canvas content to offscreen: draw img with same transform but scaled to outSize
-        // Current canvas is size x size. Compute scale factor from current to output
-        const k = outSize / cropCanvas.width;
+        // map current canvas content to offscreen: draw img with same transform but scaled so mask circle maps to output
+        const D = maskDiameter && maskDiameter > 0 ? maskDiameter : cropCanvas.width; // mask diameter or fallback
+        const k = outSize / D; // scale so mask diameter maps to outSize
+        const size = cropCanvas.width; // canvas side (square)
         octx.fillStyle = '#1e1e1e';
         octx.fillRect(0,0,outSize,outSize);
         octx.save();
-        octx.translate(tx * k, ty * k);
+        // keep the same relative offset from canvas center, but scale to mask size
+        octx.translate(
+          (outSize/2) + (tx - size/2) * k,
+          (outSize/2) + (ty - size/2) * k
+        );
         octx.scale(scale * k, scale * k);
         octx.drawImage(img, -img.width/2, -img.height/2);
         octx.restore();
@@ -568,7 +576,7 @@
     </div>
     <div class="crop-controls">
       <button type="button" class="crop-btn" id="zoomOut">−</button>
-      <input type="range" min="0.5" max="4" step="0.01" value="1" id="zoomRange" class="range" />
+      <input type="range" min="0.2" max="4" step="0.01" value="1" id="zoomRange" class="range" />
       <button type="button" class="crop-btn" id="zoomIn">+</button>
       <div style="flex:1"></div>
       <button type="button" class="crop-btn" id="cropCancel">Cancel</button>
