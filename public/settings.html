@@ -82,6 +82,19 @@
     .status{ margin-top:10px; font-size:14px; }
     .ok{ color:#78d18b; }
     .err{ color:#ff6b6b; }
+    /* Avatar cropper modal */
+    .crop-modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:9999; }
+    .crop-modal.show{ display:flex; }
+    .crop-dialog{ background:#2a2a2a; border:1px solid var(--stroke); border-radius:16px; padding:16px; width:min(92vw, 520px); }
+    .crop-title{ color:#ff8c00; margin:0 0 10px; font-size:16px; }
+    .crop-stage{ position:relative; width:100%; aspect-ratio:1/1; background:#1e1e1e; border-radius:12px; overflow:hidden; }
+    #cropCanvas{ width:100%; height:100%; display:block; }
+    /* circular mask overlay */
+    .crop-mask{ pointer-events:none; position:absolute; inset:0; background:radial-gradient(circle at 50% 50%, transparent 36%, rgba(0,0,0,.55) 37%); }
+    .crop-controls{ display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap; }
+    .crop-controls .range{ flex:1; }
+    .crop-btn{ background:#3a3a3a; color:#fff; border:none; border-radius:10px; padding:8px 12px; cursor:pointer; }
+    .crop-btn.primary{ background:#ff8c00; color:#000; }
   </style>
 </head>
 <body>
@@ -193,18 +206,171 @@
       }catch(e){}
     })();
 
-    // Avatar picker + preview
+    // Avatar picker + cropper
     try {
       const avatarImg = document.querySelector('.avatar-box img');
       const avatarInput = document.getElementById('avatarInput');
+      const cropModal = document.getElementById('cropModal');
+      const cropCanvas = document.getElementById('cropCanvas');
+      const zoomRange = document.getElementById('zoomRange');
+      const zoomInBtn = document.getElementById('zoomIn');
+      const zoomOutBtn = document.getElementById('zoomOut');
+      const cropCancel = document.getElementById('cropCancel');
+      const cropApply = document.getElementById('cropApply');
+
+      let ctx, img, scale=1, minScale=1, maxScale=4, tx=0, ty=0;
+      let dragging=false, lastX=0, lastY=0; // mouse pan
+      let touchMode=false, lastDist=0; // pinch zoom
+
+      function openCropper(dataUrl){
+        // size canvas square
+        const size = Math.min(window.innerWidth*0.9, 480);
+        cropCanvas.width = size; cropCanvas.height = size;
+        ctx = cropCanvas.getContext('2d');
+
+        img = new Image();
+        img.onload = () => {
+          // cover strategy: image fully covers canvas
+          const sx = size / img.width;
+          const sy = size / img.height;
+          minScale = Math.max(sx, sy); // cover
+          scale = Math.max(minScale, 1);
+          maxScale = Math.max(4, minScale*4);
+          tx = size/2; ty = size/2; // center
+          zoomRange.min = Math.max(0.2, minScale * 0.25).toFixed(2);
+          zoomRange.max = maxScale.toFixed(2);
+          zoomRange.value = scale.toFixed(2);
+          render();
+          cropModal.classList.add('show');
+          cropModal.setAttribute('aria-hidden','false');
+        };
+        img.src = dataUrl;
+      }
+
+      function render(){
+        const w = cropCanvas.width, h = cropCanvas.height;
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = '#1e1e1e';
+        ctx.fillRect(0,0,w,h);
+        ctx.save();
+        ctx.translate(tx,ty);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, -img.width/2, -img.height/2);
+        ctx.restore();
+      }
+
+      function setScale(s, cx, cy){
+        // zoom towards point (cx,cy) in canvas coords
+        const prev = scale;
+        scale = Math.min(Math.max(s, parseFloat(zoomRange.min)), parseFloat(zoomRange.max));
+        const k = scale/prev;
+        // adjust translation so zoom focal point remains under cursor
+        tx = cx - (cx - tx) * k;
+        ty = cy - (cy - ty) * k;
+        zoomRange.value = scale.toFixed(2);
+        render();
+      }
+
+      // Mouse events
+      cropCanvas.addEventListener('mousedown', e=>{
+        dragging = true; lastX = e.offsetX; lastY = e.offsetY;
+      });
+      window.addEventListener('mouseup', ()=> dragging=false);
+      cropCanvas.addEventListener('mousemove', e=>{
+        if(!dragging) return;
+        const dx = e.offsetX - lastX; const dy = e.offsetY - lastY;
+        lastX = e.offsetX; lastY = e.offsetY;
+        tx += dx; ty += dy; render();
+      });
+      cropCanvas.addEventListener('wheel', e=>{
+        e.preventDefault();
+        const rect = cropCanvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left; const cy = e.clientY - rect.top;
+        const delta = e.deltaY < 0 ? 1.08 : 0.92;
+        setScale(scale * delta, cx, cy);
+      }, { passive:false });
+
+      // Touch events
+      cropCanvas.addEventListener('touchstart', e=>{
+        if (e.touches.length === 1){
+          touchMode = true; dragging = true;
+          const t = e.touches[0];
+          const rect = cropCanvas.getBoundingClientRect();
+          lastX = t.clientX - rect.left; lastY = t.clientY - rect.top;
+        } else if (e.touches.length === 2){
+          touchMode = true; dragging = false;
+          lastDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+        }
+      }, { passive:true });
+      cropCanvas.addEventListener('touchmove', e=>{
+        if (!touchMode) return;
+        const rect = cropCanvas.getBoundingClientRect();
+        if (e.touches.length === 1 && dragging){
+          const t = e.touches[0];
+          const x = t.clientX - rect.left; const y = t.clientY - rect.top;
+          const dx = x - lastX; const dy = y - lastY;
+          lastX = x; lastY = y; tx += dx; ty += dy; render();
+        } else if (e.touches.length === 2){
+          const d = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const cx = (e.touches[0].clientX + e.touches[1].clientX)/2 - rect.left;
+          const cy = (e.touches[0].clientY + e.touches[1].clientY)/2 - rect.top;
+          const factor = d / (lastDist || d);
+          lastDist = d;
+          setScale(scale * factor, cx, cy);
+        }
+      }, { passive:false });
+      cropCanvas.addEventListener('touchend', ()=>{ dragging=false; touchMode=false; lastDist=0; }, { passive:true });
+
+      // Controls
+      zoomRange.addEventListener('input', ()=> setScale(parseFloat(zoomRange.value), cropCanvas.width/2, cropCanvas.height/2));
+      zoomInBtn.addEventListener('click', ()=> setScale(scale*1.12, cropCanvas.width/2, cropCanvas.height/2));
+      zoomOutBtn.addEventListener('click', ()=> setScale(scale/1.12, cropCanvas.width/2, cropCanvas.height/2));
+
+      cropCancel.addEventListener('click', ()=>{ cropModal.classList.remove('show'); cropModal.setAttribute('aria-hidden','true'); avatarInput.value=''; });
+
+      cropApply.addEventListener('click', ()=>{
+        // Export full square canvas; the UI circle is only a preview. The final <img> is round via CSS.
+        const outSize = 512; // good quality, will be resized by server if needed
+        const off = document.createElement('canvas');
+        off.width = outSize; off.height = outSize;
+        const octx = off.getContext('2d');
+        // map current canvas content to offscreen: draw img with same transform but scaled to outSize
+        // Current canvas is size x size. Compute scale factor from current to output
+        const k = outSize / cropCanvas.width;
+        octx.fillStyle = '#1e1e1e';
+        octx.fillRect(0,0,outSize,outSize);
+        octx.save();
+        octx.translate(tx * k, ty * k);
+        octx.scale(scale * k, scale * k);
+        octx.drawImage(img, -img.width/2, -img.height/2);
+        octx.restore();
+
+        off.toBlob(async (blob)=>{
+          if (!blob) return;
+          const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+          _avatarSelectedFile = file;
+          const reader = new FileReader();
+          reader.onload = ()=>{ avatarImg.src = reader.result; };
+          reader.readAsDataURL(file);
+          cropModal.classList.remove('show');
+          cropModal.setAttribute('aria-hidden','true');
+        }, 'image/jpeg', 0.92);
+      });
+
       if (avatarImg && avatarInput) {
         avatarImg.addEventListener('click', () => avatarInput.click());
         avatarInput.addEventListener('change', () => {
           const f = avatarInput.files && avatarInput.files[0];
-          _avatarSelectedFile = f || null;
+          _avatarSelectedFile = null; // reset; we will set after Apply
           if (f) {
             const reader = new FileReader();
-            reader.onload = () => { avatarImg.src = reader.result; };
+            reader.onload = () => openCropper(reader.result);
             reader.readAsDataURL(f);
           }
         });
@@ -284,9 +450,9 @@
 
         if (!res.ok) {
           const tx = await res.text().catch(()=> 'Server error');
-          setStatus('Failed to save to Supabase: ' + tx, false);
+          setStatus('Failed to save: ' + tx, false);
         } else {
-          setStatus('Saved to Supabase.', true);
+          setStatus('Saved.', true);
           if (_avatarSelectedFile) {
             try {
               const isSub = localStorage.getItem('Subscription') === 'true';
@@ -306,7 +472,7 @@
                   if (newLink) {
                     const avatarImg = document.querySelector('.avatar-box img');
                     if (avatarImg) avatarImg.src = newLink;
-                    setStatus('Avatar saved to Supabase.', true);
+                    setStatus('Avatar saved.', true);
                     _avatarSelectedFile = null;
                   }
                 } else {
@@ -368,3 +534,22 @@
   </script>
 </body>
 </html>
+</body>
+<!-- Avatar Cropper Modal -->
+<div id="cropModal" class="crop-modal" aria-hidden="true">
+  <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="cropTitle">
+    <h3 id="cropTitle" class="crop-title">Adjust avatar</h3>
+    <div class="crop-stage">
+      <canvas id="cropCanvas"></canvas>
+      <div class="crop-mask"></div>
+    </div>
+    <div class="crop-controls">
+      <button type="button" class="crop-btn" id="zoomOut">−</button>
+      <input type="range" min="0.5" max="4" step="0.01" value="1" id="zoomRange" class="range" />
+      <button type="button" class="crop-btn" id="zoomIn">+</button>
+      <div style="flex:1"></div>
+      <button type="button" class="crop-btn" id="cropCancel">Cancel</button>
+      <button type="button" class="crop-btn primary" id="cropApply">Use this</button>
+    </div>
+  </div>
+</div>
