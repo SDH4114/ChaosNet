@@ -76,6 +76,7 @@
     .buttons{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
     .btn{ background:var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; }
     .btn.secondary{ background:#3a3a3a; }
+    .file-hidden{ position: fixed; left: -9999px; top: -9999px; width: 1px; height: 1px; opacity: 0; }
     #deleteAcc { margin-left: auto; }
 
     .note{ margin-top:8px; font-size:12px; color:var(--muted); }
@@ -113,7 +114,7 @@
       <div class="avatar-box">
         <div class="avatar-bg"></div>
         <img src="img/user.png" alt="Avatar" style="width:220px;height:220px;border-radius:50%;object-fit:cover;position:relative;z-index:1;" />
-        <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+        <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" class="file-hidden" />
       </div>
       <div id="userNameDisplay" style="color:#ff8c00; text-align:center; margin-top:12px; font-weight:500;"></div>
       <div id="adminStatusDisplay" style="color:#ff8c00; text-align:center; font-size:14px;"></div>
@@ -364,7 +365,13 @@
       });
 
       if (avatarImg && avatarInput) {
-        avatarImg.addEventListener('click', () => avatarInput.click());
+        avatarImg.addEventListener('click', () => {
+          if (typeof avatarInput.showPicker === 'function') {
+            try { avatarInput.showPicker(); } catch(_) { avatarInput.click(); }
+          } else {
+            avatarInput.click();
+          }
+        });
         avatarInput.addEventListener('change', () => {
           const f = avatarInput.files && avatarInput.files[0];
           _avatarSelectedFile = null; // reset; we will set after Apply
