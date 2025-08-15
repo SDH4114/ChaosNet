@@ -552,6 +552,53 @@ function inferTypeFromData(media) {
   return 'file';
 }
 
+function isDataUrl(str) {
+  return typeof str === 'string' && str.startsWith('data:');
+}
+
+function dataUrlToBuffer(dataUrl) {
+  // expected format: data:<mime>;base64,<data>
+  const match = /^data:([^;]+);base64,(.*)$/i.exec(dataUrl || '');
+  if (!match) return null;
+  const mime = match[1];
+  const base64 = match[2];
+  const buffer = Buffer.from(base64, 'base64');
+  // map common mimes to extensions
+  const subtype = (mime.split('/')[1] || '').toLowerCase();
+  const extMap = {
+    jpeg: 'jpg', jpg: 'jpg', png: 'png', webp: 'webp', gif: 'gif',
+    mp4: 'mp4', quicktime: 'mov', webm: 'webm',
+    mpeg: 'mp3', mp3: 'mp3', ogg: 'ogg', wav: 'wav', 'x-wav': 'wav', 'aac': 'aac', 'mp4a-latm': 'm4a', 'mp4': 'm4a',
+    pdf: 'pdf', zip: 'zip'
+  };
+  const ext = extMap[subtype] || (subtype ? subtype.replace(/[^a-z0-9]/g, '') : 'bin');
+  return { mime, buffer, ext };
+}
+
+async function uploadBufferToStorage(buffer, mime, suggestedName = '') {
+  const safeName = (suggestedName || '').replace(/[^a-zA-Z0-9._-]/g, '');
+  const dot = safeName.lastIndexOf('.');
+  const suggestedExt = dot >= 0 ? safeName.slice(dot + 1) : '';
+  const extFromName = suggestedExt ? suggestedExt : (mime.split('/')[1] || 'bin');
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.${extFromName}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(filename, buffer, {
+    contentType: mime || 'application/octet-stream',
+    cacheControl: '3600',
+    upsert: false
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+  return { publicUrl: data.publicUrl, filename };
+}
+
+function inferTypeFromUrl(url, filename = '') {
+  const name = (filename || url || '').toLowerCase();
+  if (/(\.png|\.jpg|\.jpeg|\.webp|\.gif)(\?|#|$)/.test(name)) return 'image';
+  if (/(\.mp4|\.webm|\.mov|\.mkv)(\?|#|$)/.test(name)) return 'video';
+  if (/(\.mp3|\.ogg|\.wav|\.m4a|\.aac)(\?|#|$)/.test(name)) return 'audio';
+  return 'file';
+}
+
 // Helpers: room user list and combined flags
 function getRoomUsers(room) {
   const arr = [];
@@ -611,7 +658,7 @@ wss.on('connection', (ws) => {
         .order('timestamp', { ascending: true });
 
       history?.forEach(m => {
-        const inferredType = inferTypeFromData(m.image_url);
+        const inferredType = inferTypeFromUrl(m.image_url, m.filename) || inferTypeFromData(m.image_url);
         ws.send(JSON.stringify({
           type: inferredType,
           text: m.text,
@@ -686,39 +733,79 @@ wss.on('connection', (ws) => {
         : [{ image: data.image, filename: data.filename }];
 
       for (const file of files) {
-        const thisType = inferTypeFromData(file.image);
-        const sizeBytes = base64Size(file.image);
+        const raw = file.image;
+        const isData = isDataUrl(raw);
 
-        if (thisType === 'image') {
-          const maxImage = (isAdmin || isSubscribed) ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
-          if (sizeBytes > maxImage) {
-            ws.send(JSON.stringify({ type: 'error', text: `Image "${file.filename || ''}" is too large. Max size is ${(isAdmin || isSubscribed) ? '7MB' : '2MB'}.` }));
+        // Decide the effective type: prefer explicit client type, else from URL or data
+        let thisType = (data.type && ['image','video','audio','file'].includes(data.type)) ? data.type : null;
+        if (!thisType) thisType = isData ? inferTypeFromData(raw) : inferTypeFromUrl(raw, file.filename);
+
+        // Size limits (only enforce precisely for data URLs where we know the bytes)
+        if (isData) {
+          const parsed = dataUrlToBuffer(raw);
+          if (!parsed) {
+            ws.send(JSON.stringify({ type: 'error', text: 'Unsupported data URL.' }));
             return;
           }
-        } else {
-          const maxBig = 30 * 1024 * 1024; // 30MB for video/audio/other
-          if (sizeBytes > maxBig) {
-            ws.send(JSON.stringify({ type: 'error', text: `File "${file.filename || ''}" is too large. Max size is 30MB.` }));
-            return;
+          const { buffer, mime } = parsed;
+          if (thisType === 'image') {
+            const maxImage = (isAdmin || isSubscribed) ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+            if (buffer.length > maxImage) {
+              ws.send(JSON.stringify({ type: 'error', text: `Image "${file.filename || ''}" is too large. Max size is ${(isAdmin || isSubscribed) ? '7MB' : '2MB'}.` }));
+              return;
+            }
+          } else {
+            const maxBig = 30 * 1024 * 1024; // 30MB for video/audio/other
+            if (buffer.length > maxBig) {
+              ws.send(JSON.stringify({ type: 'error', text: `File "${file.filename || ''}" is too large. Max size is 30MB.` }));
+              return;
+            }
           }
         }
       }
 
+      // If we got here, sizes are acceptable. Now store each file (data URLs -> Storage) and broadcast URLs.
       const now2 = new Date().toISOString();
       for (const file of files) {
+        let urlToSend = file.image;
+        let filenameToStore = file.filename || undefined;
+        let thisType = (data.type && ['image','video','audio','file'].includes(data.type)) ? data.type : null;
+
+        if (isDataUrl(file.image)) {
+          const parsed = dataUrlToBuffer(file.image);
+          if (!parsed) continue; // skip invalid
+          const { buffer, mime, ext } = parsed;
+          // Prefer original extension from filename if present
+          const suggestedName = filenameToStore || `upload.${ext}`;
+          try {
+            const { publicUrl, filename } = await uploadBufferToStorage(buffer, mime, suggestedName);
+            urlToSend = publicUrl;
+            filenameToStore = filenameToStore || filename;
+          } catch (e) {
+            console.error('Storage upload failed:', e.message || e);
+            ws.send(JSON.stringify({ type: 'error', text: 'Upload failed.' }));
+            return;
+          }
+          if (!thisType) thisType = mime && mime.startsWith('image/') ? 'image' : (mime.startsWith('video/') ? 'video' : (mime.startsWith('audio/') ? 'audio' : 'file'));
+        } else {
+          if (!thisType) thisType = inferTypeFromUrl(file.image, file.filename);
+        }
+
         const message = {
           room,
           user: userData.nick,
           text: data.text || '',
-          image_url: file.image,
+          image_url: urlToSend,
+          filename: filenameToStore || null,
           timestamp: now2
         };
         await supabase.from('messages').insert(message);
+
         broadcast(room, {
-          type: inferTypeFromData(file.image),
+          type: thisType,
           text: data.text,
-          image: file.image,
-          filename: file.filename,
+          image: urlToSend,
+          filename: filenameToStore,
           user: userData.nick,
           timestamp: now2
         });

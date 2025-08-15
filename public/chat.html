@@ -396,7 +396,7 @@
     }
   });
 
-  form.addEventListener('submit', (e) => {
+form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const message = input.value.trim();
     const privileged = isPrivileged(); // Admin ИЛИ Subscription
@@ -410,34 +410,62 @@
     if (files.length > 0) {
       const maxImage = privileged ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
       const maxBig = 30 * 1024 * 1024;
+
+      // Клиентские проверки размеров (как и раньше)
       for (const file of files) {
         const isVideo = file.type && file.type.startsWith('video/');
         const isImage = file.type && file.type.startsWith('image/');
         const isAudio = file.type && file.type.startsWith('audio/');
         if (isImage) {
-          if (file.size > maxImage) { alert(`Image "${file.name}" is too large. Max size is ${privileged ? '7MB' : '2MB'}.`); return; }
+          if (file.size > maxImage) {
+            alert(`Image "${file.name}" is too large. Max size is ${privileged ? '7MB' : '2MB'}.`);
+            return;
+          }
         } else if (isVideo || isAudio || !file.type) {
-          if (file.size > maxBig) { alert(`File "${file.name}" is too large. Max size is 30MB.`); return; }
+          if (file.size > maxBig) {
+            alert(`File "${file.name}" is too large. Max size is 30MB.`);
+            return;
+          }
         }
       }
-      Array.from(files).forEach((file, index) => {
+
+      // Загружаем каждый файл на сервер через /upload,
+      // берём публичную ссылку и отправляем по WebSocket ТОЛЬКО URL
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         const isVideo = file.type && file.type.startsWith('video/');
         const isImage = file.type && file.type.startsWith('image/');
         const isAudio = file.type && file.type.startsWith('audio/');
-        const reader = new FileReader();
-        reader.onload = () => {
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+          const resp = await fetch('/upload', { method: 'POST', body: fd });
+          if (!resp.ok) {
+            const tx = await resp.text().catch(() => '');
+            throw new Error(`Upload failed: ${tx || resp.status}`);
+          }
+          const data = await resp.json();
+          const url = data.url;
+
           socket.send(JSON.stringify({
             type: isVideo ? 'video' : isImage ? 'image' : isAudio ? 'audio' : 'file',
             user: username,
             room,
             target,
-            image: reader.result,
+            image: url,            // <-- отправляем ссылку, не base64
             filename: file.name,
-            text: index === 0 ? message : ''
+            text: i === 0 ? message : ''
           }));
-        };
-        reader.readAsDataURL(file);
-      });
+        } catch (err) {
+          console.error('Upload error for', file.name, err);
+          alert(`Upload failed for "${file.name}". Please try again.`);
+          return;
+        }
+      }
+
+      // Очистка формы
       input.value = '';
       imageInput.value = '';
       selectedImagesContainer.style.display = 'none';
