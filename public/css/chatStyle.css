@@ -38,7 +38,7 @@ body {
 }
 
 /* Сообщения пользователя (справа) */
-.self {
+.bubble.self {
   align-self: flex-end;
   background-color: #ff8c00;
   text-align: right;
@@ -46,7 +46,7 @@ body {
 }
 
 /* Сообщения других пользователей (слева) */
-.other {
+.bubble.other {
   align-self: flex-start;
   background-color: #3a3a3a;
   text-align: left;
@@ -269,3 +269,13 @@ form button[type="submit"]:hover,
   .input-field::placeholder {
     color: #ff8c00;
   }
+
+/* WhatsApp-like message row with avatar */
+.message-row{ display:flex; align-items:flex-end; gap:8px; margin:6px 10px; }
+.message-row.other{ justify-content:flex-start; }
+.message-row.self{ justify-content:flex-end; }
+.message-row .avatar{ width:32px; height:32px; border-radius:50%; object-fit:cover; flex:0 0 32px; background:#2a2a2a; }
+.message-row.other .avatar{ order:1; margin-right:6px; }
+.message-row.other .bubble{ order:2; }
+.message-row.self .avatar{ order:2; margin-left:6px; }
+.message-row.self .bubble{ order:1; }

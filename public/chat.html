@@ -20,6 +20,11 @@
   </a>
 </div>
 
+<!-- Полоса с онлайном -->
+<div id="online-bar" style="padding: 6px 16px; font-size: 13px; background:#232323; color:#fff;">
+  Online: <span id="users-online">—</span>
+</div>
+
 <!-- Контейнер для сообщений -->
 <div id="messages"></div>
 
@@ -54,7 +59,10 @@
 </div>
 
 <script>
-  const socket = new WebSocket("wss://" + location.host);
+  // ws / wss в зависимости от протокола страницы
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const socket = new WebSocket(wsProto + '://' + location.host);
+
   const form = document.getElementById('form');
   const input = document.getElementById('input');
   const imageInput = document.getElementById('imageInput');
@@ -63,6 +71,60 @@
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
   const micBtn = document.getElementById('micBtn');
+
+  // флаги прав доступа (админ/подписка)
+  window.USER_FLAGS = { isAdmin:false, isSub:false };
+  function isPrivileged() {
+    const f = window.USER_FLAGS || {};
+    return !!(f.isAdmin || f.isSub);
+  }
+
+  // === Avatar cache/helpers ===
+  const avatarsByNick = new Map();
+  let selfAvatarUrl = 'img/user.png';
+  const DEFAULT_AVATAR = 'img/user.png';
+  const cacheBust = (u)=> u ? (u + (u.includes('?') ? '&' : '?') + 'v=' + Date.now()) : u;
+
+  async function fetchSelfAvatar(){
+    try{
+      const uid = localStorage.getItem('userid') || localStorage.getItem('userID');
+      if(!uid) return;
+      const r = await fetch('/get-user', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: uid }) });
+      if(!r.ok) return;
+      const u = await r.json();
+
+      // сохраняем права доступа
+      window.USER_FLAGS = {
+        isAdmin: !!u.AdminStatus,
+        isSub: !!u.Subscription
+      };
+      try { localStorage.setItem('Subscription', String(!!u.Subscription)); } catch(_) {}
+
+      const link = u.avatar || u.avatar_url;
+      if (link) {
+        selfAvatarUrl = cacheBust(link);
+        const nickLS = localStorage.getItem('username');
+        if (nickLS) avatarsByNick.set(nickLS, selfAvatarUrl);
+      }
+    }catch(_){/* ignore */}
+  }
+
+  async function fetchAvatarByNick(nick){
+    if (!nick) return DEFAULT_AVATAR;
+    if (avatarsByNick.has(nick)) return avatarsByNick.get(nick);
+    try{
+      const r = await fetch('/get-user-by-nick', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nick }) });
+      if (r.ok) {
+        const u = await r.json();
+        const link = u.avatar || u.avatar_url;
+        const url = link ? cacheBust(link) : DEFAULT_AVATAR;
+        avatarsByNick.set(nick, url);
+        return url;
+      }
+    }catch(_){/* ignore */}
+    avatarsByNick.set(nick, DEFAULT_AVATAR);
+    return DEFAULT_AVATAR;
+  }
 
   // === Notifications & sound helpers ===
   let notificationAsked = false;
@@ -139,7 +201,6 @@
     for (const item of items) {
       if (item.type && item.type.startsWith('image/')) {
         const file = item.getAsFile();
-        // можно добавить автоприкрепление, если нужно
       }
     }
   });
@@ -149,6 +210,8 @@
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room") || "main";
   const target = urlParams.get("target");
+  // Prefetch own avatar (if available)
+  fetchSelfAvatar();
   chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
 
   socket.addEventListener('open', () => {
@@ -192,65 +255,57 @@
       return;
     }
 
+    // Container row + bubble
+    const row = document.createElement('div');
     const div = document.createElement('div');
+    row.classList.add('message-row');
     div.classList.add('bubble');
 
-    const timestamp = msg.timestamp;
-    const timeObj = new Date(timestamp);
+    const isSelf = msg.user === username;
 
+    // Hide system join/leave messages
+    if (
+      msg.type === 'system' ||
+      msg.type === 'join' ||
+      msg.type === 'leave' ||
+      (msg.user === 'system' && /joined|left/i.test(msg.text || ''))
+    ) {
+      return;
+    }
+
+    // Non-system messages => row with avatar + bubble
+    row.classList.add(isSelf ? 'self' : 'other');
+
+    const avatarImg = document.createElement('img');
+    avatarImg.className = 'avatar';
+    avatarImg.alt = msg.user;
+    avatarImg.src = isSelf ? (selfAvatarUrl || DEFAULT_AVATAR) : (avatarsByNick.get(msg.user) || DEFAULT_AVATAR);
+
+    const timeObj = new Date(msg.timestamp);
     const time = document.createElement('div');
     time.classList.add('meta');
     time.textContent = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
     const date = document.createElement('div');
     date.classList.add('date-meta');
     date.textContent = timeObj.toLocaleDateString('ru-RU');
     date.style.color = 'white';
 
-    if (msg.type === 'system') {
-      div.className = 'bubble system';
-      const text = document.createElement('div');
-      text.textContent = msg.text;
-      text.style.textAlign = 'center';
-      text.style.fontStyle = 'italic';
-      text.style.color = 'white';
-      time.style.textAlign = 'center';
-      date.style.textAlign = 'center';
-      div.appendChild(text); div.appendChild(time); div.appendChild(date);
-    } else if (msg.type === 'join') {
-      div.className = 'bubble system';
-      const text = document.createElement('div');
-      text.textContent = `${msg.user} joined`;
-      text.style.textAlign = 'center';
-      text.style.fontStyle = 'italic';
-      text.style.color = 'white';
-      time.style.textAlign = 'center';
-      date.style.textAlign = 'center';
-      div.appendChild(text); div.appendChild(time); div.appendChild(date);
-      fetch('/log-system-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: msg.user, text: `${msg.user} joined`, type: 'system', room, timestamp: msg.timestamp }) });
-    } else if (msg.type === 'leave') {
-      div.className = 'bubble system';
-      const text = document.createElement('div');
-      text.textContent = `${msg.user} left`;
-      text.style.textAlign = 'center';
-      text.style.fontStyle = 'italic';
-      text.style.color = 'white';
-      time.style.textAlign = 'center';
-      date.style.textAlign = 'center';
-      div.appendChild(text); div.appendChild(time); div.appendChild(date);
-      fetch('/log-system-message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: msg.user, text: `${msg.user} left`, type: 'system', room, timestamp: msg.timestamp }) });
-    } else if (msg.type === 'image') {
-      div.classList.add(msg.user === username ? 'self' : 'other');
+    if (msg.type === 'image') {
+      div.classList.add(isSelf ? 'self' : 'other');
       const img = document.createElement('img');
       img.src = msg.image; img.alt = msg.filename || 'image';
       img.style.maxWidth = '200px'; img.style.borderRadius = '10px';
       div.appendChild(img);
-      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
-      time.style.textAlign = msg.user === username ? 'right' : 'left';
-      date.style.textAlign = msg.user === username ? 'right' : 'left';
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+      time.style.textAlign = isSelf ? 'right' : 'left';
+      date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'video') {
-      div.classList.add(msg.user === username ? 'self' : 'other');
+      div.classList.add(isSelf ? 'self' : 'other');
       const video = document.createElement('video');
       video.src = msg.image;
       video.setAttribute('controls','');
@@ -260,25 +315,30 @@
       video.preload = 'metadata';
       video.style.maxWidth = '200px'; video.style.borderRadius = '10px';
       div.appendChild(video);
-      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
-      time.style.textAlign = msg.user === username ? 'right' : 'left';
-      date.style.textAlign = msg.user === username ? 'right' : 'left';
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+      time.style.textAlign = isSelf ? 'right' : 'left';
+      date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'audio') {
-      div.classList.add(msg.user === username ? 'self' : 'other');
+      div.classList.add(isSelf ? 'self' : 'other');
       const audio = document.createElement('audio');
-      audio.src = msg.image;
-      audio.setAttribute('controls','');
-      audio.setAttribute('playsinline','');
-      audio.setAttribute('preload','metadata');
+      audio.src = msg.image; audio.setAttribute('controls',''); audio.setAttribute('playsinline',''); audio.setAttribute('preload','metadata');
       audio.style.maxWidth = '200px'; audio.style.display = 'block';
       div.appendChild(audio);
-      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
-      time.style.textAlign = msg.user === username ? 'right' : 'left';
-      date.style.textAlign = msg.user === username ? 'right' : 'left';
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+      time.style.textAlign = isSelf ? 'right' : 'left';
+      date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'file') {
-      div.classList.add(msg.user === username ? 'self' : 'other');
+      div.classList.add(isSelf ? 'self' : 'other');
       const fileLink = document.createElement('a');
       fileLink.href = msg.image; fileLink.download = msg.filename || 'file';
       fileLink.textContent = `${msg.filename || 'Download file'}`;
@@ -286,26 +346,48 @@
       fileLink.style.marginBottom = '6px'; fileLink.style.textDecoration = 'underline';
       fileLink.target = '_blank';
       div.appendChild(fileLink);
-      if (msg.text) { const caption = document.createElement('div'); caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = msg.user === username ? 'right' : 'left'; div.appendChild(caption); }
-      time.style.textAlign = msg.user === username ? 'right' : 'left';
-      date.style.textAlign = msg.user === username ? 'right' : 'left';
+      if (msg.text) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        div.appendChild(caption);
+      }
+      time.style.textAlign = isSelf ? 'right' : 'left';
+      date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else {
-      div.classList.add(msg.user === username ? 'self' : 'other');
-      if (msg.user !== username) {
+      // text message
+      div.classList.add(isSelf ? 'self' : 'other');
+      if (!isSelf) {
         const name = document.createElement('div');
         name.textContent = msg.user; name.style.fontSize = '12px';
         name.style.marginBottom = '4px'; name.style.opacity = '0.9'; name.style.color = '#ff8c00';
         div.appendChild(name);
         time.style.textAlign = 'left'; date.style.textAlign = 'left';
+      } else {
+        time.style.textAlign = 'right'; date.style.textAlign = 'right';
       }
-      if (msg.user === username) { time.style.textAlign = 'right'; date.style.textAlign = 'right'; }
       const text = document.createElement('div'); text.textContent = msg.text; div.appendChild(text);
       div.appendChild(time); div.appendChild(date);
     }
 
-    messages.appendChild(div);
+    // Assemble row: avatar + bubble (order controlled via CSS)
+    if (isSelf) {
+      row.appendChild(div);
+      row.appendChild(avatarImg);
+    } else {
+      row.appendChild(avatarImg);
+      row.appendChild(div);
+    }
+
+    messages.appendChild(row);
     messages.scrollTop = messages.scrollHeight;
+
+    // Load avatar async for others (and refresh self)
+    if (isSelf) {
+      if (!selfAvatarUrl || selfAvatarUrl === DEFAULT_AVATAR) fetchSelfAvatar().then(()=>{ avatarImg.src = selfAvatarUrl || DEFAULT_AVATAR; });
+    } else {
+      fetchAvatarByNick(msg.user).then(url => { avatarImg.src = url; }).catch(()=>{});
+    }
 
     // Уведомления только для чужих сообщений (кроме system/leave)
     if (msg.user !== username && msg.type !== 'system' && msg.type !== 'leave') {
@@ -317,23 +399,23 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const message = input.value.trim();
-    const isSubscribed = localStorage.getItem("Subscription") === "true";
+    const privileged = isPrivileged(); // Admin ИЛИ Subscription
     const files = imageInput.files;
 
-    if (!isSubscribed && message.length > 444) {
+    if (!privileged && message.length > 444) {
       alert("You can send up to 444 characters in a single message.");
       return;
     }
 
     if (files.length > 0) {
-      const maxImage = isSubscribed ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+      const maxImage = privileged ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
       const maxBig = 30 * 1024 * 1024;
       for (const file of files) {
         const isVideo = file.type && file.type.startsWith('video/');
         const isImage = file.type && file.type.startsWith('image/');
         const isAudio = file.type && file.type.startsWith('audio/');
         if (isImage) {
-          if (file.size > maxImage) { alert(`Image "${file.name}" is too large. Max size is ${isSubscribed ? '7MB' : '2MB'}.`); return; }
+          if (file.size > maxImage) { alert(`Image "${file.name}" is too large. Max size is ${privileged ? '7MB' : '2MB'}.`); return; }
         } else if (isVideo || isAudio || !file.type) {
           if (file.size > maxBig) { alert(`File "${file.name}" is too large. Max size is 30MB.`); return; }
         }
@@ -388,7 +470,7 @@
   downloadBtn.onclick = () => { const link = document.createElement('a'); link.href = modalImg.src; link.download = 'image.jpg'; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
 
   messages.addEventListener('click', (e) => {
-    if (e.target.tagName === 'IMG') {
+    if (e.target.tagName === 'IMG' && e.target.closest('.bubble')) {
       modal.style.display = 'block'; modalImg.src = e.target.src;
       scale = 1; modalImg.style.transform = `scale(${scale})`;
       modalImg.style.left = ''; modalImg.style.top = ''; modalImg.style.position = '';

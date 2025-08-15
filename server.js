@@ -28,6 +28,11 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 const BUCKET = 'chat-uploads';
 const AVATARS_BUCKET = 'avatars';
 
+// --- Feature flags ---
+// Suppress system join/leave messages on the server (still hidden on client anyway).
+// Set SUPPRESS_SYSTEM_MESSAGES=0 in .env if you want them back.
+const SUPPRESS_SYSTEM_MESSAGES = process.env.SUPPRESS_SYSTEM_MESSAGES === '0' ? false : true;
+
 app.use(express.static('public'));
 app.use(express.json());
 
@@ -167,6 +172,35 @@ app.post('/get-user', async (req, res) => {
     return res.status(200).json(data);
   } catch (err) {
     console.error('Unexpected error in /get-user:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// --- Get user by nickname -> avatar for chat list ---
+app.post('/get-user-by-nick', async (req, res) => {
+  const { nick } = req.body || {};
+  if (!nick) return res.status(400).json({ error: 'No nick provided' });
+
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('nick, avatar')
+      .eq('nick', nick)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Supabase get-user-by-nick error:', error.message);
+      return res.status(500).json({ error: 'Server error' });
+    }
+    if (!data) return res.status(404).json({ error: 'User not found' });
+
+    return res.status(200).json({
+      nick: data.nick,
+      avatar: data.avatar || null,
+      avatar_url: data.avatar || null
+    });
+  } catch (err) {
+    console.error('Unexpected error in /get-user-by-nick:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -518,6 +552,34 @@ function inferTypeFromData(media) {
   return 'file';
 }
 
+// Helpers: room user list and combined flags
+function getRoomUsers(room) {
+  const arr = [];
+  for (const u of clients.values()) {
+    if (u.room === room && u.nick) arr.push(u.nick);
+  }
+  // unique
+  return Array.from(new Set(arr));
+}
+
+async function getUserFlags(userId) {
+  if (!userId || userId.startsWith('guest_')) return { isAdmin: false, isSubscribed: false };
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('AdminStatus, Subscription')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error || !data) return { isAdmin: false, isSubscribed: false };
+    return {
+      isAdmin: data.AdminStatus === true,
+      isSubscribed: data.Subscription === true
+    };
+  } catch (_) {
+    return { isAdmin: false, isSubscribed: false };
+  }
+}
+
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
 
@@ -529,6 +591,8 @@ wss.on('connection', (ws) => {
     if (data.type === 'activeRoom') {
       userData.room = data.room;
       clients.set(ws, userData);
+      // respond with current users in this room
+      ws.send(JSON.stringify({ type: 'userlist', users: getRoomUsers(userData.room) }));
       return;
     }
 
@@ -546,7 +610,7 @@ wss.on('connection', (ws) => {
         .eq('room', userData.room)
         .order('timestamp', { ascending: true });
 
-      history.forEach(m => {
+      history?.forEach(m => {
         const inferredType = inferTypeFromData(m.image_url);
         ws.send(JSON.stringify({
           type: inferredType,
@@ -557,38 +621,38 @@ wss.on('connection', (ws) => {
           timestamp: m.timestamp
         }));
       });
-      // Broadcast join message
-      broadcast(userData.room, {
-        type: 'join',
-        user: userData.nick,
-        timestamp: now
-      });
-      await supabase.from('messages').insert({
-        room: userData.room,
-        user: 'system',
-        text: `${userData.nick} joined`,
-        image_url: '',
-        timestamp: now
-      });
+
+      const now = new Date().toISOString();
+
+      // Optionally keep server-side system join log (suppressed by default)
+      if (!SUPPRESS_SYSTEM_MESSAGES) {
+        broadcast(userData.room, {
+          type: 'join',
+          user: userData.nick,
+          timestamp: now
+        });
+        await supabase.from('messages').insert({
+          room: userData.room,
+          user: 'system',
+          text: `${userData.nick} joined`,
+          image_url: '',
+          timestamp: now
+        });
+      }
+
+      // Always broadcast current user list
+      broadcast(userData.room, { type: 'userlist', users: getRoomUsers(userData.room) });
       return;
     }
 
     if (data.type === 'message') {
-      // Subscription check and message length limit for non-subscribed users
-      if (!userData.id.startsWith('guest_')) {
-        const { data: userDataSub } = await supabase
-          .from('users')
-          .select('Subscription')
-          .eq('id', userData.id)
-          .maybeSingle();
-
-        const isSubscribed = userDataSub?.Subscription === true;
-
-        if (!isSubscribed && data.text && data.text.length > 444) {
-          ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
-          return;
-        }
+      const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
+      if (!isAdmin && !isSubscribed && data.text && data.text.length > 444) {
+        ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
+        return;
       }
+
+      const now = new Date().toISOString();
       const message = {
         room,
         user: userData.nick,
@@ -601,56 +665,62 @@ wss.on('connection', (ws) => {
       activeMessages.set(room, true);
     }
 
+    // Handle explicit user list requests from client
+    if (data.type === 'requestUserList') {
+      const users = getRoomUsers(userData.room || data.room);
+      ws.send(JSON.stringify({ type: 'userlist', users }));
+      return;
+    }
+
     const incomingType = normalizeIncomingType(data.type, data.image);
     if (['image', 'video', 'audio', 'file'].includes(incomingType)) {
       if (!data.image && !Array.isArray(data.images)) {
         ws.send(JSON.stringify({ type: 'error', text: 'No media provided.' }));
         return;
       }
-      if (!userData.id.startsWith('guest_')) {
-        const { data: userDataSub } = await supabase
-          .from('users')
-          .select('Subscription')
-          .eq('id', userData.id)
-          .maybeSingle();
 
-        const isSubscribed = userDataSub?.Subscription === true;
-
-        const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for video/audio/any files
-        const base64Length = base64Size(data.image);
-        if (base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: `File too large. Max size is 30MB.` }));
-          return;
-        }
-      } else {
-        // For guests, treat as non-subscribed
-        const maxSizeBytes = 30 * 1024 * 1024; // 30MB limit for video/audio/any files
-        const base64Length = base64Size(data.image);
-        if (base64Length > maxSizeBytes) {
-          ws.send(JSON.stringify({ type: 'error', text: 'File too large. Max size is 30MB.' }));
-          return;
-        }
-      }
+      const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
 
       const files = Array.isArray(data.images)
         ? data.images
         : [{ image: data.image, filename: data.filename }];
+
+      for (const file of files) {
+        const thisType = inferTypeFromData(file.image);
+        const sizeBytes = base64Size(file.image);
+
+        if (thisType === 'image') {
+          const maxImage = (isAdmin || isSubscribed) ? 7 * 1024 * 1024 : 2 * 1024 * 1024;
+          if (sizeBytes > maxImage) {
+            ws.send(JSON.stringify({ type: 'error', text: `Image "${file.filename || ''}" is too large. Max size is ${(isAdmin || isSubscribed) ? '7MB' : '2MB'}.` }));
+            return;
+          }
+        } else {
+          const maxBig = 30 * 1024 * 1024; // 30MB for video/audio/other
+          if (sizeBytes > maxBig) {
+            ws.send(JSON.stringify({ type: 'error', text: `File "${file.filename || ''}" is too large. Max size is 30MB.` }));
+            return;
+          }
+        }
+      }
+
+      const now2 = new Date().toISOString();
       for (const file of files) {
         const message = {
           room,
           user: userData.nick,
           text: data.text || '',
           image_url: file.image,
-          timestamp: now
+          timestamp: now2
         };
         await supabase.from('messages').insert(message);
         broadcast(room, {
-          type: incomingType,
+          type: inferTypeFromData(file.image),
           text: data.text,
           image: file.image,
           filename: file.filename,
           user: userData.nick,
-          timestamp: now
+          timestamp: now2
         });
       }
       activeMessages.set(room, true);
@@ -659,21 +729,28 @@ wss.on('connection', (ws) => {
 
   ws.on('close', async () => {
     const now = new Date().toISOString();
-    broadcast(userData.room, {
-      type: 'leave',
-      user: userData.nick,
-      timestamp: now
-    });
-    await supabase.from('messages').insert({
-      room: userData.room,
-      user: 'system',
-      text: `${userData.nick} left`,
-      image_url: '',
-      timestamp: now
-    });
-    clients.delete(ws);
-    const room = userData.room;
 
+    if (!SUPPRESS_SYSTEM_MESSAGES) {
+      broadcast(userData.room, {
+        type: 'leave',
+        user: userData.nick,
+        timestamp: now
+      });
+      await supabase.from('messages').insert({
+        room: userData.room,
+        user: 'system',
+        text: `${userData.nick} left`,
+        image_url: '',
+        timestamp: now
+      });
+    }
+
+    clients.delete(ws);
+
+    // Always broadcast current user list after someone leaves
+    broadcast(userData.room, { type: 'userlist', users: getRoomUsers(userData.room) });
+
+    const room = userData.room;
     const stillInRoom = Array.from(clients.values()).some(u => u.room === room);
 
     if (!stillInRoom && activeMessages.get(room)) {
@@ -683,7 +760,7 @@ wss.on('connection', (ws) => {
         .eq('room', room)
         .order('timestamp');
 
-      const logText = logs.map(m => `${m.timestamp} — ${m.user}: ${m.text || '[attachment]'}`).join('\n');
+      const logText = (logs || []).map(m => `${m.timestamp} — ${m.user}: ${m.text || '[attachment]'}`).join('\n');
       // sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
       activeMessages.delete(room);
     }
