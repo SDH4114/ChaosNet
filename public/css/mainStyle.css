@@ -206,3 +206,21 @@ button:hover {
     width: 400px;
   }
 }
+
+.password-field { position: relative; }
+.password-field input { padding-right: 44px; }
+.toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 6px;
+  color: #ff8c00;
+}
+.toggle-password:hover { color: #ffa733; }
+.toggle-password:focus { outline: none; }

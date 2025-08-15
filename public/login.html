@@ -5,7 +5,17 @@
   <title>ChaosNet - Login</title>
   <link rel="icon" type="image/png" href="img/ChaosNetLogo.png" />
   <link rel="shortcut icon" href="img/ChaosNetLogo.png" type="image/png"/>
+</head>
   <link rel="stylesheet" href="css/mainStyle.css" />
+  <style>
+    .password-field{position:relative;}
+    .password-field input{padding-right:42px;}
+    .password-field .toggle-pwd{
+      position:absolute; right:10px; top:50%; transform:translateY(-50%);
+      background:transparent; border:none; cursor:pointer; font-size:18px; opacity:.85;
+    }
+    .password-field .toggle-pwd:focus{outline:none;}
+  </style>
 </head>
 <body>
 
@@ -14,7 +24,10 @@
     <form id="loginForm">
       <input type="hidden" id="nick" />
       <input type="text" id="id" placeholder="ID" pattern="[A-Z]{2}\d{4}" title="ID must be in the format AA0000" required />
-      <input type="password" id="password" placeholder="Password" required />
+      <div class="password-field">
+        <input type="password" id="password" placeholder="Password" required />
+        <button type="button" id="togglePwd" class="toggle-pwd" aria-label="Show password" title="Show password">👁</button>
+      </div>
       <button type="submit">Log In</button>
       <div class="error" id="error"></div>
     </form>
@@ -27,6 +40,20 @@
   </div>
 
   <script>
+    // Password visibility toggle
+    (function(){
+      const pwdInput = document.getElementById('password');
+      const toggleBtn = document.getElementById('togglePwd');
+      if (pwdInput && toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          const isPwd = pwdInput.type === 'password';
+          pwdInput.type = isPwd ? 'text' : 'password';
+          toggleBtn.setAttribute('aria-label', isPwd ? 'Hide password' : 'Show password');
+          toggleBtn.setAttribute('title', isPwd ? 'Hide password' : 'Show password');
+          toggleBtn.textContent = isPwd ? '🙈' : '👁';
+        });
+      }
+    })();
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 

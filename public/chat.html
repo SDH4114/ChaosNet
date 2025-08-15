@@ -6,6 +6,10 @@
   <link rel="icon" type="image/png" href="img/ChaosNetLogo.png" />
   <link rel="shortcut icon" href="img/ChaosNetLogo.png" type="image/png"/>
   <link rel="stylesheet" href="css/chatStyle.css" />
+  <style>
+    .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
+    .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
+  </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -127,6 +131,65 @@
   }
 
   // === Notifications & sound helpers ===
+
+  // Safely append text with clickable links (http/https/www.)
+  function appendLinkified(container, text) {
+    container.textContent = '';
+    if (!text) return;
+
+    const urlRe = /((https?:\/\/|www\.)[^\s<]+)/gi;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRe.exec(text)) !== null) {
+      // text before the URL
+      const pre = text.slice(lastIndex, match.index);
+      if (pre) container.appendChild(document.createTextNode(pre));
+
+      // matched URL text
+      let urlText = match[0];
+
+      // trim common trailing punctuation from the URL
+      let trailing = '';
+      while (/[),.;:!?]$/.test(urlText) && urlText.length > 0) {
+        trailing = urlText.slice(-1) + trailing;
+        urlText = urlText.slice(0, -1);
+      }
+
+      // normalize href
+      let href = urlText.startsWith('www.') ? ('http://' + urlText) : urlText;
+
+      // validate and create anchor
+      try {
+        const u = new URL(href);
+        if (u.protocol === 'http:' || u.protocol === 'https:') {
+          const a = document.createElement('a');
+          a.href = href;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.className = 'msg-link';
+          a.textContent = urlText;
+          container.appendChild(a);
+        } else {
+          // fallback to plain text if protocol is not http/https
+          container.appendChild(document.createTextNode(match[0]));
+        }
+      } catch {
+        // invalid URL - append raw text
+        container.appendChild(document.createTextNode(match[0]));
+      }
+
+      // append the trailing punctuation (if any)
+      if (trailing) container.appendChild(document.createTextNode(trailing));
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // rest of the text
+    const rest = text.slice(lastIndex);
+    if (rest) container.appendChild(document.createTextNode(rest));
+  }
+
   let notificationAsked = false;
   let _audioCtx;
 
@@ -298,7 +361,11 @@
       div.appendChild(img);
       if (msg.text) {
         const caption = document.createElement('div');
-        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        appendLinkified(caption, msg.text || '');
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = isSelf ? 'right' : 'left';
         div.appendChild(caption);
       }
       time.style.textAlign = isSelf ? 'right' : 'left';
@@ -317,7 +384,11 @@
       div.appendChild(video);
       if (msg.text) {
         const caption = document.createElement('div');
-        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        appendLinkified(caption, msg.text || '');
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = isSelf ? 'right' : 'left';
         div.appendChild(caption);
       }
       time.style.textAlign = isSelf ? 'right' : 'left';
@@ -331,7 +402,11 @@
       div.appendChild(audio);
       if (msg.text) {
         const caption = document.createElement('div');
-        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        appendLinkified(caption, msg.text || '');
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = isSelf ? 'right' : 'left';
         div.appendChild(caption);
       }
       time.style.textAlign = isSelf ? 'right' : 'left';
@@ -348,7 +423,11 @@
       div.appendChild(fileLink);
       if (msg.text) {
         const caption = document.createElement('div');
-        caption.textContent = msg.text; caption.style.color = 'white'; caption.style.marginTop = '6px'; caption.style.fontWeight = 'normal'; caption.style.textAlign = isSelf ? 'right' : 'left';
+        appendLinkified(caption, msg.text || '');
+        caption.style.color = 'white';
+        caption.style.marginTop = '6px';
+        caption.style.fontWeight = 'normal';
+        caption.style.textAlign = isSelf ? 'right' : 'left';
         div.appendChild(caption);
       }
       time.style.textAlign = isSelf ? 'right' : 'left';
@@ -366,7 +445,9 @@
       } else {
         time.style.textAlign = 'right'; date.style.textAlign = 'right';
       }
-      const text = document.createElement('div'); text.textContent = msg.text; div.appendChild(text);
+      const text = document.createElement('div');
+      appendLinkified(text, msg.text || '');
+      div.appendChild(text);
       div.appendChild(time); div.appendChild(date);
     }
 
