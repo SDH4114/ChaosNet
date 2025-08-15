@@ -6,6 +6,33 @@
   <link rel="icon" type="image/png" href="img/ChaosNetLogo.png" />
   <link rel="shortcut icon" href="img/ChaosNetLogo.png" type="image/png"/>
   <link rel="stylesheet" href="css/mainStyle.css" />
+  <style>
+    /* Password toggle (Register page) */
+    .password-field{ position: relative; }
+    .password-field input{ padding-right: 48px; }
+
+    /* Keep it as a small button (NOT icon-only here) */
+    .toggle-password{
+      position: absolute;
+      top: calc(50%);
+      transform: translateY(-50%);
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .toggle-password img{
+      width: 18px;
+      height: 18px;
+      display: block;
+      pointer-events: none;
+    }
+  </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -16,7 +43,9 @@
       <input type="text" id="id" placeholder="ID (e.g. AA0000)" required />
       <div class="password-field">
         <input type="password" id="password" placeholder="Password" required />
-        <button type="button" id="togglePassword" class="toggle-password" aria-label="Show password" title="Show password">👁</button>
+        <button type="button" id="togglePassword" class="toggle-password" style="top: calc(50% - 7px);" aria-label="Show password" title="Show password">
+          <img id="togglePasswordIcon" src="img/view.png" alt="" />
+        </button>
       </div>
       <button type="submit">Register</button>
     </form>
@@ -54,17 +83,18 @@
         alert("Error: " + err.message);
       }
     });
-    // Password visibility toggle
+    // Password visibility toggle (with view/hide icons)
     (function(){
       const pwInput = document.getElementById('password');
       const toggleBtn = document.getElementById('togglePassword');
-      if (pwInput && toggleBtn) {
+      const icon = document.getElementById('togglePasswordIcon');
+      if (pwInput && toggleBtn && icon) {
         toggleBtn.addEventListener('click', () => {
           const showing = pwInput.type === 'text';
           pwInput.type = showing ? 'password' : 'text';
-          toggleBtn.textContent = showing ? '👁' : '🙈';
+          icon.src = showing ? 'img/view.png' : 'img/hide.png';
           toggleBtn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
-          toggleBtn.setAttribute('title', showing ? 'Show password' : 'Hide password');
+          toggleBtn.title = showing ? 'Show password' : 'Hide password';
         });
       }
     })();

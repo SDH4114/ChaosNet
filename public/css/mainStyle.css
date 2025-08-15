@@ -207,20 +207,42 @@ button:hover {
   }
 }
 
+/* Password field (login/register) */
 .password-field { position: relative; }
-.password-field input { padding-right: 44px; }
-.toggle-password {
+.password-field input[type="password"],
+.password-field input[type="text"] { padding-right: 44px; }
+
+/* Toggle button inside the input (supports both class names) */
+.password-field .toggle-password,
+.password-field .toggle-pwd {
   position: absolute;
-  top: 50%;
   right: 10px;
+  top: 50%;
   transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  padding: 6px;
-  color: #ff8c00;
+  opacity: 0.9;
 }
-.toggle-password:hover { color: #ffa733; }
-.toggle-password:focus { outline: none; }
+
+.password-field .toggle-password img,
+.password-field .toggle-pwd img {
+  width: 20px;
+  height: 20px;
+  display: block;
+  pointer-events: none; /* click goes to the button */
+}
+
+.password-field .toggle-password:hover,
+.password-field .toggle-pwd:hover { opacity: 1; }
+
+.password-field .toggle-password:focus,
+.password-field .toggle-pwd:focus {
+  outline: 2px solid #ff8c0030;
+  border-radius: 6px;
+}
