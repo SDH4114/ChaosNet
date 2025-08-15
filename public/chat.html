@@ -25,7 +25,7 @@
 </div>
 
 <!-- Полоса с онлайном -->
-<div id="online-bar" style="padding: 6px 16px; font-size: 13px; background:#232323; color:#fff;">
+<div id="online-bar" style="padding: 6px 16px; font-size: 13px; background:#232323; color:#ff8c00;">
   Online: <span id="users-online">—</span>
 </div>
 
@@ -412,15 +412,35 @@
       time.style.textAlign = isSelf ? 'right' : 'left';
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
-    } else if (msg.type === 'file') {
+    } else if (msg.type === 'file' && msg.image) {
       div.classList.add(isSelf ? 'self' : 'other');
-      const fileLink = document.createElement('a');
-      fileLink.href = msg.image; fileLink.download = msg.filename || 'file';
-      fileLink.textContent = `${msg.filename || 'Download file'}`;
-      fileLink.style.color = '#ff8c00'; fileLink.style.display = 'inline-block';
-      fileLink.style.marginBottom = '6px'; fileLink.style.textDecoration = 'underline';
-      fileLink.target = '_blank';
-      div.appendChild(fileLink);
+
+      const href = String(msg.image || '').trim();
+      if (href) {
+        const fileLink = document.createElement('a');
+        fileLink.href = href;
+        fileLink.textContent = `${msg.filename || 'Download file'}`;
+        fileLink.style.color = '#ff8c00';
+        fileLink.style.display = 'inline-block';
+        fileLink.style.marginBottom = '6px';
+        fileLink.style.textDecoration = 'underline';
+
+        // Open external files in a new tab
+        if (/^https?:\/\//i.test(href)) {
+          fileLink.target = '_blank';
+          fileLink.rel = 'noopener noreferrer';
+        }
+
+        // Only force download for data URLs or same-origin files
+        const isData = href.startsWith('data:');
+        const isSameOrigin = href.startsWith(location.origin);
+        if (isData || isSameOrigin) {
+          fileLink.download = msg.filename || 'file';
+        }
+
+        div.appendChild(fileLink);
+      }
+
       if (msg.text) {
         const caption = document.createElement('div');
         appendLinkified(caption, msg.text || '');
