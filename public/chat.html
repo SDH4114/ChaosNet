@@ -10,7 +10,7 @@
     .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
     .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
     .bubble { position: relative; }
-    .reply-btn { position: absolute; top: 6px; right: 8px; background: transparent; border: none; font-size: 16px; cursor: pointer; opacity: 0; padding: 0; line-height: 1; }
+    .reply-btn { position: absolute; left: -28px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 16px; cursor: pointer; opacity: 0; padding: 0; line-height: 1; z-index: 2; }
     .bubble:hover .reply-btn { opacity: 1; }
     .reply-quote { border-left: 3px solid #ff8c00; padding: 6px 8px; margin-bottom: 8px; background: rgba(255,255,255,0.04); border-radius: 8px; }
     .reply-quote .reply-author { font-size: 12px; color: #ff8c00; margin-bottom: 2px; }
@@ -626,7 +626,7 @@ form.addEventListener('submit', async (e) => {
     const files = imageInput.files;
     const composedText = composeTextWithReply(message);
 
-    if (!privileged && message.length > 444) {
+    if (!privileged && composedText.length > 444) {
       alert("You can send up to 444 characters in a single message.");
       return;
     }

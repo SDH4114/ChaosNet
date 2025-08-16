@@ -616,6 +616,19 @@ function sanitizeReply(r) {
   return out;
 }
 
+function stripReplyPrefix(txt, hasReplyMeta) {
+  if (!hasReplyMeta) return (txt || '');
+  const s = (txt || '');
+  // Common patterns from UI reply headers, e.g.:
+  // "↩ @Nick: preview\n---\nActual message"
+  const markers = [/^↩/u, /^Replying to/i, /^Ответ.*:/i];
+  const looksLikeQuoted = markers.some(rx => rx.test(s));
+  if (!looksLikeQuoted) return s;
+  // Prefer splitting by a horizontal rule (---), else first blank line
+  const parts = s.split(/\n-{2,}\n|\n\n/);
+  return (parts.length > 1 ? parts.slice(1).join('\n\n') : s).trim();
+}
+
 // Helpers: room user list and combined flags
 function getRoomUsers(room) {
   const arr = [];
@@ -713,23 +726,28 @@ wss.on('connection', (ws) => {
     }
 
     if (data.type === 'message') {
+      // Flags
       const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
-      if (!isAdmin && !isSubscribed && data.text && data.text.length > 444) {
+
+      // Reply meta -> then compute "clean" text (without UI reply header)
+      const replyToId =
+        (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
+          ? data.replyToId : null;
+      const replySnapshot = sanitizeReply(data.replyTo) || null;
+      const cleanText = stripReplyPrefix((data.text || '').trim(), !!(replyToId || replySnapshot));
+
+      // Length limit for non-subscribed users is applied to the actual message text only
+      if (!isAdmin && !isSubscribed && cleanText && cleanText.length > 444) {
         ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
         return;
       }
 
       const now = new Date().toISOString();
 
-      const replyToId =
-        (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
-          ? data.replyToId : null;
-      const replySnapshot = sanitizeReply(data.replyTo) || null;
-
       const baseRow = {
         room,
         user: userData.nick,
-        text: data.text,
+        text: cleanText,
         image_url: '',
         filename: null,
         timestamp: now,
@@ -749,7 +767,7 @@ wss.on('connection', (ws) => {
         const fallback = {
           room,
           user: userData.nick,
-          text: data.text,
+          text: cleanText,
           image_url: '',
           filename: null,
           timestamp: now
@@ -761,7 +779,7 @@ wss.on('connection', (ws) => {
       broadcast(room, {
         id: insertedId,
         type: 'message',
-        text: data.text,
+        text: cleanText,
         user: userData.nick,
         timestamp: now,
         replyToId: replyToId,
@@ -790,6 +808,12 @@ wss.on('connection', (ws) => {
         (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
           ? data.replyToId : null;
       const replySnapshot = sanitizeReply(data.replyTo) || null;
+
+      const cleanTextForMedia = stripReplyPrefix((data.text || '').trim(), !!(replyToId || replySnapshot));
+      if (!isAdmin && !isSubscribed && cleanTextForMedia && cleanTextForMedia.length > 444) {
+        ws.send(JSON.stringify({ type: 'error', text: 'Caption too long for non-subscribed users.' }));
+        return;
+      }
 
       const files = Array.isArray(data.images)
         ? data.images
@@ -857,7 +881,7 @@ wss.on('connection', (ws) => {
         const row = {
           room,
           user: userData.nick,
-          text: data.text || '',
+          text: cleanTextForMedia,
           image_url: urlToSend,
           filename: filenameToStore || null,
           timestamp: now2,
@@ -875,7 +899,7 @@ wss.on('connection', (ws) => {
           const fallbackRow = {
             room,
             user: userData.nick,
-            text: data.text || '',
+            text: cleanTextForMedia,
             image_url: urlToSend,
             filename: filenameToStore || null,
             timestamp: now2
@@ -887,7 +911,7 @@ wss.on('connection', (ws) => {
         broadcast(room, {
           id: insertedId2,
           type: thisType,
-          text: data.text,
+          text: cleanTextForMedia,
           image: urlToSend,
           filename: filenameToStore,
           user: userData.nick,
