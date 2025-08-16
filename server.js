@@ -599,6 +599,23 @@ function inferTypeFromUrl(url, filename = '') {
   return 'file';
 }
 
+function sanitizeReply(r) {
+  if (!r || typeof r !== 'object') return null;
+  const out = {
+    user: typeof r.user === 'string' ? r.user : '',
+    type: (typeof r.type === 'string' ? r.type : 'message'),
+    text: typeof r.text === 'string' ? r.text : '',
+    filename: typeof r.filename === 'string' ? r.filename : '',
+    image: typeof r.image === 'string' ? r.image : '',
+    timestamp: typeof r.timestamp === 'string' ? r.timestamp : ''
+  };
+  // keep text short to avoid spam
+  if (out.text && out.text.length > 300) out.text = out.text.slice(0, 300);
+  // do not allow inline base64 in reply preview
+  if (out.image && isDataUrl(out.image)) out.image = '';
+  return out;
+}
+
 // Helpers: room user list and combined flags
 function getRoomUsers(room) {
   const arr = [];
@@ -660,12 +677,15 @@ wss.on('connection', (ws) => {
       history?.forEach(m => {
         const inferredType = inferTypeFromUrl(m.image_url, m.filename) || inferTypeFromData(m.image_url);
         ws.send(JSON.stringify({
+          id: m.id,
           type: inferredType,
           text: m.text,
           image: m.image_url,
           filename: m.filename || undefined,
           user: m.user,
-          timestamp: m.timestamp
+          timestamp: m.timestamp,
+          replyToId: m.reply_to_id || null,
+          replyTo: m.reply_snapshot || null
         }));
       });
 
@@ -700,15 +720,53 @@ wss.on('connection', (ws) => {
       }
 
       const now = new Date().toISOString();
-      const message = {
+
+      const replyToId =
+        (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
+          ? data.replyToId : null;
+      const replySnapshot = sanitizeReply(data.replyTo) || null;
+
+      const baseRow = {
         room,
         user: userData.nick,
         text: data.text,
         image_url: '',
-        timestamp: now
+        filename: null,
+        timestamp: now,
+        reply_to_id: replyToId,
+        reply_snapshot: replySnapshot
       };
-      await supabase.from('messages').insert(message);
-      broadcast(room, { type: 'message', text: data.text, user: userData.nick, timestamp: now });
+
+      let insertedId = null;
+      let ins = await supabase
+        .from('messages')
+        .insert(baseRow)
+        .select('id')
+        .single();
+
+      if (ins?.error && /reply_to_id|reply_snapshot/i.test(ins.error.message || '')) {
+        // Fallback if DB not migrated yet
+        const fallback = {
+          room,
+          user: userData.nick,
+          text: data.text,
+          image_url: '',
+          filename: null,
+          timestamp: now
+        };
+        ins = await supabase.from('messages').insert(fallback).select('id').single();
+      }
+      insertedId = ins?.data?.id || null;
+
+      broadcast(room, {
+        id: insertedId,
+        type: 'message',
+        text: data.text,
+        user: userData.nick,
+        timestamp: now,
+        replyToId: replyToId,
+        replyTo: replySnapshot
+      });
       activeMessages.set(room, true);
     }
 
@@ -727,6 +785,11 @@ wss.on('connection', (ws) => {
       }
 
       const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
+
+      const replyToId =
+        (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
+          ? data.replyToId : null;
+      const replySnapshot = sanitizeReply(data.replyTo) || null;
 
       const files = Array.isArray(data.images)
         ? data.images
@@ -791,23 +854,46 @@ wss.on('connection', (ws) => {
           if (!thisType) thisType = inferTypeFromUrl(file.image, file.filename);
         }
 
-        const message = {
+        const row = {
           room,
           user: userData.nick,
           text: data.text || '',
           image_url: urlToSend,
           filename: filenameToStore || null,
-          timestamp: now2
+          timestamp: now2,
+          reply_to_id: replyToId,
+          reply_snapshot: replySnapshot
         };
-        await supabase.from('messages').insert(message);
+
+        let ins2 = await supabase
+          .from('messages')
+          .insert(row)
+          .select('id')
+          .single();
+
+        if (ins2?.error && /reply_to_id|reply_snapshot/i.test(ins2.error.message || '')) {
+          const fallbackRow = {
+            room,
+            user: userData.nick,
+            text: data.text || '',
+            image_url: urlToSend,
+            filename: filenameToStore || null,
+            timestamp: now2
+          };
+          ins2 = await supabase.from('messages').insert(fallbackRow).select('id').single();
+        }
+        const insertedId2 = ins2?.data?.id || null;
 
         broadcast(room, {
+          id: insertedId2,
           type: thisType,
           text: data.text,
           image: urlToSend,
           filename: filenameToStore,
           user: userData.nick,
-          timestamp: now2
+          timestamp: now2,
+          replyToId: replyToId,
+          replyTo: replySnapshot
         });
       }
       activeMessages.set(room, true);
