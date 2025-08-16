@@ -599,35 +599,6 @@ function inferTypeFromUrl(url, filename = '') {
   return 'file';
 }
 
-function sanitizeReply(r) {
-  if (!r || typeof r !== 'object') return null;
-  const out = {
-    user: typeof r.user === 'string' ? r.user : '',
-    type: (typeof r.type === 'string' ? r.type : 'message'),
-    text: typeof r.text === 'string' ? r.text : '',
-    filename: typeof r.filename === 'string' ? r.filename : '',
-    image: typeof r.image === 'string' ? r.image : '',
-    timestamp: typeof r.timestamp === 'string' ? r.timestamp : ''
-  };
-  // keep text short to avoid spam
-  if (out.text && out.text.length > 300) out.text = out.text.slice(0, 300);
-  // do not allow inline base64 in reply preview
-  if (out.image && isDataUrl(out.image)) out.image = '';
-  return out;
-}
-
-function stripReplyPrefix(txt, hasReplyMeta) {
-  if (!hasReplyMeta) return (txt || '');
-  const s = (txt || '');
-  // Common patterns from UI reply headers, e.g.:
-  // "↩ @Nick: preview\n---\nActual message"
-  const markers = [/^↩/u, /^Replying to/i, /^Ответ.*:/i];
-  const looksLikeQuoted = markers.some(rx => rx.test(s));
-  if (!looksLikeQuoted) return s;
-  // Prefer splitting by a horizontal rule (---), else first blank line
-  const parts = s.split(/\n-{2,}\n|\n\n/);
-  return (parts.length > 1 ? parts.slice(1).join('\n\n') : s).trim();
-}
 
 // Helpers: room user list and combined flags
 function getRoomUsers(room) {
@@ -696,9 +667,7 @@ wss.on('connection', (ws) => {
           image: m.image_url,
           filename: m.filename || undefined,
           user: m.user,
-          timestamp: m.timestamp,
-          replyToId: m.reply_to_id || null,
-          replyTo: m.reply_snapshot || null
+          timestamp: m.timestamp
         }));
       });
 
@@ -729,61 +698,39 @@ wss.on('connection', (ws) => {
       // Flags
       const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
 
-      // Reply meta -> then compute "clean" text (without UI reply header)
-      const replyToId =
-        (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
-          ? data.replyToId : null;
-      const replySnapshot = sanitizeReply(data.replyTo) || null;
-      const cleanText = stripReplyPrefix((data.text || '').trim(), !!(replyToId || replySnapshot));
+      const text = (data.text || '').trim();
 
       // Length limit for non-subscribed users is applied to the actual message text only
-      if (!isAdmin && !isSubscribed && cleanText && cleanText.length > 444) {
+      if (!isAdmin && !isSubscribed && text && text.length > 444) {
         ws.send(JSON.stringify({ type: 'error', text: 'Message too long for non-subscribed users.' }));
         return;
       }
 
       const now = new Date().toISOString();
 
-      const baseRow = {
+      const row = {
         room,
         user: userData.nick,
-        text: cleanText,
+        text,
         image_url: '',
         filename: null,
-        timestamp: now,
-        reply_to_id: replyToId,
-        reply_snapshot: replySnapshot
+        timestamp: now
       };
 
-      let insertedId = null;
-      let ins = await supabase
+      const ins = await supabase
         .from('messages')
-        .insert(baseRow)
+        .insert(row)
         .select('id')
         .single();
 
-      if (ins?.error && /reply_to_id|reply_snapshot/i.test(ins.error.message || '')) {
-        // Fallback if DB not migrated yet
-        const fallback = {
-          room,
-          user: userData.nick,
-          text: cleanText,
-          image_url: '',
-          filename: null,
-          timestamp: now
-        };
-        ins = await supabase.from('messages').insert(fallback).select('id').single();
-      }
-      insertedId = ins?.data?.id || null;
+      const insertedId = ins?.data?.id || null;
 
       broadcast(room, {
         id: insertedId,
         type: 'message',
-        text: cleanText,
+        text,
         user: userData.nick,
-        timestamp: now,
-        replyToId: replyToId,
-        replyTo: replySnapshot
+        timestamp: now
       });
       activeMessages.set(room, true);
     }
@@ -803,14 +750,8 @@ wss.on('connection', (ws) => {
       }
 
       const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
-
-      const replyToId =
-        (typeof data.replyToId === 'string' || typeof data.replyToId === 'number')
-          ? data.replyToId : null;
-      const replySnapshot = sanitizeReply(data.replyTo) || null;
-
-      const cleanTextForMedia = stripReplyPrefix((data.text || '').trim(), !!(replyToId || replySnapshot));
-      if (!isAdmin && !isSubscribed && cleanTextForMedia && cleanTextForMedia.length > 444) {
+      const caption = (data.text || '').trim();
+      if (!isAdmin && !isSubscribed && caption && caption.length > 444) {
         ws.send(JSON.stringify({ type: 'error', text: 'Caption too long for non-subscribed users.' }));
         return;
       }
@@ -881,12 +822,10 @@ wss.on('connection', (ws) => {
         const row = {
           room,
           user: userData.nick,
-          text: cleanTextForMedia,
+          text: caption,
           image_url: urlToSend,
           filename: filenameToStore || null,
-          timestamp: now2,
-          reply_to_id: replyToId,
-          reply_snapshot: replySnapshot
+          timestamp: now2
         };
 
         let ins2 = await supabase
@@ -899,7 +838,7 @@ wss.on('connection', (ws) => {
           const fallbackRow = {
             room,
             user: userData.nick,
-            text: cleanTextForMedia,
+            text: caption,
             image_url: urlToSend,
             filename: filenameToStore || null,
             timestamp: now2
@@ -911,13 +850,11 @@ wss.on('connection', (ws) => {
         broadcast(room, {
           id: insertedId2,
           type: thisType,
-          text: cleanTextForMedia,
+          text: caption,
           image: urlToSend,
           filename: filenameToStore,
           user: userData.nick,
-          timestamp: now2,
-          replyToId: replyToId,
-          replyTo: replySnapshot
+          timestamp: now2
         });
       }
       activeMessages.set(room, true);
