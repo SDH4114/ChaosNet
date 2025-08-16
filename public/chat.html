@@ -10,14 +10,6 @@
     .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
     .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
     .bubble { position: relative; }
-    .reply-btn { position: absolute; left: -28px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 16px; cursor: pointer; opacity: 0; padding: 0; line-height: 1; z-index: 2; }
-    .bubble:hover .reply-btn { opacity: 1; }
-    .reply-quote { border-left: 3px solid #ff8c00; padding: 6px 8px; margin-bottom: 8px; background: rgba(255,255,255,0.04); border-radius: 8px; }
-    .reply-quote .reply-author { font-size: 12px; color: #ff8c00; margin-bottom: 2px; }
-    #replyPreview { display:none; padding:6px 8px; margin:6px 10px; background:#262626; border-left:3px solid #ff8c00; border-radius:8px; position:relative; }
-    #replyPreview .rp-author { font-size:12px; color:#ff8c00; margin-bottom:2px; }
-    #replyPreview .rp-text { font-size:13px; color:#ddd; }
-    #replyPreview .rp-cancel { position:absolute; right:8px; top:6px; background:transparent; border:none; cursor:pointer; font-size:18px; color:#bbb; padding:0; line-height:1; }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -43,11 +35,6 @@
 
 <!-- Форма ввода -->
 <form id="form">
-  <div id="replyPreview">
-    <button class="rp-cancel" title="Cancel reply">×</button>
-    <div class="rp-author"></div>
-    <div class="rp-text"></div>
-  </div>
   <div id="selectedImagesContainer" style="display: none; margin-bottom: 10px; color: white;">
     <div style="font-size: 14px; margin-bottom: 6px;color: #ff8c00;">Selected images:</div>
     <div id="imageThumbnails" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
@@ -204,93 +191,6 @@
     if (rest) container.appendChild(document.createTextNode(rest));
   }
 
-  // ==== Reply support (WhatsApp-like) ====
-  const REPLY_PREFIX = '[[[__reply__]]]';
-  const REPLY_SUFFIX = '[[[/__reply__]]]';
-  let currentReply = null; // {u, t, ty}
-
-  const replyPreview = document.getElementById('replyPreview');
-  const rpAuthor = replyPreview.querySelector('.rp-author');
-  const rpText = replyPreview.querySelector('.rp-text');
-  const rpCancel = replyPreview.querySelector('.rp-cancel');
-  rpCancel.addEventListener('click', clearReply);
-
-  function clearReply(){
-    currentReply = null;
-    replyPreview.style.display = 'none';
-    rpAuthor.textContent = '';
-    rpText.textContent = '';
-  }
-
-  function setReplyTarget(meta){
-    // meta: {u, t, ty}
-    currentReply = { u: meta.u, t: (meta.t || '').slice(0, 180), ty: meta.ty };
-    rpAuthor.textContent = meta.u || '';
-    rpText.textContent = meta.t || '';
-    replyPreview.style.display = 'block';
-    // focus input
-    try { input.focus(); } catch(_) {}
-  }
-
-  function composeTextWithReply(text){
-    if (!currentReply) return text || '';
-    const payload = { u: currentReply.u, t: (currentReply.t || '').slice(0, 180), ty: currentReply.ty };
-    const prefix = REPLY_PREFIX + JSON.stringify(payload) + REPLY_SUFFIX;
-    return (prefix + (text || '')).trim();
-  }
-
-  function extractReplyMeta(s){
-    let reply = null;
-    let clean = s || '';
-    const i = clean.indexOf(REPLY_PREFIX);
-    if (i !== -1) {
-      const j = clean.indexOf(REPLY_SUFFIX, i + REPLY_PREFIX.length);
-      if (j !== -1) {
-        const raw = clean.slice(i + REPLY_PREFIX.length, j);
-        try { reply = JSON.parse(raw); } catch(_) {}
-        clean = (clean.slice(0, i) + clean.slice(j + REPLY_SUFFIX.length)).trimStart();
-      }
-    }
-    return { clean, reply };
-  }
-
-  function renderReplyQuote(container, replyMeta){
-    if (!replyMeta) return;
-    const box = document.createElement('div');
-    box.className = 'reply-quote';
-    const au = document.createElement('div');
-    au.className = 'reply-author';
-    au.textContent = replyMeta.u || '';
-    const tx = document.createElement('div');
-    tx.className = 'reply-text';
-    tx.textContent = replyMeta.t || '';
-    box.appendChild(au);
-    box.appendChild(tx);
-    container.appendChild(box);
-  }
-
-  function attachReplyHandlers(bubbleEl, meta){
-    // Button (visible on hover)
-    const btn = document.createElement('button');
-    btn.className = 'reply-btn';
-    btn.type = 'button';
-    btn.title = 'Reply';
-    btn.textContent = '↩';
-    btn.addEventListener('click', (e)=>{ e.stopPropagation(); setReplyTarget(meta); });
-    bubbleEl.appendChild(btn);
-
-    // Long-press on touch/pointer
-    let tId = null;
-    const start = ()=>{ tId = setTimeout(()=> setReplyTarget(meta), 450); };
-    const clear = ()=>{ if (tId) { clearTimeout(tId); tId = null; } };
-    bubbleEl.addEventListener('pointerdown', start);
-    bubbleEl.addEventListener('pointerup', clear);
-    bubbleEl.addEventListener('pointerleave', clear);
-    bubbleEl.addEventListener('pointercancel', clear);
-    bubbleEl.addEventListener('touchstart', start, { passive: true });
-    bubbleEl.addEventListener('touchend', clear);
-    bubbleEl.addEventListener('touchcancel', clear);
-  }
 
   let notificationAsked = false;
   let _audioCtx;
@@ -456,8 +356,7 @@
     date.style.color = 'white';
 
     if (msg.type === 'image') {
-      const { clean: textClean, reply: replyMeta } = extractReplyMeta(msg.text || '');
-      renderReplyQuote(div, replyMeta);
+      const textClean = msg.text || '';
       div.classList.add(isSelf ? 'self' : 'other');
       const img = document.createElement('img');
       img.src = msg.image; img.alt = msg.filename || 'image';
@@ -475,11 +374,8 @@
       time.style.textAlign = isSelf ? 'right' : 'left';
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
-      const snippet = textClean || '📷 Image';
-      attachReplyHandlers(div, { u: msg.user, t: snippet, ty: msg.type });
     } else if (msg.type === 'video') {
-      const { clean: textClean, reply: replyMeta } = extractReplyMeta(msg.text || '');
-      renderReplyQuote(div, replyMeta);
+      const textClean = msg.text || '';
       div.classList.add(isSelf ? 'self' : 'other');
       const video = document.createElement('video');
       video.src = msg.image;
@@ -502,11 +398,8 @@
       time.style.textAlign = isSelf ? 'right' : 'left';
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
-      const snippet = textClean || '🎥 Video';
-      attachReplyHandlers(div, { u: msg.user, t: snippet, ty: msg.type });
     } else if (msg.type === 'audio') {
-      const { clean: textClean, reply: replyMeta } = extractReplyMeta(msg.text || '');
-      renderReplyQuote(div, replyMeta);
+      const textClean = msg.text || '';
       div.classList.add(isSelf ? 'self' : 'other');
       const audio = document.createElement('audio');
       audio.src = msg.image; audio.setAttribute('controls',''); audio.setAttribute('playsinline',''); audio.setAttribute('preload','metadata');
@@ -524,11 +417,8 @@
       time.style.textAlign = isSelf ? 'right' : 'left';
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
-      const snippet = textClean || '🎤 Voice message';
-      attachReplyHandlers(div, { u: msg.user, t: snippet, ty: msg.type });
     } else if (msg.type === 'file' && msg.image) {
-      const { clean: textClean, reply: replyMeta } = extractReplyMeta(msg.text || '');
-      renderReplyQuote(div, replyMeta);
+      const textClean = msg.text || '';
       div.classList.add(isSelf ? 'self' : 'other');
 
       const href = String(msg.image || '').trim();
@@ -569,13 +459,10 @@
       time.style.textAlign = isSelf ? 'right' : 'left';
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
-      const snippet = textClean || (`📎 ${msg.filename || 'File'}`);
-      attachReplyHandlers(div, { u: msg.user, t: snippet, ty: msg.type });
     } else {
       // text message
       div.classList.add(isSelf ? 'self' : 'other');
-      const { clean: textClean, reply: replyMeta } = extractReplyMeta(msg.text || '');
-      renderReplyQuote(div, replyMeta);
+      const textClean = msg.text || '';
       if (!isSelf) {
         const name = document.createElement('div');
         name.textContent = msg.user; name.style.fontSize = '12px';
@@ -589,8 +476,6 @@
       appendLinkified(text, textClean);
       div.appendChild(text);
       div.appendChild(time); div.appendChild(date);
-      const snippet = textClean || 'Message';
-      attachReplyHandlers(div, { u: msg.user, t: snippet, ty: msg.type });
     }
 
     // Assemble row: avatar + bubble (order controlled via CSS)
@@ -624,7 +509,7 @@ form.addEventListener('submit', async (e) => {
     const message = input.value.trim();
     const privileged = isPrivileged(); // Admin ИЛИ Subscription
     const files = imageInput.files;
-    const composedText = composeTextWithReply(message);
+    const composedText = message;
 
     if (!privileged && composedText.length > 444) {
       alert("You can send up to 444 characters in a single message.");
@@ -680,7 +565,7 @@ form.addEventListener('submit', async (e) => {
             target,
             image: url,            // <-- отправляем ссылку, не base64
             filename: file.name,
-            text: i === 0 ? composedText : ''
+            text: i === 0 ? message : ''
           }));
         } catch (err) {
           console.error('Upload error for', file.name, err);
@@ -694,15 +579,12 @@ form.addEventListener('submit', async (e) => {
       imageInput.value = '';
       selectedImagesContainer.style.display = 'none';
       imageThumbnails.innerHTML = '';
-      clearReply();
       return;
     }
 
     if (message) {
-      const finalText = composeTextWithReply(message);
-      socket.send(JSON.stringify({ type: 'message', text: finalText, user: username, room, target }));
+      socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
       input.value = '';
-      clearReply();
     }
     selectedImagesContainer.style.display = 'none';
     imageThumbnails.innerHTML = '';
