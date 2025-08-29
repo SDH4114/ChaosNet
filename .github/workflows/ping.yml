@@ -1,15 +1,27 @@
-- name: Ping /health with retry
-  env:
-    PING_URL: ${{ secrets.PING_URL }}
-  run: |
-    echo "Pinging: $PING_URL"
-    for i in {1..6}; do
-      code=$(curl -sS -o /dev/null -w "%{http_code}" -L --connect-timeout 10 --max-time 20 "$PING_URL")
-      echo "Attempt $i => HTTP $code"
-      if [ "$code" -ge 200 ] && [ "$code" -lt 400 ]; then
-        exit 0
-      fi
-      sleep 10
-    done
-    echo "Failed to get 2xx/3xx from $PING_URL"
-    exit 1
+name: Keep server awake
+
+on:
+  schedule:
+    - cron: "*/7 * * * *"   # каждые 7 минут (UTC)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Render /health (retry up to 6 times)
+        env:
+          PING_URL: ${{ secrets.PING_URL }}
+        run: |
+          echo "Pinging: $PING_URL"
+          for i in {1..6}; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" -L --connect-timeout 10 --max-time 20 "$PING_URL")
+            echo "Attempt $i => HTTP $code"
+            if [ "$code" -ge 200 ] && [ "$code" -lt 400 ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Failed to get 2xx/3xx from $PING_URL"
+          exit 1
