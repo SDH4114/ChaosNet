@@ -672,7 +672,9 @@ wss.on('connection', (ws) => {
         .order('timestamp', { ascending: true });
 
       history?.forEach(m => {
-        const inferredType = inferTypeFromUrl(m.image_url, m.filename) || inferTypeFromData(m.image_url);
+        const inferredType = (m.image_url && String(m.image_url).trim() !== '')
+          ? inferTypeFromUrl(m.image_url, m.filename)
+          : 'message';
         ws.send(JSON.stringify({
           id: m.id,
           type: inferredType,
@@ -725,18 +727,41 @@ wss.on('connection', (ws) => {
         room,
         user: userData.nick,
         text,
-        image_url: '',
+        image_url: null,   // use null, not empty string
         filename: null,
         timestamp: now
       };
 
-      const ins = await supabase
-        .from('messages')
-        .insert(row)
-        .select('id')
-        .single();
+      let insertedId = null;
+      try {
+        const ins = await supabase
+          .from('messages')
+          .insert(row)
+          .select('id')
+          .single();
 
-      const insertedId = ins?.data?.id || null;
+        if (ins?.error) {
+          console.error('Supabase insert (text) error:', ins.error.message);
+          // Fallback for schemas that still have reply_* columns with NOT NULL
+          if (/reply_to_id|reply_snapshot/i.test(String(ins.error.message))) {
+            const row2 = { ...row, reply_to_id: null, reply_snapshot: null };
+            const ins2 = await supabase
+              .from('messages')
+              .insert(row2)
+              .select('id')
+              .single();
+            if (ins2?.error) {
+              console.error('Fallback insert (text) also failed:', ins2.error.message);
+            } else {
+              insertedId = ins2?.data?.id || null;
+            }
+          }
+        } else {
+          insertedId = ins?.data?.id || null;
+        }
+      } catch (e) {
+        console.error('Unexpected insert (text) exception:', e);
+      }
 
       broadcast(room, {
         id: insertedId,

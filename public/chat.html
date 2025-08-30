@@ -656,13 +656,21 @@ form.addEventListener('submit', async (e) => {
     socket.send(JSON.stringify({ type: 'leave', user: username, id: userId, room }));
   });
 
-  // Voice message recording
+  // Voice message recording (upload to /upload, send URL via WS)
   let mediaRecorder = null; let audioChunks = []; let recordingMime = '';
   function pickAudioMime() {
     const candidates = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4'];
     for (const m of candidates) { if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m; }
     return '';
   }
+  function audioExtFromMime(m) {
+    const mm = (m || '').toLowerCase();
+    if (mm.includes('mp4') || mm.includes('m4a') || mm.includes('aac')) return 'm4a';
+    if (mm.includes('ogg')) return 'ogg';
+    if (mm.includes('wav')) return 'wav';
+    return 'webm';
+  }
+
   if (micBtn) {
     micBtn.addEventListener('click', async () => {
       try {
@@ -673,20 +681,52 @@ form.addEventListener('submit', async (e) => {
           audioChunks = [];
           const prevBg = micBtn.style.backgroundColor; micBtn.style.backgroundColor = '#ffc176';
           mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) audioChunks.push(e.data); };
-          mediaRecorder.onstop = () => {
+          mediaRecorder.onstop = async () => {
             micBtn.style.backgroundColor = prevBg;
+
+            // Build a single blob from parts
             const blob = new Blob(audioChunks, { type: recordingMime || 'audio/webm' });
-            const reader = new FileReader();
-            reader.onload = () => {
+
+            // client-side size guard (same as server: 30MB for audio/video/other)
+            const MAX_BIG = 30 * 1024 * 1024;
+            if (blob.size > MAX_BIG) {
+              alert('Voice message is too large (max 30MB).');
+              return;
+            }
+
+            // Generate a sensible filename with extension derived from MIME
+            const ext = audioExtFromMime(recordingMime || blob.type);
+            const fileName = `voice_${Date.now()}.${ext}`;
+            const file = new File([blob], fileName, { type: blob.type || 'audio/webm' });
+
+            // Upload to /upload to get a public URL, then send only the URL via WebSocket
+            const fd = new FormData();
+            fd.append('file', file);
+
+            try {
+              const resp = await fetch('/upload', { method: 'POST', body: fd });
+              if (!resp.ok) {
+                const tx = await resp.text().catch(() => '');
+                throw new Error(`Upload failed: ${tx || resp.status}`);
+              }
+              const data = await resp.json();
+              const url = data.url;
+
               const caption = input.value.trim();
               socket.send(JSON.stringify({
-                type: 'audio', user: username, room, target,
-                image: reader.result, filename: `voice_${Date.now()}.${(recordingMime || 'audio/webm').includes('mp4') ? 'm4a' : (recordingMime.includes('ogg') ? 'ogg' : 'webm')}`,
+                type: 'audio',
+                user: username,
+                room,
+                target,
+                image: url,         // <-- send URL, not base64
+                filename: fileName,
                 text: caption
               }));
               input.value = '';
-            };
-            reader.readAsDataURL(blob);
+            } catch (err) {
+              console.error('Voice upload error:', err);
+              alert('Failed to upload voice message. Please try again.');
+            }
           };
           mediaRecorder.start();
         } else if (mediaRecorder.state === 'recording') {
