@@ -534,6 +534,21 @@ app.get('/download', async (req, res) => {
   }
 });
 
+async function insertMessageRow(row) {
+  // First attempt as-is
+  let res = await supabase.from('messages').insert(row).select('id').single();
+
+  if (res?.error) {
+    const msg = String(res.error.message || '');
+    // If schema doesn't have some columns (filename / reply_*), retry without them
+    if (/(filename|reply_to_id|reply_snapshot)/i.test(msg) || /column .* does not exist/i.test(msg) || /schema cache/i.test(msg)) {
+      const { filename, reply_to_id, reply_snapshot, ...row2 } = row;
+      res = await supabase.from('messages').insert(row2).select('id').single();
+    }
+  }
+  return res;
+}
+
 const clients = new Map();
 const activeMessages = new Map();
 
@@ -734,31 +749,8 @@ wss.on('connection', (ws) => {
 
       let insertedId = null;
       try {
-        const ins = await supabase
-          .from('messages')
-          .insert(row)
-          .select('id')
-          .single();
-
-        if (ins?.error) {
-          console.error('Supabase insert (text) error:', ins.error.message);
-          // Fallback for schemas that still have reply_* columns with NOT NULL
-          if (/reply_to_id|reply_snapshot/i.test(String(ins.error.message))) {
-            const row2 = { ...row, reply_to_id: null, reply_snapshot: null };
-            const ins2 = await supabase
-              .from('messages')
-              .insert(row2)
-              .select('id')
-              .single();
-            if (ins2?.error) {
-              console.error('Fallback insert (text) also failed:', ins2.error.message);
-            } else {
-              insertedId = ins2?.data?.id || null;
-            }
-          }
-        } else {
-          insertedId = ins?.data?.id || null;
-        }
+        const ins = await insertMessageRow(row);
+        insertedId = ins?.data?.id || null;
       } catch (e) {
         console.error('Unexpected insert (text) exception:', e);
       }
@@ -866,23 +858,7 @@ wss.on('connection', (ws) => {
           timestamp: now2
         };
 
-        let ins2 = await supabase
-          .from('messages')
-          .insert(row)
-          .select('id')
-          .single();
-
-        if (ins2?.error && /reply_to_id|reply_snapshot/i.test(ins2.error.message || '')) {
-          const fallbackRow = {
-            room,
-            user: userData.nick,
-            text: caption,
-            image_url: urlToSend,
-            filename: filenameToStore || null,
-            timestamp: now2
-          };
-          ins2 = await supabase.from('messages').insert(fallbackRow).select('id').single();
-        }
+        const ins2 = await insertMessageRow(row);
         const insertedId2 = ins2?.data?.id || null;
 
         broadcast(room, {
