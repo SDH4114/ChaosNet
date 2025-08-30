@@ -4,7 +4,10 @@
   "description": "ChaosNet Chat Server",
   "main": "server.js",
   "scripts": {
-    "start": "bash start.sh"
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.0",

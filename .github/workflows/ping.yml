@@ -8,15 +8,24 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
+    concurrency:
+      group: ping-render
+      cancel-in-progress: true
+
     steps:
-      - name: Ping Render /health (retry up to 6 times)
+      - name: Ping /health with retry
+        shell: bash
         env:
-          PING_URL: ${{ secrets.PING_URL }}
+          PING_URL: ${{ secrets.PING_URL }}   # https://chaosnet.onrender.com/health
         run: |
+          set +e
           echo "Pinging: $PING_URL"
           for i in {1..6}; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" -L --connect-timeout 10 --max-time 20 "$PING_URL")
+            code=$(curl -sS -o /dev/null -w "%{http_code}" \
+                   -L --connect-timeout 10 --max-time 45 \
+                   --retry 3 --retry-delay 3 --retry-connrefused \
+                   "$PING_URL" || echo 000)
             echo "Attempt $i => HTTP $code"
             if [ "$code" -ge 200 ] && [ "$code" -lt 400 ]; then
               exit 0
