@@ -42,7 +42,15 @@ app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.status(200).send('ok ' + new Date().toISOString());
 });
+// Явный HEAD, Express и так обрабатывает, но пусть будет
+app.head('/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.status(200).end();
+});
 
+// (необязательно, но помогает редким таймаутам keep-alive)
+server.keepAliveTimeout = 70000;  // 70s
+server.headersTimeout   = 75000;  // 75s
 
 
 app.post('/register', async (req, res) => {

@@ -2,35 +2,36 @@ name: Keep server awake
 
 on:
   schedule:
-    - cron: "*/7 * * * *"   # каждые 7 минут (UTC)
+    - cron: "*/7 * * * *"
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     concurrency:
       group: ping-render
       cancel-in-progress: true
 
     steps:
-      - name: Ping /health with retry
+      - name: Ping /health (retry)
         shell: bash
         env:
-          PING_URL: ${{ secrets.PING_URL }}   # https://chaosnet.onrender.com/health
+          PING_URL: ${{ secrets.PING_URL }}   # например: https://chaosnet.onrender.com/health
         run: |
-          set +e
           echo "Pinging: $PING_URL"
-          for i in {1..6}; do
-            code=$(curl -sS -o /dev/null -w "%{http_code}" \
-                   -L --connect-timeout 10 --max-time 45 \
-                   --retry 3 --retry-delay 3 --retry-connrefused \
+          for i in {1..5}; do
+            code=$(curl -I -sS -o /dev/null -w "%{http_code}" \
+                   -L --http1.1 \
+                   --connect-timeout 10 --max-time 40 \
+                   --retry 5 --retry-delay 3 --retry-all-errors \
+                   -A "GitHubActions/keepalive" \
                    "$PING_URL" || echo 000)
             echo "Attempt $i => HTTP $code"
             if [ "$code" -ge 200 ] && [ "$code" -lt 400 ]; then
               exit 0
             fi
-            sleep 10
+            sleep 8
           done
           echo "Failed to get 2xx/3xx from $PING_URL"
           exit 1
