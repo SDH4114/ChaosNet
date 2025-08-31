@@ -15,6 +15,8 @@
     .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
     .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
     .bubble { position: relative; }
+    /* Room label color */
+    .room-label { color:#ff8c00; }
     /* Force round icon buttons */
     .round-btn {
       width: 44px;
@@ -57,6 +59,10 @@
     }
     .bubble:hover .reply-btn{ opacity:0.9; }
     .reply-btn:hover{ background:#555; }
+
+    /* Place reply button left for self, right for others */
+    .bubble.self .reply-btn{ left:6px; right:auto; }
+    .bubble.other .reply-btn{ right:6px; left:auto; }
 
     .reply-block{
       background: rgba(255,255,255,0.06);
@@ -106,7 +112,10 @@
 
 <!-- Верхняя панель -->
 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
-  <h2 id="chat-title" style="margin: 0; color: #fff;">Room: example</h2>
+  <h2 id="chat-title" style="margin: 0; color: #fff;">
+    <span class="room-label">Room:</span>
+    <span id="room-name">example</span>
+  </h2>
   <a href="select.html" style="text-decoration: none;">
     <button style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
       <img src="img/leave.png" alt="Leave" style="height: 24px;" />
@@ -167,6 +176,8 @@
   const imageInput = document.getElementById('imageInput');
   const messages = document.getElementById('messages');
   const chatTitle = document.getElementById('chat-title');
+  const roomNameEl = document.getElementById('room-name');
+  const roomLabelEl = document.querySelector('#chat-title .room-label');
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
   const micBtn = document.getElementById('micBtn');
@@ -233,7 +244,7 @@
         t.textContent = previewTextFor(orig) || '';
       } else {
         u.textContent = 'Reply';
-        t.textContent = 'Message #' + replyId;
+        t.textContent = 'Original message';
       }
       rep.appendChild(u);
       rep.appendChild(t);
@@ -544,7 +555,20 @@
   const target = urlParams.get("target");
   // Prefetch own avatar (if available)
   fetchSelfAvatar();
-  chatTitle.textContent = target ? `Chat with ${target}` : `Room: ${room}`;
+  if (target) {
+    if (roomLabelEl) {
+      roomLabelEl.textContent = 'Chat with';
+      // keep label white for DMs so only "Room:" is orange
+      roomLabelEl.style.color = '#fff';
+    }
+    if (roomNameEl) roomNameEl.textContent = target;
+  } else {
+    if (roomLabelEl) {
+      roomLabelEl.textContent = 'Room:';
+      roomLabelEl.style.color = '#ff8c00';
+    }
+    if (roomNameEl) roomNameEl.textContent = room;
+  }
 
   socket.addEventListener('open', () => {
     socket.send(JSON.stringify({ type: 'join', user: username, id: userId, room }));
