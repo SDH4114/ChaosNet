@@ -15,6 +15,28 @@
     .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
     .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
     .bubble { position: relative; }
+    /* Force round icon buttons */
+    .round-btn {
+      width: 44px;
+      height: 44px;
+      padding: 0 !important;
+      border-radius: 50% !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 44px;
+    }
+    .round-btn img {
+      max-width: 60%;
+      max-height: 60%;
+      pointer-events: none;
+    }
+    @media (max-width: 600px) {
+      .round-btn { width: 40px; height: 40px; flex-basis: 40px; }
+    }
+    @media (max-width: 400px) {
+      .round-btn { width: 36px; height: 36px; flex-basis: 36px; }
+    }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -46,13 +68,13 @@
   </div>
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" class="input-field" />
-    <button type="button" id="photoBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
+    <button type="button" id="photoBtn" class="round-btn" style="background-color:#ff8c00; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
       <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
     </button>
-    <button type="button" id="micBtn" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
+    <button type="button" id="micBtn" class="round-btn" style="background-color:#ff8c00; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
       <img src="img/microphone.png" alt="Voice" style="height: 22px;" />
     </button>
-    <button type="submit" style="background-color: #ff8c00; border: none; padding: 10px; border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px rgba(255, 140, 0, 0.4);">
+    <button type="submit" class="round-btn" style="background-color:#ff8c00; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
       <img src="img/send.png" alt="Send" style="height: 22px;" />
     </button>
   </div>
@@ -330,14 +352,51 @@
   document.addEventListener('touchstart', _primeAudioCtx, { once: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) ensureNotifyPermission(); });
 
-  // Обычный paste handler (изображения)
-  document.addEventListener('paste', (event) => {
-    const items = event.clipboardData?.items || [];
-    for (const item of items) {
-      if (item.type && item.type.startsWith('image/')) {
-        const file = item.getAsFile();
+  // Вставка изображений из буфера обмена прямо в скрытый input (с превью и обычным send-флоу)
+  document.addEventListener('paste', async (event) => {
+    const cd = event.clipboardData;
+    if (!cd) return;
+
+    // Соберём все image/* из items и fallback в files
+    const images = [];
+    const items = cd.items || [];
+    for (const it of items) {
+      if (it && it.kind === 'file' && it.type && it.type.startsWith('image/')) {
+        const blob = it.getAsFile();
+        if (blob) images.push(blob);
       }
     }
+    if (images.length === 0 && cd.files && cd.files.length) {
+      for (const f of cd.files) {
+        if (f.type && f.type.startsWith('image/')) images.push(f);
+      }
+    }
+    if (images.length === 0) return;
+
+    // Не даём браузеру пытаться "вставить" картинку в поле
+    event.preventDefault();
+
+    // Сохраним уже выбранные файлы и добавим вставленные
+    const dt = new DataTransfer();
+    if (imageInput.files && imageInput.files.length) {
+      Array.from(imageInput.files).forEach(f => dt.items.add(f));
+    }
+
+    images.forEach((blob) => {
+      const ext = (blob.type?.split('/')[1] || 'png').replace(/[^\w]/g, '');
+      const fallbackName = `pasted_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const name = (blob.name && /\./.test(blob.name)) ? blob.name : fallbackName;
+      const file = blob instanceof File
+        ? new File([blob], name || fallbackName, { type: blob.type })
+        : new File([blob], fallbackName, { type: blob.type || 'image/png' });
+      dt.items.add(file);
+    });
+
+    imageInput.files = dt.files;
+
+    // Триггерим стандартный превью-хендлер и прокрутку вниз
+    imageInput.dispatchEvent(new Event('change', { bubbles: true }));
+    try { messages.scrollTop = messages.scrollHeight; } catch(_) {}
   });
 
   const username = localStorage.getItem("username") || "guest";
@@ -359,22 +418,62 @@
 
   imageInput.addEventListener('change', () => {
     imageThumbnails.innerHTML = '';
-    const files = Array.from(imageInput.files).filter(f => f.type && f.type.startsWith('image/'));
+    const files = Array.from(imageInput.files).filter(f => f.type && (f.type.startsWith('image/') || f.type.startsWith('video/')));
     if (files.length > 0) {
       selectedImagesContainer.style.display = 'block';
       files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = document.createElement('img');
-          img.src = reader.result;
-          img.style.width = '60px';
-          img.style.height = '60px';
-          img.style.objectFit = 'cover';
-          img.style.borderRadius = '6px';
-          img.style.border = '1px solid #888';
-          imageThumbnails.appendChild(img);
-        };
-        reader.readAsDataURL(file);
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = document.createElement('img');
+            img.src = reader.result;
+            img.style.width = '60px';
+            img.style.height = '60px';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '6px';
+            img.style.border = '1px solid #888';
+            imageThumbnails.appendChild(img);
+          };
+          reader.readAsDataURL(file);
+        } else if (file.type.startsWith('video/')) {
+          const url = URL.createObjectURL(file);
+          const wrapper = document.createElement('div');
+          wrapper.style.position = 'relative';
+          wrapper.style.width = '60px';
+          wrapper.style.height = '60px';
+
+          const video = document.createElement('video');
+          video.src = url;
+          video.muted = true;
+          video.playsInline = true;
+          video.preload = 'metadata';
+          video.style.width = '60px';
+          video.style.height = '60px';
+          video.style.objectFit = 'cover';
+          video.style.borderRadius = '6px';
+          video.style.border = '1px solid #888';
+
+          // Play-badge overlay
+          const badge = document.createElement('div');
+          badge.textContent = '▶';
+          badge.style.position = 'absolute';
+          badge.style.right = '4px';
+          badge.style.bottom = '2px';
+          badge.style.fontSize = '14px';
+          badge.style.lineHeight = '1';
+          badge.style.opacity = '0.9';
+          badge.style.color = '#fff';
+          badge.style.textShadow = '0 0 2px rgba(0,0,0,0.7)';
+
+          wrapper.appendChild(video);
+          wrapper.appendChild(badge);
+          imageThumbnails.appendChild(wrapper);
+
+          video.addEventListener('loadeddata', () => {
+            try { video.currentTime = 0; } catch(_) {}
+            setTimeout(() => { try { URL.revokeObjectURL(url); } catch(_) {} }, 1000);
+          }, { once: true });
+        }
       });
     } else {
       selectedImagesContainer.style.display = 'none';
