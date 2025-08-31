@@ -235,11 +235,48 @@
 
   function previewTextFor(msg) {
     if (!msg) return '';
-    if (msg.type === 'image') return '📷 Image';
-    if (msg.type === 'video') return '🎥 Video';
-    if (msg.type === 'audio') return '🎤 Voice message';
-    if (msg.type === 'file')  return `📎 ${msg.filename || 'File'}`;
-    return (msg.text || '').slice(0, 80) || 'Message';
+    const t = (msg.text || '').trim();
+
+    const short = (s, n = 80) => {
+      s = String(s || '');
+      return s.length > n ? s.slice(0, n - 1) + '…' : s;
+    };
+
+    if (msg.type === 'image') return t ? `Photo — ${short(t)}` : 'Photo';
+    if (msg.type === 'video') return t ? `Video — ${short(t)}` : 'Video';
+    if (msg.type === 'audio') return 'Audio message';
+    if (msg.type === 'file') {
+      const base = msg.filename ? `File: ${msg.filename}` : 'File';
+      return t ? `${base} — ${short(t)}` : base;
+    }
+    return short(t) || 'Message';
+  }
+
+  function showBannerForMessage(room, msg) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const title = `${msg.user} • ${room}`;
+    const body = previewTextFor(msg) || 'New message';
+    const ts = (normalizeTimestamp && (normalizeTimestamp(msg.created_at || msg.timestamp))) || new Date();
+
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: (avatarsByNick && avatarsByNick.get(msg.user)) || 'img/ChaosNetLogo.png',
+        badge: 'img/ChaosNetLogo.png',
+        tag: `room:${room}:id:${msg.id || Date.now()}`,
+        renotify: false,
+        timestamp: ts.getTime(),
+        silent: false
+      });
+
+      n.onclick = () => {
+        try { window.focus(); } catch(_) {}
+        try { n.close(); } catch(_) {}
+      };
+
+      setTimeout(() => { try { n.close(); } catch(_) {} }, 5000);
+    } catch (_) {}
   }
 
   // Normalize ISO timestamp: if there's no timezone offset, assume UTC
@@ -517,7 +554,10 @@
     // Уведомления только для чужих сообщений (кроме system/leave)
     if (msg.user !== username && msg.type !== 'system' && msg.type !== 'leave') {
       if (isChatInactive()) playBeep();
-      if (document.hidden) { ensureNotifyPermission(); showDesktopNotification(`New in ${room}`, `${msg.user}: ${previewTextFor(msg)}`); }
+      if (document.hidden || !document.hasFocus()) {
+        ensureNotifyPermission();
+        showBannerForMessage(room, msg);
+      }
     }
   });
 
