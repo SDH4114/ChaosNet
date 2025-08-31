@@ -54,9 +54,9 @@
       font-size:14px;
       line-height:1;
       flex:0 0 26px;
-      position: relative;
-      top: 35px;              /* lift the button slightly */
-      align-self: flex-start; /* align to top of the row */
+      position: static;       /* sit inline in the flex row */
+      top: 0;                 /* no vertical offset */
+      align-self: center;     /* vertically center against the bubble */
     }
     .reply-btn:active{ transform:scale(0.95); }
     /* outside placement paddings */
@@ -121,6 +121,8 @@
       display:flex; align-items:center; justify-content:center;
       font-size:16px; line-height:1;
     }
+    /* Ensure avatar, bubble, and reply button are vertically centered in a row */
+    .message-row { align-items: center; }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
