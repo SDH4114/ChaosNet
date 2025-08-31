@@ -219,21 +219,61 @@ app.post('/get-user-by-nick', async (req, res) => {
 });
 
 app.post('/update-user', async (req, res) => {
-  const { id, password } = req.body;
+  const { id, password, nick } = req.body || {};
 
-  if (!id || typeof password !== 'string') {
+  if (!id) {
     return res.status(400).json({ error: 'Invalid data' });
   }
-  if (password.length > 128) {
-    return res.status(400).json({ error: 'Password too long' });
+
+  const update = {};
+
+  // Optional: update password
+  if (typeof password === 'string') {
+    if (password.length > 128) {
+      return res.status(400).json({ error: 'Password too long' });
+    }
+    update.password = password;
+  }
+
+  // Optional: update nick with uniqueness check
+  if (typeof nick === 'string') {
+    const trimmedNick = nick.trim();
+    if (!trimmedNick) {
+      return res.status(400).json({ error: 'Nick cannot be empty' });
+    }
+    if (trimmedNick.length > 32) {
+      return res.status(400).json({ error: 'Nick too long' });
+    }
+
+    // Check if this nick is already used by another user
+    const { data: existingNick, error: nickErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('nick', trimmedNick)
+      .maybeSingle();
+
+    if (nickErr) {
+      console.error('Supabase check nick error:', nickErr.message);
+      return res.status(500).json({ error: 'Server error' });
+    }
+
+    if (existingNick && existingNick.id !== id) {
+      return res.status(409).json({ error: 'Nickname already taken' });
+    }
+
+    update.nick = trimmedNick;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return res.status(400).json({ error: 'Nothing to update' });
   }
 
   try {
     const { data, error } = await supabase
       .from('users')
-      .update({ password })
+      .update(update)
       .eq('id', id)
-      .select('id, nick, password, AdminStatus, Subscription')
+      .select('id, nick, password, AdminStatus, Subscription, avatar')
       .maybeSingle();
 
     if (error) {

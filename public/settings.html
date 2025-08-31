@@ -23,7 +23,7 @@
     @media (max-width: 820px){ .wrap{ grid-template-columns: 1fr; } }
 
     /* Left: avatar */
-    .avatar-card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; }
+    .avatar-card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; position:relative; }
     .avatar-box{
       width:100%;
       aspect-ratio: 1 / 1;
@@ -39,6 +39,9 @@
     .avatar-box img { cursor: pointer; }
     .avatar-pick{ display:inline-block; position:relative; z-index:1; cursor:pointer; border-radius:50%; }
     .avatar-pick img{ pointer-events:none; }
+    .avatar-del{
+        position:absolute; right:12px; bottom:12px;
+    }
 
     /* Right side: form */
     .card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; }
@@ -73,6 +76,17 @@
       padding-bottom: 13px; /* на 2px выше глаза */
     }
     .password-row .pwd-edit img { display: block; width: 20px; height: 20px; }
+    /* Nick edit button (same positioning as password) */
+    .nick-row { position: relative; }
+    .nick-row .nick-edit {
+      position: absolute; right: 12px;
+      background: transparent; border: none; padding: 0; cursor: pointer;
+      line-height: 0;
+      display: flex; align-items: flex-end; justify-content: center;
+      height: 100%;
+      padding-bottom: 13px; /* aligns with baseline similar to .pwd-edit */
+    }
+    .nick-row .nick-edit img { display: block; width: 20px; height: 20px; }
 
     .buttons{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
     .btn{ background:var(--accent); color:#fff; border:none; padding:10px 14px; border-radius:12px; font-size:15px; cursor:pointer; }
@@ -122,13 +136,17 @@
       </div>
       <div id="userNameDisplay" style="color:#ff8c00; text-align:center; margin-top:12px; font-weight:500;"></div>
       <div id="adminStatusDisplay" style="color:#ff8c00; text-align:center; font-size:14px;"></div>
+      <button type="button" id="deleteAvatar" class="btn secondary avatar-del" style="color:#ff8c00;" title="Remove avatar" aria-label="Remove avatar">Delete avatar</button>
     </section>
 
     <!-- Right side: account form -->
     <section class="card">
       <h3>Profiles</h3>
       <form id="settings-form" class="form" autocomplete="off">
-        <div class="row">
+        <div class="row nick-row">
+          <button type="button" class="nick-edit" id="editNick" aria-label="Edit nick" title="Edit nick">
+            <img src="img/edit.png" alt="Edit nick" />
+          </button>
           <label for="nick">Nick</label>
           <input id="nick" type="text" placeholder="Your nickname" readonly aria-readonly="true" />
         </div>
@@ -442,12 +460,13 @@
       }
     });
 
-    // Save → update password then (if selected) upload avatar
+    // Save → update nick/password then (if selected) upload avatar
     el('saveLocal').addEventListener('click', async ()=>{
       const nick = el('nick').value.trim();
       const id = el('userid').value.trim();
       const password = el('password').value;
-      if(!nick || !id){ return setStatus('Nick and ID are required.', false); }
+      if(!id){ return setStatus('Missing user ID.', false); }
+      if(!nick){ return setStatus('Nick is required.', false); }
 
       const btn = document.getElementById('saveLocal');
       btn.disabled = true;
@@ -456,46 +475,64 @@
         const res = await fetch('/update-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, password })
+          body: JSON.stringify({ id, password, nick })
         });
 
         if (!res.ok) {
           const tx = await res.text().catch(()=> 'Server error');
           setStatus('Failed to save: ' + tx, false);
-        } else {
-          setStatus('Saved.', true);
-          if (_avatarSelectedFile) {
-            try {
-              const limit = 7*1024*1024; // fixed limit; no localStorage involved
-              if (_avatarSelectedFile.size > limit) {
-                setStatus('Avatar is too large (max 7MB)', false);
-              } else if (!/^image\/(png|jpeg|webp)$/.test(_avatarSelectedFile.type)) {
-                setStatus('Only PNG/JPEG/WebP are allowed', false);
-              } else {
-                const fd = new FormData();
-                fd.append('avatar', _avatarSelectedFile);
-                fd.append('id', id);
-                const up = await fetch('/avatar/upload', { method:'POST', body: fd });
-                if (up.ok) {
-                  const updated = await up.json();
-                  const newLink = updated.avatar || updated.avatar_url;
-                  if (newLink) {
-                    const avatarImg = document.querySelector('.avatar-box img');
-                    if (avatarImg) {
-                      const bustNew = newLink + (newLink.includes('?') ? '&' : '?') + 'v=' + Date.now();
-                      avatarImg.src = bustNew; // cache-busting
-                    }
-                    setStatus('Avatar saved.', true);
-                    _avatarSelectedFile = null;
+          return;
+        }
+
+        // server returns the updated user row
+        const updated = await res.json().catch(()=> null);
+        setStatus('Saved.', true);
+
+        // If server echoed new nick, update UI + localStorage
+        if (updated && updated.nick) {
+          try { localStorage.setItem('username', updated.nick); } catch(_) {}
+          const userNameDisplay = document.getElementById('userNameDisplay');
+          if (userNameDisplay) userNameDisplay.textContent = updated.nick;
+          const nickInput = el('nick');
+          if (nickInput) {
+            nickInput.value = updated.nick;
+            nickInput.readOnly = true;
+            nickInput.setAttribute('aria-readonly','true');
+          }
+        }
+
+        // Avatar upload (optional)
+        if (_avatarSelectedFile) {
+          try {
+            const limit = 7*1024*1024; // fixed limit; no localStorage involved
+            if (_avatarSelectedFile.size > limit) {
+              setStatus('Avatar is too large (max 7MB)', false);
+            } else if (!/^image\/(png|jpeg|webp)$/.test(_avatarSelectedFile.type)) {
+              setStatus('Only PNG/JPEG/WebP are allowed', false);
+            } else {
+              const fd = new FormData();
+              fd.append('avatar', _avatarSelectedFile);
+              fd.append('id', id);
+              const up = await fetch('/avatar/upload', { method:'POST', body: fd });
+              if (up.ok) {
+                const upd2 = await up.json();
+                const newLink = upd2.avatar || upd2.avatar_url;
+                if (newLink) {
+                  const avatarImg = document.querySelector('.avatar-box img');
+                  if (avatarImg) {
+                    const bustNew = newLink + (newLink.includes('?') ? '&' : '?') + 'v=' + Date.now();
+                    avatarImg.src = bustNew; // cache-busting
                   }
-                } else {
-                  const tx = await up.text().catch(()=> 'Server error');
-                  setStatus('Failed to save avatar: ' + tx, false);
+                  setStatus('Avatar saved.', true);
+                  _avatarSelectedFile = null;
                 }
+              } else {
+                const tx = await up.text().catch(()=> 'Server error');
+                setStatus('Failed to save avatar: ' + tx, false);
               }
-            } catch(e) {
-              setStatus('Network error while saving avatar.', false);
             }
+          } catch(e) {
+            setStatus('Network error while saving avatar.', false);
           }
         }
       } catch (e) {
@@ -518,6 +555,58 @@
       }catch(e){}
       window.location.assign('login.html');
     });
+
+    // Delete avatar (set to null on server)
+    try {
+      const delBtn = document.getElementById('deleteAvatar');
+      if (delBtn) {
+        delBtn.addEventListener('click', async ()=>{
+          const id = el('userid').value.trim();
+          if (!id) { setStatus('Missing user ID.', false); return; }
+          delBtn.disabled = true;
+          try {
+            const r = await fetch('/avatar/remove', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            if (!r.ok) {
+              const tx = await r.text().catch(()=> 'Server error');
+              setStatus('Failed to remove avatar: ' + tx, false);
+            } else {
+              // Reset UI to default avatar
+              const avatarImg = document.querySelector('.avatar-box img');
+              if (avatarImg) avatarImg.src = 'img/user.png';
+              _avatarSelectedFile = null;
+              setStatus('Avatar removed.', true);
+            }
+          } catch (e) {
+            setStatus('Network error while removing avatar.', false);
+          } finally {
+            delBtn.disabled = false;
+          }
+        });
+      }
+    } catch(e){}
+
+    // Edit nick toggle (enable/disable readonly)
+    try {
+      const nickInputEditable = el('nick');
+      const editNickBtn = document.getElementById('editNick');
+      let nickEditable = false;
+      if (editNickBtn && nickInputEditable) {
+        editNickBtn.addEventListener('click', () => {
+          nickEditable = !nickEditable;
+          nickInputEditable.readOnly = !nickEditable;
+          nickInputEditable.setAttribute('aria-readonly', String(!nickEditable));
+          if (nickEditable) {
+            nickInputEditable.focus();
+            // place caret at end
+            const v = nickInputEditable.value; nickInputEditable.value = ''; nickInputEditable.value = v;
+          }
+        });
+      }
+    } catch(e){}
 
     // Edit password toggle (enable/disable readonly)
     try {
