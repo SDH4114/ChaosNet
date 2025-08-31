@@ -1,25 +1,11 @@
-:root{
-  --bg:#1e1e1e;
-  --accent:#ff8c00;
-  --bubble-bg:#2e2e2e;
-  --bubble-bg-other:#3a3a3a;
-
-  --radius:16px;
-  --pad:clamp(8px,1.2vw,14px);
-  --gap:clamp(8px,1.2vw,14px);
-
-  --base-fs:clamp(14px,0.9vw + 0.6rem,17px);
-  --meta-fs:clamp(10px,0.7vw + 0.35rem,12px);
-  --date-fs:clamp(9px,0.6vw + 0.3rem,11px);
-  --input-fs:clamp(14px,0.9vw + 0.6rem,16px);
-
-  --btn-size:clamp(36px,6vh,48px);
-  --avatar:clamp(28px,3.5vh,40px);
+/* Глобально для всех элементов — чтобы padding и border входили в размеры */
+* {
+  box-sizing: border-box;
 }
 
 /* Настройки тела страницы */
 body {
-  background: var(--bg);
+  background: #1e1e1e;
   font-family: sans-serif;
   color: white;
   margin: 0;
@@ -27,29 +13,25 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-size: var(--base-fs);
-  line-height: 1.4;
-  -webkit-text-size-adjust: 100%;
-  text-rendering: optimizeLegibility;
 }
 
 /* Контейнер для сообщений чата */
 #messages {
   flex: 1;
   overflow-y: auto;
-  padding: var(--pad);
-  padding-bottom: calc(80px + env(safe-area-inset-bottom)); /* место для формы + безопасная зона iOS */
+  padding: 10px;
+  padding-bottom: 80px; /* место для формы */
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
+  gap: 10px;
 }
 
 /* Общий стиль сообщений */
 .bubble {
-  max-width: clamp(60%, 80%, 92%);
-  padding: calc(var(--pad) + 4px) calc(var(--pad) + 8px);
-  border-radius: var(--radius);
-  background: var(--bubble-bg);
+  max-width: 70%;
+  padding: 12px;
+  border-radius: 16px;
+  background: #2e2e2e;
   display: inline-block;
   word-wrap: break-word;
   word-break: break-word;
@@ -58,7 +40,7 @@ body {
 /* Сообщения пользователя (справа) */
 .bubble.self {
   align-self: flex-end;
-  background-color: var(--accent);
+  background-color: #ff8c00;
   text-align: right;
   color: white;
 }
@@ -66,7 +48,7 @@ body {
 /* Сообщения других пользователей (слева) */
 .bubble.other {
   align-self: flex-start;
-  background-color: var(--bubble-bg-other);
+  background-color: #3a3a3a;
   text-align: left;
   color: white;
 }
@@ -92,7 +74,7 @@ body {
 
 /* Метаданные (время сообщений) */
 .meta {
-  font-size: var(--meta-fs);
+  font-size: 11px;
   color: #ffffff;
   margin-top: 4px;
   text-align: right;
@@ -100,7 +82,7 @@ body {
 
 /* Метаданные: дата */
 .date-meta {
-  font-size: var(--date-fs);
+  font-size: 10px;
   color: white !important;
   margin-top: 2px;
   text-align: right;
@@ -112,49 +94,45 @@ body {
   bottom: 0;
   left: 0;
   width: 100%;
-  padding: var(--pad);
-  padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom));
-  background: var(--bg);
+  padding: 10px;
+  background: #1e1e1e;
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
+  gap: 10px;
   z-index: 1000;
-  backdrop-filter: saturate(120%) blur(0px);
 }
 
 /* Внутренняя строка формы (input + кнопки) */
 .form-row {
   display: flex;
-  gap: var(--gap);
+  gap: 10px;
   width: 100%;
 }
 
 /* Поле ввода текста */
 #input {
   flex: 1;
-  font-size: var(--input-fs);
-  padding: calc(var(--pad) + 4px) calc(var(--pad) + 12px);
-  background: var(--bg);
+  font-size: 16px;
+  padding: 12px 20px;
+  background: #1e1e1e;
   border: 1px solid #444;
   color: white;
   border-radius: 999px;
   outline: none;
-  min-height: clamp(40px, 6vh, 52px);
 }
 
 /* Кнопки: отправка и фото */
 button,
 form button[type="submit"],
 #photoBtn {
-  background: var(--accent);
+  background: #ff8c00;
   color: white;
   border: none;
-  padding: 0 var(--pad);
+  padding: 10px 16px;
   border-radius: 999px;
   cursor: pointer;
-  font-size: var(--input-fs);
-  height: var(--btn-size);
-  min-width: var(--btn-size);
+  font-size: 16px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,17 +146,11 @@ form button[type="submit"]:hover,
   background: #ffa733;
 }
 
-.form-row button img,
-#photoBtn img {
-  width: 1.25em !important;
-  height: 1.25em !important;
-}
-
 /* Заголовок комнаты */
 #chat-title {
   text-align: center;
   margin: 10px 0;
-  color: var(--accent);
+  color: #ff8c00;
 }
 
 /* Кнопка "Фото" — отдельное оформление */
@@ -226,7 +198,7 @@ form button[type="submit"]:hover,
 }
 
 .close:hover {
-  color: var(--accent);
+  color: #ff8c00;
 }
 
 .system .meta,
@@ -234,41 +206,76 @@ form button[type="submit"]:hover,
   text-align: center !important;
 }
 
+/* 🔻 Медиазапрос для экранов до 600px */
+@media (max-width: 600px) {
+  .bubble {
+    max-width: 90%;
+    font-size: 14px;
+  }
+
+  #input {
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+
+  button {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+  }
+
+  .meta {
+    font-size: 10px;
+  }
+
+  .date-meta {
+    font-size: 9px;
+  }
+
+  #form {
+    padding: 8px;
+  }
+}
+
+/* 🔻 Медиазапрос для экранов до 400px */
+@media (max-width: 400px) {
+  .bubble {
+    font-size: 13px;
+  }
+
+  #input {
+    font-size: 13px;
+  }
+
+  button {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+  }
+
+  .meta {
+    font-size: 9px;
+  }
+
+  .date-meta {
+    font-size: 8px;
+  }
+}
+
+.input-field {
+    color: white;
+  }
+
+  .input-field::placeholder {
+    color: #ff8c00;
+  }
+
 /* WhatsApp-like message row with avatar */
-.message-row{ display:flex; align-items:flex-end; gap:var(--gap); margin:6px 10px; }
+.message-row{ display:flex; align-items:flex-end; gap:8px; margin:6px 10px; }
 .message-row.other{ justify-content:flex-start; }
 .message-row.self{ justify-content:flex-end; }
-.message-row .avatar{ width:var(--avatar); height:var(--avatar); border-radius:50%; object-fit:cover; flex:0 0 var(--avatar); background:#2a2a2a; }
+.message-row .avatar{ width:32px; height:32px; border-radius:50%; object-fit:cover; flex:0 0 32px; background:#2a2a2a; }
 .message-row.other .avatar{ order:1; margin-right:6px; }
 .message-row.other .bubble{ order:2; }
 .message-row.self .avatar{ order:2; margin-left:6px; }
 .message-row.self .bubble{ order:1; }
-
-/* 📱 Очень маленькие смартфоны */
-@media (max-width: 360px) {
-  .bubble { max-width: 96%; }
-  #messages { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
-}
-
-/* 📱 Обычные смартфоны (портрет) */
-@media (min-width: 361px) and (max-width: 600px) {
-  .bubble { max-width: 90%; }
-}
-
-/* 📲 Планшеты и большие телефоны */
-@media (min-width: 601px) and (max-width: 1024px) {
-  .bubble { max-width: 75%; }
-  #messages { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
-}
-
-/* 💻 Десктопы */
-@media (min-width: 1025px) {
-  .bubble { max-width: 60%; }
-  #messages { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
-}
-
-/* 🌐 Ландшафт на маленьких высотах (например, мобильник в альбомной) */
-@media (max-height: 440px) and (orientation: landscape) {
-  :root{ --btn-size: clamp(32px, 10vh, 40px); --avatar: clamp(24px, 8vh, 32px); }
-  #messages { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-}
