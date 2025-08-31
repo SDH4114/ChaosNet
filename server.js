@@ -712,7 +712,6 @@ wss.on('connection', (ws) => {
           ? inferTypeFromUrl(m.image_url, m.filename)
           : 'message';
         ws.send(JSON.stringify({
-          id: m.id,
           type: inferredType,
           text: m.text,
           image: m.image_url,
@@ -766,9 +765,8 @@ wss.on('connection', (ws) => {
         room,
         user: userData.nick,
         text,
-        image_url: null,   // use null, not empty string
-        filename: null,
-        timestamp: now
+        image_url: null,
+        filename: null
       };
 
       let insertedId = null;
@@ -783,7 +781,6 @@ wss.on('connection', (ws) => {
       const tsOut = normalizeTimestampForClient(ins?.data) || now;
 
       broadcast(room, {
-        id: insertedId,
         type: 'message',
         text,
         user: userData.nick,
@@ -881,8 +878,7 @@ wss.on('connection', (ws) => {
           user: userData.nick,
           text: caption,
           image_url: urlToSend,
-          filename: filenameToStore || null,
-          timestamp: now2
+          filename: filenameToStore || null
         };
 
         const ins2 = await insertMessageRow(row);
@@ -890,7 +886,6 @@ wss.on('connection', (ws) => {
         const tsOut2 = normalizeTimestampForClient(ins2?.data) || now2;
 
         broadcast(room, {
-          id: insertedId2,
           type: thisType,
           text: caption,
           image: urlToSend,

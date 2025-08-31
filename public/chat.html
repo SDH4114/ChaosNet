@@ -42,22 +42,23 @@
 
     /* ===== Reply UI ===== */
     .reply-btn{
-      position:absolute;
-      top:6px;
-      right:6px;
       width:26px; height:26px;
       border-radius:50%;
       border:none;
       background:#3a3a3a;
       color:#fff;
-      opacity:0.7; /* always visible (mobile friendly) */
+      opacity:0.9;
       cursor:pointer;
       display:flex; align-items:center; justify-content:center;
-      transition:opacity .15s ease, background .15s ease;
+      transition: background .15s ease, transform .1s ease;
       font-size:14px;
       line-height:1;
+      flex:0 0 26px;
     }
-    .bubble:hover .reply-btn{ opacity:1; }
+    .reply-btn:active{ transform:scale(0.95); }
+    /* outside placement paddings */
+    .message-row.self .reply-btn{ margin-right:6px; }
+    .message-row.other .reply-btn{ margin-left:6px; }
     .reply-line{
       background: rgba(255,255,255,0.06);
       border-left: 3px solid #ff8c00;
@@ -75,9 +76,6 @@
       font-size: 12px;
     }
 
-    /* Place reply button left for self, right for others */
-    .bubble.self .reply-btn{ left:6px; right:auto; }
-    .bubble.other .reply-btn{ right:6px; left:auto; }
 
     .reply-block{
       background: rgba(255,255,255,0.06);
@@ -204,7 +202,21 @@
 
   const messageById = new Map();
 
-  function parseReplyPrefix(text){
+  const REPLY_OPEN = '[[[reply]]]';
+  const REPLY_CLOSE = '[[[/reply]]]';
+
+  function parseReplyHeader(text){
+    const s = String(text || '');
+    const a = s.indexOf(REPLY_OPEN);
+    if (a === -1) return null;
+    const b = s.indexOf(REPLY_CLOSE, a + REPLY_OPEN.length);
+    if (b === -1) return null;
+    const snapshot = s.slice(a + REPLY_OPEN.length, b);
+    const rest = s.slice(b + REPLY_CLOSE.length);
+    return { snapshot, rest };
+  }
+  // Backward compatibility for old messages saved as "id|text"
+  function parseLegacyReplyPrefix(text){
     const m = /^(\d+)\|([\s\S]*)$/.exec(String(text || ''));
     if (!m) return null;
     return { id: m[1], rest: m[2] };
@@ -218,9 +230,8 @@
   }
 
   function setReplyContext(fromMsg){
-    if (!fromMsg || !fromMsg.id) return;
+    if (!fromMsg) return;
     currentReply = {
-      id: fromMsg.id,
       user: fromMsg.user || '',
       snapshot: replyPreviewLineFor(fromMsg)
     };
@@ -245,20 +256,37 @@
   if (replyCancel) replyCancel.addEventListener('click', clearReplyContext);
   document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') clearReplyContext(); });
 
-  function renderReplyBlock(parent, replyId){
+  function renderReplySnapshot(parent, snapshotText){
     try{
-      const orig = messageById.get(String(replyId));
       const line = document.createElement('div');
       line.className = 'reply-line';
+      const idx = String(snapshotText || '').indexOf(':');
       const userSpan = document.createElement('span');
       userSpan.className = 'u';
-      userSpan.textContent = (orig && orig.user) ? (orig.user + ':') : 'Ответ:';
-      const textSpan = document.createElement('span');
-      textSpan.textContent = previewTextFor(orig) || 'Original message';
+      const msgSpan = document.createElement('span');
+
+      if (idx > -1) {
+        userSpan.textContent = snapshotText.slice(0, idx + 1);
+        msgSpan.textContent = snapshotText.slice(idx + 1).trim();
+      } else {
+        userSpan.textContent = 'Ответ:';
+        msgSpan.textContent = String(snapshotText || 'Message');
+      }
+
       line.appendChild(userSpan);
-      line.appendChild(textSpan);
+      line.appendChild(msgSpan);
       parent.appendChild(line);
     } catch(_){}
+  }
+
+  function createReplyBtnFor(msg){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'reply-btn';
+    b.title = 'Reply';
+    b.textContent = '↩';
+    b.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+    return b;
   }
 
   const IS_MAC = /Mac/.test(navigator.platform);
@@ -418,8 +446,10 @@
 
   function previewTextFor(msg) {
     if (!msg) return '';
-    const parsed = parseReplyPrefix(msg.text || '');
-    const t = (parsed ? parsed.rest : (msg.text || '')).trim();
+    const parsedNew = parseReplyHeader(msg.text || '');
+    const tBase = parsedNew ? parsedNew.rest : (msg.text || '');
+    const parsedOld = !parsedNew ? parseLegacyReplyPrefix(tBase) : null;
+    const t = (parsedOld ? parsedOld.rest : tBase).trim();
 
     const short = (s, n = 80) => {
       s = String(s || '');
@@ -699,18 +729,18 @@
 
     if (msg.type === 'image') {
       let textClean = msg.text || '';
-      const _rp = parseReplyPrefix(textClean);
-      const _replyId = _rp ? _rp.id : null;
-      if (_rp) textClean = _rp.rest;
-      if (_replyId) renderReplyBlock(div, _replyId);
+      const rpNew = parseReplyHeader(textClean);
+      const rpOld = !rpNew ? parseLegacyReplyPrefix(textClean) : null;
+      if (rpNew) {
+        renderReplySnapshot(div, rpNew.snapshot);
+        textClean = rpNew.rest || '';
+      } else if (rpOld) {
+        const orig = messageById.get(String(rpOld.id));
+        const snap = orig ? replyPreviewLineFor(orig) : null;
+        if (snap) renderReplySnapshot(div, snap);
+        textClean = rpOld.rest || '';
+      }
       div.classList.add(isSelf ? 'self' : 'other');
-      // add inline reply button
-      const rBtn = document.createElement('button');
-      rBtn.className = 'reply-btn';
-      rBtn.title = 'Reply';
-      rBtn.textContent = '↩';
-      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
-      div.appendChild(rBtn);
       const img = document.createElement('img');
       img.src = msg.image; img.alt = msg.filename || 'image';
       img.style.maxWidth = '200px'; img.style.borderRadius = '10px';
@@ -729,18 +759,18 @@
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'video') {
       let textClean = msg.text || '';
-      const _rp = parseReplyPrefix(textClean);
-      const _replyId = _rp ? _rp.id : null;
-      if (_rp) textClean = _rp.rest;
-      if (_replyId) renderReplyBlock(div, _replyId);
+      const rpNew = parseReplyHeader(textClean);
+      const rpOld = !rpNew ? parseLegacyReplyPrefix(textClean) : null;
+      if (rpNew) {
+        renderReplySnapshot(div, rpNew.snapshot);
+        textClean = rpNew.rest || '';
+      } else if (rpOld) {
+        const orig = messageById.get(String(rpOld.id));
+        const snap = orig ? replyPreviewLineFor(orig) : null;
+        if (snap) renderReplySnapshot(div, snap);
+        textClean = rpOld.rest || '';
+      }
       div.classList.add(isSelf ? 'self' : 'other');
-      // add inline reply button
-      const rBtn = document.createElement('button');
-      rBtn.className = 'reply-btn';
-      rBtn.title = 'Reply';
-      rBtn.textContent = '↩';
-      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
-      div.appendChild(rBtn);
       const video = document.createElement('video');
       video.src = msg.image;
       video.setAttribute('controls','');
@@ -764,18 +794,18 @@
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'audio') {
       let textClean = msg.text || '';
-      const _rp = parseReplyPrefix(textClean);
-      const _replyId = _rp ? _rp.id : null;
-      if (_rp) textClean = _rp.rest;
-      if (_replyId) renderReplyBlock(div, _replyId);
+      const rpNew = parseReplyHeader(textClean);
+      const rpOld = !rpNew ? parseLegacyReplyPrefix(textClean) : null;
+      if (rpNew) {
+        renderReplySnapshot(div, rpNew.snapshot);
+        textClean = rpNew.rest || '';
+      } else if (rpOld) {
+        const orig = messageById.get(String(rpOld.id));
+        const snap = orig ? replyPreviewLineFor(orig) : null;
+        if (snap) renderReplySnapshot(div, snap);
+        textClean = rpOld.rest || '';
+      }
       div.classList.add(isSelf ? 'self' : 'other');
-      // add inline reply button
-      const rBtn = document.createElement('button');
-      rBtn.className = 'reply-btn';
-      rBtn.title = 'Reply';
-      rBtn.textContent = '↩';
-      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
-      div.appendChild(rBtn);
       const audio = document.createElement('audio');
       audio.src = msg.image; audio.setAttribute('controls',''); audio.setAttribute('playsinline',''); audio.setAttribute('preload','metadata');
       audio.style.maxWidth = '200px'; audio.style.display = 'block';
@@ -794,18 +824,18 @@
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'file' && msg.image) {
       let textClean = msg.text || '';
-      const _rp = parseReplyPrefix(textClean);
-      const _replyId = _rp ? _rp.id : null;
-      if (_rp) textClean = _rp.rest;
-      if (_replyId) renderReplyBlock(div, _replyId);
+      const rpNew = parseReplyHeader(textClean);
+      const rpOld = !rpNew ? parseLegacyReplyPrefix(textClean) : null;
+      if (rpNew) {
+        renderReplySnapshot(div, rpNew.snapshot);
+        textClean = rpNew.rest || '';
+      } else if (rpOld) {
+        const orig = messageById.get(String(rpOld.id));
+        const snap = orig ? replyPreviewLineFor(orig) : null;
+        if (snap) renderReplySnapshot(div, snap);
+        textClean = rpOld.rest || '';
+      }
       div.classList.add(isSelf ? 'self' : 'other');
-      // add inline reply button
-      const rBtn = document.createElement('button');
-      rBtn.className = 'reply-btn';
-      rBtn.title = 'Reply';
-      rBtn.textContent = '↩';
-      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
-      div.appendChild(rBtn);
       const href = String(msg.image || '').trim();
       if (href) {
         const fileLink = document.createElement('a');
@@ -848,17 +878,17 @@
       // text message
       div.classList.add(isSelf ? 'self' : 'other');
       let textClean = msg.text || '';
-      const _rp = parseReplyPrefix(textClean);
-      const _replyId = _rp ? _rp.id : null;
-      if (_rp) textClean = _rp.rest;
-      if (_replyId) renderReplyBlock(div, _replyId);
-      // add inline reply button
-      const rBtn = document.createElement('button');
-      rBtn.className = 'reply-btn';
-      rBtn.title = 'Reply';
-      rBtn.textContent = '↩';
-      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
-      div.appendChild(rBtn);
+      const rpNew = parseReplyHeader(textClean);
+      const rpOld = !rpNew ? parseLegacyReplyPrefix(textClean) : null;
+      if (rpNew) {
+        renderReplySnapshot(div, rpNew.snapshot);
+        textClean = rpNew.rest || '';
+      } else if (rpOld) {
+        const orig = messageById.get(String(rpOld.id));
+        const snap = orig ? replyPreviewLineFor(orig) : null;
+        if (snap) renderReplySnapshot(div, snap);
+        textClean = rpOld.rest || '';
+      }
       if (!isSelf) {
         const name = document.createElement('div');
         name.textContent = msg.user; name.style.fontSize = '12px';
@@ -874,13 +904,18 @@
       div.appendChild(time); div.appendChild(date);
     }
 
-    // Assemble row: avatar + bubble (order controlled via CSS)
+    // Assemble row: reply button outside the bubble
+    const replyBtn = createReplyBtnFor(msg);
     if (isSelf) {
+      // my messages: button on the left of my bubble
+      row.appendChild(replyBtn);
       row.appendChild(div);
       row.appendChild(avatarImg);
     } else {
+      // others: button on the right of their bubble
       row.appendChild(avatarImg);
       row.appendChild(div);
+      row.appendChild(replyBtn);
     }
 
     messages.appendChild(row);
@@ -966,8 +1001,8 @@ form.addEventListener('submit', async (e) => {
             filename: file.name
           };
           let outText = (i === 0 ? message : '');
-          if (i === 0 && currentReply && currentReply.id) {
-            outText = `${currentReply.id}|${outText}`;
+          if (i === 0 && currentReply && currentReply.snapshot) {
+            outText = `${REPLY_OPEN}${currentReply.snapshot}${REPLY_CLOSE}${outText}`;
           }
           payload.text = outText;
           socket.send(JSON.stringify(payload));
@@ -991,7 +1026,9 @@ form.addEventListener('submit', async (e) => {
 
     if (message) {
       let out = message;
-      if (currentReply && currentReply.id) out = `${currentReply.id}|${message}`;
+      if (currentReply && currentReply.snapshot) {
+        out = `${REPLY_OPEN}${currentReply.snapshot}${REPLY_CLOSE}${message}`;
+      }
       const payload = { type: 'message', text: out, user: username, room, target };
       socket.send(JSON.stringify(payload));
       if (currentReply) clearReplyContext();
