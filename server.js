@@ -681,10 +681,12 @@ async function getUserFlags(userId) {
 
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
+  // --- WS heartbeat to detect dead connections ---
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', async (msg) => {
     const data = JSON.parse(msg);
-    const now = new Date().toISOString();
     const room = userData.room;
 
     if (data.type === 'activeRoom') {
@@ -997,6 +999,20 @@ async function deleteOldMessages(room) {
   }
 }
 
+// Periodic ping to all clients; closes connections that didn't respond with pong
+const HEARTBEAT_MS = 30000;
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) return ws.terminate();
+    ws.isAlive = false;
+    try { ws.ping(); } catch (_) {}
+  });
+}, HEARTBEAT_MS);
+
+// Clear interval when server closes
+wss.on('close', () => clearInterval(heartbeatInterval));
+
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+п

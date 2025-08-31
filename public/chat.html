@@ -37,6 +37,68 @@
     @media (max-width: 400px) {
       .round-btn { width: 36px; height: 36px; flex-basis: 36px; }
     }
+
+    /* ===== Reply UI ===== */
+    .reply-btn{
+      position:absolute;
+      top:6px;
+      right:6px;
+      width:26px; height:26px;
+      border-radius:50%;
+      border:none;
+      background:#3a3a3a;
+      color:#fff;
+      opacity:0.0;
+      cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      transition:opacity .15s ease, background .15s ease;
+      font-size:14px;
+      line-height:1;
+    }
+    .bubble:hover .reply-btn{ opacity:0.9; }
+    .reply-btn:hover{ background:#555; }
+
+    .reply-block{
+      background: rgba(255,255,255,0.06);
+      border-left: 3px solid #ff8c00;
+      padding: 6px 8px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+    .reply-block .reply-user{
+      font-size: 12px;
+      color:#ffcc88;
+      margin-bottom: 2px;
+    }
+    .reply-block .reply-text{
+      font-size: 13px;
+      color:#ddd;
+      opacity:0.95;
+    }
+
+    /* Bar above input when replying */
+    #replyBar{
+      display:none;
+      background:#232323;
+      border-left:3px solid #ff8c00;
+      border-radius:10px;
+      padding:8px 36px 8px 10px;
+      position:relative;
+      margin-top:4px;
+    }
+    #replyBar .rb-user{
+      font-size:12px; color:#ffcc88; margin-bottom:2px;
+    }
+    #replyBar .rb-text{
+      font-size:13px; color:#fff; opacity:0.9;
+    }
+    #replyBar .close-reply{
+      position:absolute; right:6px; top:6px;
+      width:24px; height:24px; border:none; border-radius:50%;
+      background:#3a3a3a; color:#fff; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      font-size:16px; line-height:1;
+    }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -44,7 +106,7 @@
 
 <!-- Верхняя панель -->
 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
-  <h2 id="chat-title" style="margin: 0; color: #ff8c00;">Room: example</h2>
+  <h2 id="chat-title" style="margin: 0; color: #fff;">Room: example</h2>
   <a href="select.html" style="text-decoration: none;">
     <button style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
       <img src="img/leave.png" alt="Leave" style="height: 24px;" />
@@ -62,6 +124,11 @@
 
 <!-- Форма ввода -->
 <form id="form">
+  <div id="replyBar">
+    <div class="rb-user" id="rb-user"></div>
+    <div class="rb-text" id="rb-text"></div>
+    <button type="button" class="close-reply" id="replyCancel" aria-label="Cancel reply">×</button>
+  </div>
   <div id="selectedImagesContainer" style="display: none; margin-bottom: 10px; color: white;">
     <div style="font-size: 14px; margin-bottom: 6px;color: #ff8c00;">Selected images:</div>
     <div id="imageThumbnails" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
@@ -103,6 +170,76 @@
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
   const micBtn = document.getElementById('micBtn');
+  const replyBar = document.getElementById('replyBar');
+  const rbUser = document.getElementById('rb-user');
+  const rbText = document.getElementById('rb-text');
+  const replyCancel = document.getElementById('replyCancel');
+  let currentReply = null;
+
+  const messageById = new Map();
+
+  function parseReplyPrefix(text){
+    const m = /^(\d+)\|([\s\S]*)$/.exec(String(text || ''));
+    if (!m) return null;
+    return { id: m[1], rest: m[2] };
+  }
+
+  function replyPreviewLineFor(msg){
+    if (!msg) return '';
+    const who = msg.user || '';
+    const what = previewTextFor(msg);
+    return who ? (who + ': ' + what) : what;
+  }
+
+  function setReplyContext(fromMsg){
+    if (!fromMsg || !fromMsg.id) return;
+    currentReply = {
+      id: fromMsg.id,
+      user: fromMsg.user || '',
+      snapshot: replyPreviewLineFor(fromMsg)
+    };
+    updateReplyBar();
+    try { input.focus(); } catch(_) {}
+  }
+  function clearReplyContext(){
+    currentReply = null;
+    updateReplyBar();
+  }
+  function updateReplyBar(){
+    if (currentReply){
+      rbUser.textContent = currentReply.user || '';
+      rbText.textContent = currentReply.snapshot || '';
+      replyBar.style.display = 'block';
+    } else {
+      replyBar.style.display = 'none';
+      rbUser.textContent = '';
+      rbText.textContent = '';
+    }
+  }
+  if (replyCancel) replyCancel.addEventListener('click', clearReplyContext);
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') clearReplyContext(); });
+
+  function renderReplyBlock(parent, replyId){
+    try{
+      const rep = document.createElement('div');
+      rep.className = 'reply-block';
+      const u = document.createElement('div');
+      u.className = 'reply-user';
+      const t = document.createElement('div');
+      t.className = 'reply-text';
+      const orig = messageById.get(String(replyId));
+      if (orig){
+        u.textContent = orig.user || '';
+        t.textContent = previewTextFor(orig) || '';
+      } else {
+        u.textContent = 'Reply';
+        t.textContent = 'Message #' + replyId;
+      }
+      rep.appendChild(u);
+      rep.appendChild(t);
+      parent.appendChild(rep);
+    } catch(_){}
+  }
 
   const IS_MAC = /Mac/.test(navigator.platform);
 
@@ -261,7 +398,8 @@
 
   function previewTextFor(msg) {
     if (!msg) return '';
-    const t = (msg.text || '').trim();
+    const parsed = parseReplyPrefix(msg.text || '');
+    const t = (parsed ? parsed.rest : (msg.text || '')).trim();
 
     const short = (s, n = 80) => {
       s = String(s || '');
@@ -482,6 +620,7 @@
 
   socket.addEventListener('message', (event) => {
     const msg = JSON.parse(event.data);
+    try { if (msg && msg.id != null) messageById.set(String(msg.id), msg); } catch(_) {}
     if (msg.type === 'activeRoom') return;
     if (msg.type === 'userlist') {
       const usersOnline = document.getElementById('users-online');
@@ -526,8 +665,19 @@
     date.style.color = 'white';
 
     if (msg.type === 'image') {
-      const textClean = msg.text || '';
+      let textClean = msg.text || '';
+      const _rp = parseReplyPrefix(textClean);
+      const _replyId = _rp ? _rp.id : null;
+      if (_rp) textClean = _rp.rest;
+      if (_replyId) renderReplyBlock(div, _replyId);
       div.classList.add(isSelf ? 'self' : 'other');
+      // add inline reply button
+      const rBtn = document.createElement('button');
+      rBtn.className = 'reply-btn';
+      rBtn.title = 'Reply';
+      rBtn.textContent = '↩';
+      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+      div.appendChild(rBtn);
       const img = document.createElement('img');
       img.src = msg.image; img.alt = msg.filename || 'image';
       img.style.maxWidth = '200px'; img.style.borderRadius = '10px';
@@ -545,8 +695,19 @@
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'video') {
-      const textClean = msg.text || '';
+      let textClean = msg.text || '';
+      const _rp = parseReplyPrefix(textClean);
+      const _replyId = _rp ? _rp.id : null;
+      if (_rp) textClean = _rp.rest;
+      if (_replyId) renderReplyBlock(div, _replyId);
       div.classList.add(isSelf ? 'self' : 'other');
+      // add inline reply button
+      const rBtn = document.createElement('button');
+      rBtn.className = 'reply-btn';
+      rBtn.title = 'Reply';
+      rBtn.textContent = '↩';
+      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+      div.appendChild(rBtn);
       const video = document.createElement('video');
       video.src = msg.image;
       video.setAttribute('controls','');
@@ -569,8 +730,19 @@
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'audio') {
-      const textClean = msg.text || '';
+      let textClean = msg.text || '';
+      const _rp = parseReplyPrefix(textClean);
+      const _replyId = _rp ? _rp.id : null;
+      if (_rp) textClean = _rp.rest;
+      if (_replyId) renderReplyBlock(div, _replyId);
       div.classList.add(isSelf ? 'self' : 'other');
+      // add inline reply button
+      const rBtn = document.createElement('button');
+      rBtn.className = 'reply-btn';
+      rBtn.title = 'Reply';
+      rBtn.textContent = '↩';
+      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+      div.appendChild(rBtn);
       const audio = document.createElement('audio');
       audio.src = msg.image; audio.setAttribute('controls',''); audio.setAttribute('playsinline',''); audio.setAttribute('preload','metadata');
       audio.style.maxWidth = '200px'; audio.style.display = 'block';
@@ -588,9 +760,19 @@
       date.style.textAlign = isSelf ? 'right' : 'left';
       div.appendChild(time); div.appendChild(date);
     } else if (msg.type === 'file' && msg.image) {
-      const textClean = msg.text || '';
+      let textClean = msg.text || '';
+      const _rp = parseReplyPrefix(textClean);
+      const _replyId = _rp ? _rp.id : null;
+      if (_rp) textClean = _rp.rest;
+      if (_replyId) renderReplyBlock(div, _replyId);
       div.classList.add(isSelf ? 'self' : 'other');
-
+      // add inline reply button
+      const rBtn = document.createElement('button');
+      rBtn.className = 'reply-btn';
+      rBtn.title = 'Reply';
+      rBtn.textContent = '↩';
+      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+      div.appendChild(rBtn);
       const href = String(msg.image || '').trim();
       if (href) {
         const fileLink = document.createElement('a');
@@ -632,7 +814,18 @@
     } else {
       // text message
       div.classList.add(isSelf ? 'self' : 'other');
-      const textClean = msg.text || '';
+      let textClean = msg.text || '';
+      const _rp = parseReplyPrefix(textClean);
+      const _replyId = _rp ? _rp.id : null;
+      if (_rp) textClean = _rp.rest;
+      if (_replyId) renderReplyBlock(div, _replyId);
+      // add inline reply button
+      const rBtn = document.createElement('button');
+      rBtn.className = 'reply-btn';
+      rBtn.title = 'Reply';
+      rBtn.textContent = '↩';
+      rBtn.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+      div.appendChild(rBtn);
       if (!isSelf) {
         const name = document.createElement('div');
         name.textContent = msg.user; name.style.fontSize = '12px';
@@ -731,21 +924,29 @@ form.addEventListener('submit', async (e) => {
           const data = await resp.json();
           const url = data.url;
 
-          socket.send(JSON.stringify({
+          const payload = {
             type: isVideo ? 'video' : isImage ? 'image' : isAudio ? 'audio' : 'file',
             user: username,
             room,
             target,
-            image: url,            // <-- отправляем ссылку, не base64
-            filename: file.name,
-            text: i === 0 ? message : ''
-          }));
+            image: url,
+            filename: file.name
+          };
+          let outText = (i === 0 ? message : '');
+          if (i === 0 && currentReply && currentReply.id) {
+            outText = `${currentReply.id}|${outText}`;
+          }
+          payload.text = outText;
+          socket.send(JSON.stringify(payload));
         } catch (err) {
           console.error('Upload error for', file.name, err);
           alert(`Upload failed for "${file.name}". Please try again.`);
           return;
         }
       }
+
+      // clear reply after first message in a batch
+      if (currentReply) clearReplyContext();
 
       // Очистка формы
       input.value = '';
@@ -756,7 +957,11 @@ form.addEventListener('submit', async (e) => {
     }
 
     if (message) {
-      socket.send(JSON.stringify({ type: 'message', text: message, user: username, room, target }));
+      let out = message;
+      if (currentReply && currentReply.id) out = `${currentReply.id}|${message}`;
+      const payload = { type: 'message', text: out, user: username, room, target };
+      socket.send(JSON.stringify(payload));
+      if (currentReply) clearReplyContext();
       input.value = '';
     }
     selectedImagesContainer.style.display = 'none';
