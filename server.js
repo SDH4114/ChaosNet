@@ -535,18 +535,41 @@ app.get('/download', async (req, res) => {
 });
 
 async function insertMessageRow(row) {
-  // First attempt as-is
-  let res = await supabase.from('messages').insert(row).select('id').single();
+  // Try insert selecting server timestamp columns too
+  let res = await supabase.from('messages').insert(row).select('id, created_at, timestamp').single();
 
   if (res?.error) {
     const msg = String(res.error.message || '');
-    // If schema doesn't have some columns (filename / reply_*), retry without them
-    if (/(filename|reply_to_id|reply_snapshot)/i.test(msg) || /column .* does not exist/i.test(msg) || /schema cache/i.test(msg)) {
-      const { filename, reply_to_id, reply_snapshot, ...row2 } = row;
-      res = await supabase.from('messages').insert(row2).select('id').single();
+    // If schema doesn't have some columns (filename / reply_* / timestamp), retry without them
+    if (/(filename|reply_to_id|reply_snapshot|timestamp)/i.test(msg) || /column .* does not exist/i.test(msg) || /schema cache/i.test(msg)) {
+      const { filename, reply_to_id, reply_snapshot, timestamp, ...row2 } = row;
+      res = await supabase.from('messages').insert(row2).select('id, created_at, timestamp').single();
     }
   }
   return res;
+}
+
+function normalizeTimestampForClient(rowOrTs) {
+  const raw = (rowOrTs && typeof rowOrTs === 'object') ? (rowOrTs.created_at || rowOrTs.timestamp) : rowOrTs;
+  let s = raw ? String(raw) : '';
+  if (!s) return new Date().toISOString();
+  // If string already contains timezone (Z or +hh:mm), keep it
+  if (/Z$|[+\-]\d\d:\d\d$/.test(s)) return s;
+  // If it's ISO without zone, treat as UTC
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s + 'Z';
+  try { return new Date(s).toISOString(); } catch { return new Date().toISOString(); }
+}
+
+async function fetchHistoryOrdered(room) {
+  // Try by created_at, then fallback to legacy timestamp, then id
+  let res = await supabase.from('messages').select('*').eq('room', room).order('created_at', { ascending: true });
+  if (res.error) {
+    res = await supabase.from('messages').select('*').eq('room', room).order('timestamp', { ascending: true });
+  }
+  if (res.error) {
+    res = await supabase.from('messages').select('*').eq('room', room).order('id', { ascending: true });
+  }
+  return res.data || [];
 }
 
 const clients = new Map();
@@ -680,13 +703,9 @@ wss.on('connection', (ws) => {
 
       await deleteOldMessages(userData.room);
 
-      const { data: history } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room', userData.room)
-        .order('timestamp', { ascending: true });
+      const history = await fetchHistoryOrdered(userData.room);
 
-      history?.forEach(m => {
+      history.forEach(m => {
         const inferredType = (m.image_url && String(m.image_url).trim() !== '')
           ? inferTypeFromUrl(m.image_url, m.filename)
           : 'message';
@@ -697,25 +716,28 @@ wss.on('connection', (ws) => {
           image: m.image_url,
           filename: m.filename || undefined,
           user: m.user,
-          timestamp: m.timestamp
+          timestamp: normalizeTimestampForClient(m)
         }));
       });
 
-      const now = new Date().toISOString();
-
       // Optionally keep server-side system join log (suppressed by default)
       if (!SUPPRESS_SYSTEM_MESSAGES) {
+        const insSys = await supabase
+          .from('messages')
+          .insert({
+            room: userData.room,
+            user: 'system',
+            text: `${userData.nick} joined`,
+            image_url: ''
+          })
+          .select('id, created_at, timestamp')
+          .single();
+
+        const tsSys = normalizeTimestampForClient(insSys?.data);
         broadcast(userData.room, {
           type: 'join',
           user: userData.nick,
-          timestamp: now
-        });
-        await supabase.from('messages').insert({
-          room: userData.room,
-          user: 'system',
-          text: `${userData.nick} joined`,
-          image_url: '',
-          timestamp: now
+          timestamp: tsSys
         });
       }
 
@@ -748,19 +770,22 @@ wss.on('connection', (ws) => {
       };
 
       let insertedId = null;
+      let ins;
       try {
-        const ins = await insertMessageRow(row);
+        ins = await insertMessageRow(row);
         insertedId = ins?.data?.id || null;
       } catch (e) {
         console.error('Unexpected insert (text) exception:', e);
       }
+
+      const tsOut = normalizeTimestampForClient(ins?.data) || now;
 
       broadcast(room, {
         id: insertedId,
         type: 'message',
         text,
         user: userData.nick,
-        timestamp: now
+        timestamp: tsOut
       });
       activeMessages.set(room, true);
     }
@@ -860,6 +885,7 @@ wss.on('connection', (ws) => {
 
         const ins2 = await insertMessageRow(row);
         const insertedId2 = ins2?.data?.id || null;
+        const tsOut2 = normalizeTimestampForClient(ins2?.data) || now2;
 
         broadcast(room, {
           id: insertedId2,
@@ -868,7 +894,7 @@ wss.on('connection', (ws) => {
           image: urlToSend,
           filename: filenameToStore,
           user: userData.nick,
-          timestamp: now2
+          timestamp: tsOut2
         });
       }
       activeMessages.set(room, true);
@@ -876,20 +902,23 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', async () => {
-    const now = new Date().toISOString();
-
     if (!SUPPRESS_SYSTEM_MESSAGES) {
+      const insSys = await supabase
+        .from('messages')
+        .insert({
+          room: userData.room,
+          user: 'system',
+          text: `${userData.nick} left`,
+          image_url: ''
+        })
+        .select('id, created_at, timestamp')
+        .single();
+
+      const tsSys = normalizeTimestampForClient(insSys?.data);
       broadcast(userData.room, {
         type: 'leave',
         user: userData.nick,
-        timestamp: now
-      });
-      await supabase.from('messages').insert({
-        room: userData.room,
-        user: 'system',
-        text: `${userData.nick} left`,
-        image_url: '',
-        timestamp: now
+        timestamp: tsSys
       });
     }
 
@@ -902,13 +931,9 @@ wss.on('connection', (ws) => {
     const stillInRoom = Array.from(clients.values()).some(u => u.room === room);
 
     if (!stillInRoom && activeMessages.get(room)) {
-      const { data: logs } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room', room)
-        .order('timestamp');
+      const logs = await fetchHistoryOrdered(room);
 
-      const logText = (logs || []).map(m => `${m.timestamp} — ${m.user}: ${m.text || '[attachment]'}`).join('\n');
+      const logText = (logs || []).map(m => `${normalizeTimestampForClient(m)} — ${m.user}: ${m.text || '[attachment]'}`).join('\n');
       // sendEmail(`Chat room "${room}" is now empty.\n\nMessages:\n${logText}`);
       activeMessages.delete(room);
     }
@@ -947,15 +972,26 @@ function broadcast(room, data) {
 // }
 
 async function deleteOldMessages(room) {
-  const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: oldMessages } = await supabase
+  const cutoffIso = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Try delete by created_at first
+  let res = await supabase
     .from('messages')
     .select('id')
-    .lt('timestamp', fifteenDaysAgo)
+    .lt('created_at', cutoffIso)
     .eq('room', room);
 
-  if (oldMessages && oldMessages.length > 0) {
-    const idsToDelete = oldMessages.map(m => m.id);
+  if (res.error) {
+    // Fallback to legacy timestamp column
+    res = await supabase
+      .from('messages')
+      .select('id')
+      .lt('timestamp', cutoffIso)
+      .eq('room', room);
+  }
+
+  const idsToDelete = res.data?.map(m => m.id) || [];
+  if (idsToDelete.length > 0) {
     await supabase.from('messages').delete().in('id', idsToDelete);
     console.log(`Deleted ${idsToDelete.length} old messages in room ${room}`);
   }

@@ -242,6 +242,17 @@
     return (msg.text || '').slice(0, 80) || 'Message';
   }
 
+  // Normalize ISO timestamp: if there's no timezone offset, assume UTC
+  function normalizeTimestamp(ts) {
+    if (!ts) return null;
+    const s = String(ts);
+    // if string already has 'Z' or an explicit offset like +03:00, use as is
+    const hasTZ = /[zZ]|[+-]\d{2}:\d{2}$/.test(s);
+    const iso = hasTZ ? s : (s + 'Z');
+    const d = new Date(iso);
+    return isNaN(d) ? null : d;
+  }
+
   function _primeAudioCtx() {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -351,7 +362,8 @@
     avatarImg.alt = msg.user;
     avatarImg.src = isSelf ? (selfAvatarUrl || DEFAULT_AVATAR) : (avatarsByNick.get(msg.user) || DEFAULT_AVATAR);
 
-    const timeObj = new Date(msg.timestamp);
+    const _ts = msg.created_at || msg.timestamp;
+    const timeObj = normalizeTimestamp(_ts) || new Date();
     const time = document.createElement('div');
     time.classList.add('meta');
     time.textContent = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
