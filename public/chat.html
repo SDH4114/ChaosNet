@@ -54,6 +54,9 @@
       font-size:14px;
       line-height:1;
       flex:0 0 26px;
+      position: relative;
+      top: -4px;              /* lift the button a bit up */
+      align-self: flex-start; /* align to top of the row */
     }
     .reply-btn:active{ transform:scale(0.95); }
     /* outside placement paddings */
@@ -65,13 +68,13 @@
       padding: 6px 8px;
       border-radius: 10px;
       margin-bottom: 6px;
-      color:#ddd;
+      color:#fff;
       font-size: 13px;
       white-space: pre-wrap;
       word-break: break-word;
     }
     .reply-line .u{
-      color:#ffcc88;
+      color:#fff;
       margin-right: 6px;
       font-size: 12px;
     }
@@ -86,12 +89,12 @@
     }
     .reply-block .reply-user{
       font-size: 12px;
-      color:#ffcc88;
+      color:#fff;
       margin-bottom: 2px;
     }
     .reply-block .reply-text{
       font-size: 13px;
-      color:#ddd;
+      color:#fff;
       opacity:0.95;
     }
 
@@ -1156,6 +1159,11 @@ form.addEventListener('submit', async (e) => {
               const url = data.url;
 
               const caption = input.value.trim();
+              // include reply snapshot (if any) like for text/images
+              let outCaption = caption;
+              if (currentReply && currentReply.snapshot) {
+                outCaption = `${REPLY_OPEN}${currentReply.snapshot}${REPLY_CLOSE}${outCaption}`;
+              }
               socket.send(JSON.stringify({
                 type: 'audio',
                 user: username,
@@ -1163,9 +1171,10 @@ form.addEventListener('submit', async (e) => {
                 target,
                 image: url,         // <-- send URL, not base64
                 filename: fileName,
-                text: caption
+                text: outCaption
               }));
               input.value = '';
+              if (currentReply) clearReplyContext();
             } catch (err) {
               console.error('Voice upload error:', err);
               alert('Failed to upload voice message. Please try again.');
