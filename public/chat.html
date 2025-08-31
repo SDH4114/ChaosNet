@@ -249,6 +249,13 @@
       font-size:14px;
       word-break: break-word;
     }
+    #avatarPopover .ap-badge{
+      text-align:center;
+      color:#ff8c00;
+      font-size:12px;
+      margin-top:4px;
+      display:none;
+    }
   </style>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
@@ -276,6 +283,7 @@
 <div id="avatarPopover" aria-hidden="true">
   <img class="ap-avatar" alt="Avatar" src="img/user.png" />
   <div class="ap-name"></div>
+  <div class="ap-badge">Admin</div>
 </div>
 
 <!-- Recent rooms dropdown -->
@@ -356,6 +364,7 @@
   const avatarPopoverEl = document.getElementById('avatarPopover');
   const apImg = avatarPopoverEl ? avatarPopoverEl.querySelector('.ap-avatar') : null;
   const apName = avatarPopoverEl ? avatarPopoverEl.querySelector('.ap-name') : null;
+  const apBadge = avatarPopoverEl ? avatarPopoverEl.querySelector('.ap-badge') : null;
   let _apAnchor = null; // currently anchored avatar element
 
   function showAvatarPopover(nick, src, anchorEl){
@@ -363,6 +372,14 @@
     _apAnchor = anchorEl || null;
     if (apImg) apImg.src = src || 'img/user.png';
     if (apName) apName.textContent = nick || '';
+    // show "Admin" badge if we know the user is admin
+    try {
+      const selfNick = localStorage.getItem('username') || '';
+      const isAdm =
+        (nick && isAdminByNick.get(nick) === true) ||
+        (nick && nick === selfNick && window.USER_FLAGS && window.USER_FLAGS.isAdmin === true);
+      if (apBadge) apBadge.style.display = isAdm ? 'block' : 'none';
+    } catch(_) {}
     // position near avatar (viewport coords)
     try{
       const rect = anchorEl ? anchorEl.getBoundingClientRect() : {left: 16, top: 16, width: 0, height: 0};
@@ -543,6 +560,7 @@
   const avatarsByNick = new Map();
   let selfAvatarUrl = 'img/user.png';
   const DEFAULT_AVATAR = 'img/user.png';
+  const isAdminByNick = new Map();
   const cacheBust = (u)=> u ? (u + (u.includes('?') ? '&' : '?') + 'v=' + Date.now()) : u;
 
   async function fetchSelfAvatar(){
@@ -564,7 +582,10 @@
       if (link) {
         selfAvatarUrl = cacheBust(link);
         const nickLS = localStorage.getItem('username');
-        if (nickLS) avatarsByNick.set(nickLS, selfAvatarUrl);
+        if (nickLS) {
+          avatarsByNick.set(nickLS, selfAvatarUrl);
+          isAdminByNick.set(nickLS, !!u.AdminStatus);
+        }
       }
     }catch(_){/* ignore */}
   }
@@ -579,6 +600,9 @@
         const link = u.avatar || u.avatar_url;
         const url = link ? cacheBust(link) : DEFAULT_AVATAR;
         avatarsByNick.set(nick, url);
+        if (typeof u.AdminStatus !== 'undefined') {
+          isAdminByNick.set(nick, !!u.AdminStatus);
+        }
         return url;
       }
     }catch(_){/* ignore */}
@@ -963,6 +987,15 @@
       ev.stopPropagation();
       const srcNow = avatarImg.src || (isSelf ? (selfAvatarUrl || DEFAULT_AVATAR) : (avatarsByNick.get(msg.user) || DEFAULT_AVATAR));
       showAvatarPopover(msg.user || '', srcNow, avatarImg);
+      // ensure we have latest meta (avatar + admin flag), then update badge if this popover is still for this avatar
+      fetchAvatarByNick(msg.user).then((url) => {
+        if (_apAnchor === avatarImg) {
+          if (apImg) apImg.src = url || srcNow;
+          const isAdm = isAdminByNick.get(msg.user) === true ||
+                        (msg.user === (localStorage.getItem('username')||'') && window.USER_FLAGS && window.USER_FLAGS.isAdmin === true);
+          if (apBadge) apBadge.style.display = isAdm ? 'block' : 'none';
+        }
+      }).catch(()=>{});
     });
 
     const _ts = msg.created_at || msg.timestamp;
