@@ -50,15 +50,30 @@
       border:none;
       background:#3a3a3a;
       color:#fff;
-      opacity:0.0;
+      opacity:0.7; /* always visible (mobile friendly) */
       cursor:pointer;
       display:flex; align-items:center; justify-content:center;
       transition:opacity .15s ease, background .15s ease;
       font-size:14px;
       line-height:1;
     }
-    .bubble:hover .reply-btn{ opacity:0.9; }
-    .reply-btn:hover{ background:#555; }
+    .bubble:hover .reply-btn{ opacity:1; }
+    .reply-line{
+      background: rgba(255,255,255,0.06);
+      border-left: 3px solid #ff8c00;
+      padding: 6px 8px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      color:#ddd;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .reply-line .u{
+      color:#ffcc88;
+      margin-right: 6px;
+      font-size: 12px;
+    }
 
     /* Place reply button left for self, right for others */
     .bubble.self .reply-btn{ left:6px; right:auto; }
@@ -232,23 +247,17 @@
 
   function renderReplyBlock(parent, replyId){
     try{
-      const rep = document.createElement('div');
-      rep.className = 'reply-block';
-      const u = document.createElement('div');
-      u.className = 'reply-user';
-      const t = document.createElement('div');
-      t.className = 'reply-text';
       const orig = messageById.get(String(replyId));
-      if (orig){
-        u.textContent = orig.user || '';
-        t.textContent = previewTextFor(orig) || '';
-      } else {
-        u.textContent = 'Reply';
-        t.textContent = 'Original message';
-      }
-      rep.appendChild(u);
-      rep.appendChild(t);
-      parent.appendChild(rep);
+      const line = document.createElement('div');
+      line.className = 'reply-line';
+      const userSpan = document.createElement('span');
+      userSpan.className = 'u';
+      userSpan.textContent = (orig && orig.user) ? (orig.user + ':') : 'Ответ:';
+      const textSpan = document.createElement('span');
+      textSpan.textContent = previewTextFor(orig) || 'Original message';
+      line.appendChild(userSpan);
+      line.appendChild(textSpan);
+      parent.appendChild(line);
     } catch(_){}
   }
 
