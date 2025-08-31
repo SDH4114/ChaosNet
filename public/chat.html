@@ -55,13 +55,13 @@
       line-height:1;
       flex:0 0 26px;
       position: relative;
-      top: -4px;              /* lift the button a bit up */
+      top: -2px;              /* lift the button slightly */
       align-self: flex-start; /* align to top of the row */
     }
     .reply-btn:active{ transform:scale(0.95); }
     /* outside placement paddings */
-    .message-row.self .reply-btn{ margin-right:6px; }
-    .message-row.other .reply-btn{ margin-left:6px; }
+    .message-row.self .reply-btn{ order:0; margin-right:6px; }
+    .message-row.other .reply-btn{ order:3; margin-left:6px; }
     .reply-line{
       background: rgba(255,255,255,0.06);
       border-left: 3px solid #ff8c00;
