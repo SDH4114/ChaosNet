@@ -12,6 +12,48 @@
   <meta name="apple-mobile-web-app-title" content="ChaosNet">
   <link rel="stylesheet" href="css/chatStyle.css" />
   <style>
+    /* ===== Recent Rooms dropdown ===== */
+    #recentPanel{
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      background:#232323;
+      border:1px solid #444;
+      border-radius:10px;
+      padding:10px;
+      width:240px;
+      max-height:60vh;
+      overflow:auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      display:none;
+      z-index:2000;
+    }
+    #recentPanel h4{
+      margin:0 0 8px;
+      color:#ff8c00;
+      font-size:14px;
+      font-weight:600;
+    }
+    #recentPanel .recent-item{
+      padding:6px 0;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    #recentPanel .recent-item:last-child{ border-bottom:none; }
+    #recentPanel a{
+      color:#fff;
+      text-decoration:none;
+      word-break: break-word;
+    }
+    #recentPanel a:hover{ text-decoration:underline; }
+    #recentClear{
+      display:block;
+      margin-top:8px;
+      font-size:12px;
+      color:#ff8c00;
+      background:none;
+      border:none;
+      cursor:pointer;
+    }
     .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
     .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
     .bubble { position: relative; }
@@ -134,11 +176,23 @@
     <span class="room-label">Room:</span>
     <span id="room-name">example</span>
   </h2>
-  <a href="select.html" style="text-decoration: none;">
-    <button style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
-      <img src="img/leave.png" alt="Leave" style="height: 24px;" />
+  <div style="display: flex; align-items: center;">
+    <button id="recentBtn" style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; margin-right:8px;">
+      List
     </button>
-  </a>
+    <a href="select.html" style="text-decoration: none;">
+      <button style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+        <img src="img/leave.png" alt="Leave" style="height: 24px;" />
+      </button>
+    </a>
+  </div>
+</div>
+
+<!-- Recent rooms dropdown -->
+<div id="recentPanel" aria-hidden="true">
+  <h4>Recent Rooms</h4>
+  <div id="recentList"></div>
+  <button id="recentClear" type="button" title="Clear recent list">Clear</button>
 </div>
 
 <!-- Полоса с онлайном -->
@@ -199,6 +253,42 @@
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
   const micBtn = document.getElementById('micBtn');
+  const recentBtn = document.getElementById('recentBtn');
+  const recentPanel = document.getElementById('recentPanel');
+  const recentList = document.getElementById('recentList');
+  const recentClear = document.getElementById('recentClear');
+  function saveToStorage(key, value) {
+    try {
+      let items = JSON.parse(localStorage.getItem(key)) || [];
+      // put newest first, avoid duplicates
+      items = items.filter(v => v !== value);
+      items.unshift(value);
+      if (items.length > 10) items = items.slice(0, 10);
+      localStorage.setItem(key, JSON.stringify(items));
+    } catch(_) {}
+  }
+  function renderRecentRooms(){
+    try {
+      const items = JSON.parse(localStorage.getItem('rooms')) || [];
+      if (!recentList) return;
+      if (items.length === 0) {
+        recentList.innerHTML = '<div style="opacity:.7;font-size:13px;">No recent rooms</div>';
+        return;
+      }
+      recentList.innerHTML = items.map(item => `
+        <div class="recent-item">
+          <a href="chat.html?room=${encodeURIComponent(item)}">${item}</a>
+        </div>
+      `).join('');
+    } catch(_) {}
+  }
+  function toggleRecentPanel(show){
+    if (!recentPanel) return;
+    const want = (typeof show === 'boolean') ? show : (recentPanel.style.display === 'none' || recentPanel.style.display === '');
+    recentPanel.style.display = want ? 'block' : 'none';
+    recentPanel.setAttribute('aria-hidden', want ? 'false' : 'true');
+    if (want) renderRecentRooms();
+  }
   const replyBar = document.getElementById('replyBar');
   const rbUser = document.getElementById('rb-user');
   const rbText = document.getElementById('rb-text');
@@ -597,6 +687,8 @@
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room") || "main";
   const target = urlParams.get("target");
+  // Save current room into recent list
+  if (room) { saveToStorage('rooms', room); }
   // Prefetch own avatar (if available)
   fetchSelfAvatar();
   if (target) {
@@ -1192,6 +1284,29 @@ form.addEventListener('submit', async (e) => {
       }
     });
   }
+    if (recentBtn) {
+    recentBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleRecentPanel();
+    });
+  }
+  if (recentClear) {
+    recentClear.addEventListener('click', (e) => {
+      e.stopPropagation();
+      try { localStorage.removeItem('rooms'); } catch(_) {}
+      renderRecentRooms();
+    });
+  }
+  // Close the panel when clicking outside or pressing ESC
+  document.addEventListener('click', (e) => {
+    if (!recentPanel || recentPanel.style.display !== 'block') return;
+    const within = recentPanel.contains(e.target) || (recentBtn && recentBtn.contains(e.target));
+    if (!within) toggleRecentPanel(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && recentPanel && recentPanel.style.display === 'block') toggleRecentPanel(false);
+  });
+  toggleRecentPanel(false);
 </script>
 
 </body>
