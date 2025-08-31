@@ -2,64 +2,87 @@
   box-sizing: border-box;
 }
 
+:root {
+  --c-bg:#0e0e0e;
+  --c-card:#1b1b1b;
+  --c-accent:#ff8c00;
+  --c-accent-2:#ffa733;
+  --c-text:#ffffff;
+  --c-muted:#ccc;
+  --radius: 20px;
+  --space: clamp(12px, 2.2vw, 20px);
+  --fs-base: clamp(15px, 1.6vw, 17px);
+  --fs-sm: clamp(13px, 1.4vw, 15px);
+  --fs-lg: clamp(18px, 2vw, 22px);
+}
+html, body { font-size: var(--fs-base); }
+
 body {
-  background-color: #0e0e0e;
-  color: white;
+  background-color: var(--c-bg);
+  color: var(--c-text);
   font-family: 'Segoe UI', sans-serif;
-  height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 0 10px;
+  padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  overscroll-behavior-y: contain;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .login-container {
-  background-color: #1b1b1b;
-  padding: 40px 30px;
-  border-radius: 20px;
+  background-color: var(--c-card);
+  padding: clamp(20px, 4.5vw, 40px) clamp(16px, 4vw, 30px);
+  border-radius: var(--radius);
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
-  width: 90vw;
-  max-width: 400px;
+  width: clamp(280px, 92vw, 420px);
 }
 
 .login-container h2 {
   margin-bottom: 20px;
-  font-size: 24px;
+  font-size: clamp(20px, 2.6vw, 26px);
   text-align: center;
   color: #ff8c00;
 }
 
 input {
   width: 100%;
-  padding: 14px 16px;
+  padding: clamp(12px, 2.2vw, 16px) clamp(14px, 2.4vw, 16px);
   margin-bottom: 16px;
   background-color: #2e2e2e;
-  border: none;
+  border: 1px solid #333;
   border-radius: 12px;
-  color: white;
-  font-size: 16px;
+  color: var(--c-text);
+  font-size: var(--fs-base);
+  caret-color: var(--c-accent);
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 
 input:focus {
-  outline: 2px solid #ff8c00;
+  outline: none;
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px #ff8c0030;
 }
 
 button {
   width: 100%;
-  padding: 14px;
-  background-color: #ff8c00;
+  min-height: clamp(44px, 6.5vh, 52px);
+  padding: clamp(12px, 1.8vw, 14px);
+  background-color: var(--c-accent);
   border: none;
   border-radius: 50px;
   color: white;
-  font-weight: bold;
-  font-size: 16px;
+  font-weight: 600;
+  font-size: clamp(15px, 1.8vw, 17px);
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background .2s ease, transform .06s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:hover {
-  background-color: #ffa733;
+  background-color: var(--c-accent-2);
 }
 
 .error {
@@ -74,7 +97,7 @@ button:hover {
 }
 
 .guest-link a {
-  font-size: 14px;
+  font-size: clamp(13px, 1.6vw, 15px);
 }
 
 /* Единый стиль подчёркивания */
@@ -107,10 +130,12 @@ button:hover {
   margin-top: 20px;
   background: #2b2b2b;
   border-radius: 12px;
-  padding: 16px;
+  padding: clamp(12px, 2.2vw, 16px);
   color: #ccc;
-  max-height: 200px;
+  max-height: clamp(160px, 35vh, 300px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .list h3 {
@@ -125,7 +150,7 @@ button:hover {
 .list-item a {
   color: #ccc;
   text-decoration: none;
-  font-size: 15px;
+  font-size: clamp(14px, 1.8vw, 16px);
   cursor: pointer;
 }
 
@@ -185,12 +210,11 @@ button:hover {
 }
 /* Стили для формы регистрации */
 .register-container {
-  background-color: #1b1b1b;
-  padding: 40px 30px;
-  border-radius: 20px;
+  background-color: var(--c-card);
+  padding: clamp(20px, 4.5vw, 40px) clamp(16px, 4vw, 30px);
+  border-radius: var(--radius);
   box-shadow: 0 0 20px rgba(255, 140, 0, 0.1);
-  width: 90vw;
-  max-width: 400px;
+  width: clamp(280px, 92vw, 420px);
 }
 
 .register-container h2 {
@@ -203,7 +227,7 @@ button:hover {
 @media (min-width: 768px) {
   .login-container,
   .register-container {
-    width: 400px;
+    width: 420px;
   }
 }
 
@@ -245,4 +269,18 @@ button:hover {
 .password-field .toggle-pwd:focus {
   outline: 2px solid #ff8c0030;
   border-radius: 6px;
+}
+
+@media (max-height: 560px) {
+  body { align-items: flex-start; }
+  .login-container, .register-container { margin-top: 24px; padding: 20px 16px; }
+  .list { max-height: 45vh; }
+}
+
+@media (orientation: landscape) and (max-height: 480px) {
+  .login-container, .register-container { width: min(560px, 96vw); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
 }
