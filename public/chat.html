@@ -28,6 +28,9 @@
       <img src="img/leave.png" alt="Leave" style="height: 24px;" />
     </button>
   </a>
+  <button id="enable-notifs" title="Enable notifications" style="margin-left:8px;background-color:#2a2a2a;border:1px solid #444;padding:6px 10px;border-radius:8px;cursor:pointer;color:#fff;">
+    🔔
+  </button>
 </div>
 
 <!-- Полоса с онлайном -->
@@ -81,6 +84,48 @@
   const selectedImagesContainer = document.getElementById('selectedImagesContainer');
   const imageThumbnails = document.getElementById('imageThumbnails');
   const micBtn = document.getElementById('micBtn');
+
+  const IS_MAC = /Mac/.test(navigator.platform);
+  const notifBtn = document.getElementById('enable-notifs');
+
+  async function showLocalTestNotification(){
+    if (!('Notification' in window)) return;
+    const title = 'ChaosNet';
+    const options = {
+      body: 'Notifications enabled ✅',
+      icon: 'img/ChaosNetLogo.png',
+      badge: 'img/ChaosNetLogo.png',
+      tag: 'chaosnet-test',
+      requireInteraction: IS_MAC, // keep visible as a banner on macOS
+      silent: false
+    };
+    try {
+      const reg = (navigator.serviceWorker && (await navigator.serviceWorker.getRegistration())) || null;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, options);
+      } else {
+        new Notification(title, options);
+      }
+    } catch (_) {
+      try { new Notification(title, options); } catch(_) {}
+    }
+  }
+
+  if (notifBtn && 'Notification' in window) {
+    notifBtn.addEventListener('click', async () => {
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          notifBtn.style.opacity = '0.6';
+          showLocalTestNotification();
+        } else {
+          alert('Notifications are blocked. Enable them in your browser/OS settings.');
+        }
+      } catch (e) {
+        console.warn('Notification permission error:', e);
+      }
+    });
+  }
 
   // флаги прав доступа (админ/подписка)
   window.USER_FLAGS = { isAdmin:false, isSub:false };
@@ -252,31 +297,44 @@
     return short(t) || 'Message';
   }
 
-  function showBannerForMessage(room, msg) {
+  async function showBannerForMessage(room, msg) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     const title = `${msg.user} • ${room}`;
     const body = previewTextFor(msg) || 'New message';
     const ts = (normalizeTimestamp && (normalizeTimestamp(msg.created_at || msg.timestamp))) || new Date();
 
+    const options = {
+      body,
+      icon: (avatarsByNick && avatarsByNick.get(msg.user)) || 'img/ChaosNetLogo.png',
+      badge: 'img/ChaosNetLogo.png',
+      tag: `room:${room}:id:${msg.id || Date.now()}`,
+      renotify: false,
+      timestamp: ts.getTime(),
+      silent: false,
+      requireInteraction: IS_MAC // keep visible as a banner on macOS
+    };
+
     try {
-      const n = new Notification(title, {
-        body,
-        icon: (avatarsByNick && avatarsByNick.get(msg.user)) || 'img/ChaosNetLogo.png',
-        badge: 'img/ChaosNetLogo.png',
-        tag: `room:${room}:id:${msg.id || Date.now()}`,
-        renotify: false,
-        timestamp: ts.getTime(),
-        silent: false
-      });
-
-      n.onclick = () => {
-        try { window.focus(); } catch(_) {}
-        try { n.close(); } catch(_) {}
-      };
-
-      setTimeout(() => { try { n.close(); } catch(_) {} }, 5000);
-    } catch (_) {}
+      const reg = (navigator.serviceWorker && (await navigator.serviceWorker.getRegistration())) || null;
+      if (reg && reg.showNotification) {
+        await reg.showNotification(title, options);
+      } else {
+        const n = new Notification(title, options);
+        n.onclick = () => {
+          try { window.focus(); } catch(_) {}
+          try { n.close(); } catch(_) {}
+        };
+      }
+    } catch (_) {
+      try {
+        const n = new Notification(title, options);
+        n.onclick = () => {
+          try { window.focus(); } catch(_) {}
+          try { n.close(); } catch(_) {}
+        };
+      } catch(__) {}
+    }
   }
 
   // Normalize ISO timestamp: if there's no timezone offset, assume UTC
