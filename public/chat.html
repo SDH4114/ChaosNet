@@ -94,6 +94,29 @@
     .bubble { position: relative; }
     /* Room label color */
     .room-label { color:#ff8c00; }
+    /* Hover underline like on Select page */
+    .link-underline{
+      position: relative;
+      color: #fff;
+      text-decoration: none;
+      cursor: pointer;
+      transition: color .15s ease;
+    }
+    .link-underline::after{
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -2px;
+      height: 2px;
+      background: #ff8c00;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform .2s ease;
+    }
+    .link-underline:hover::after{
+      transform: scaleX(1);
+    }
     /* Force round icon buttons */
     .round-btn {
       width: 44px;
@@ -209,7 +232,7 @@
 <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
   <h2 id="chat-title" style="margin: 0; color: #fff;">
     <span class="room-label">Room:</span>
-    <span id="room-name">example</span>
+    <span id="room-name" class="link-underline">example</span>
   </h2>
   <div style="display: flex; align-items: center;">
     <button id="recentBtn" style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; margin-right:8px;">
