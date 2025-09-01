@@ -406,23 +406,38 @@ form button[type="submit"]:hover,
 
     /* ===== Reply UI ===== */
     .reply-btn{
-      width:26px; height:26px;
-      border-radius:50%;
-      border:none;
-      background:#3a3a3a;
-      color:#fff;
-      opacity:0.9;
-      cursor:pointer;
-      display:flex; align-items:center; justify-content:center;
-      transition: background .15s ease, transform .1s ease;
-      font-size:14px;
-      line-height:1;
-      flex:0 0 26px;
+      width:24px; height:24px;
+      padding:0 !important;
+      margin: 0 6px;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      color: inherit;
+      opacity: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: filter .15s ease, transform .1s ease;
+      flex: 0 0 24px;
       position: static;       /* sit inline in the flex row */
       top: 0;                 /* no vertical offset */
       align-self: center;     /* vertically center against the bubble */
     }
-    .reply-btn:active{ transform:scale(0.95); }
+    .reply-btn img{
+      width:20px;
+      height:20px;
+      display:block;
+      pointer-events:none;
+    }
+    .reply-btn:hover{
+      filter: brightness(1.15);
+      background: transparent !important;
+    }
+    .reply-btn:active{
+      transform: scale(0.96);
+    }
     /* outside placement paddings */
     .message-row.self .reply-btn{ order:0; margin-right:6px; }
     .message-row.other .reply-btn{ order:3; margin-left:6px; }
@@ -438,7 +453,7 @@ form button[type="submit"]:hover,
       word-break: break-word;
     }
     .reply-line .u{
-      color:#fff;
+      color:#fff !important;
       margin-right: 6px;
       font-size: 12px;
     }
@@ -524,3 +539,12 @@ form button[type="submit"]:hover,
       margin-top:4px;
       display:none;
     }
+
+/* "List" button text color */
+#recentBtn{
+  color:#000 !important;
+  font-weight:600;
+}
+#recentBtn:hover{
+  filter: brightness(1.05);
+}

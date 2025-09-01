@@ -294,8 +294,29 @@
     b.type = 'button';
     b.className = 'reply-btn';
     b.title = 'Reply';
-    b.textContent = '↩';
-    b.addEventListener('click', (ev)=>{ ev.stopPropagation(); setReplyContext(msg); });
+    b.setAttribute('aria-label', 'Reply');
+    // ensure no gray circle background via inline overrides (in case old CSS remains)
+    b.style.background = 'transparent';
+    b.style.border = 'none';
+    b.style.padding = '0';
+    b.style.margin = '0 6px';
+    b.style.width = '24px';
+    b.style.height = '24px';
+    b.style.borderRadius = '0';
+    b.style.boxShadow = 'none';
+    b.style.display = 'inline-flex';
+    b.style.alignItems = 'center';
+    b.style.justifyContent = 'center';
+
+    const img = document.createElement('img');
+    img.src = 'img/reply.png';
+    img.alt = 'Reply';
+    img.style.width = '20px';
+    img.style.height = '20px';
+    img.style.display = 'block';
+
+    b.appendChild(img);
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); setReplyContext(msg); });
     return b;
   }
 
