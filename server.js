@@ -197,7 +197,7 @@ app.post('/get-user-by-nick', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('nick, avatar')
+      .select('nick, avatar, AdminStatus')
       .eq('nick', nick)
       .maybeSingle();
 
@@ -210,7 +210,8 @@ app.post('/get-user-by-nick', async (req, res) => {
     return res.status(200).json({
       nick: data.nick,
       avatar: data.avatar || null,
-      avatar_url: data.avatar || null
+      avatar_url: data.avatar || null,
+      AdminStatus: data.AdminStatus === true
     });
   } catch (err) {
     console.error('Unexpected error in /get-user-by-nick:', err);
