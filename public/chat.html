@@ -43,10 +43,10 @@
 
 <!-- Recent rooms dropdown -->
 <div id="recentPanel" aria-hidden="true">
-  <div id="recentHead">
+  <div id="recentHead" style="display:flex; align-items:center; gap:8px;">
     <input id="recentQuickInput" type="text" placeholder="Room ID" />
     <button id="recentGo" type="button" title="Join room">Go</button>
-    <button id="recentClear" class="link-underline" type="button" title="Clear recent list">Clear</button>
+    <button id="recentClear" class="link-underline" type="button" title="Clear recent list" style="margin-left:auto;">Clear</button>
   </div>
   <h4>Recent Rooms</h4>
   <div id="recentList"></div>
@@ -99,6 +99,68 @@
   // ws / wss в зависимости от протокола страницы
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket = new WebSocket(wsProto + '://' + location.host);
+
+  // === Web Push (client) ===
+  // Public VAPID key will be injected by the server later; use a placeholder for now.
+  // On production, the server should replace [[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME]] with actual key.
+  window.VAPID_PUBLIC_KEY = window.VAPID_PUBLIC_KEY || '[[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME]]';
+
+  // Register Service Worker and subscribe for Push (works in desktop browsers and iOS PWA 16.4+)
+  (function initPush() {
+    if (!('serviceWorker' in navigator)) return;
+    // On iOS, real push works when app is installed on Home Screen (PWA).
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(async (reg) => {
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+      } catch(_) {}
+
+      if (!reg.pushManager) return;
+
+      // Convert base64 VAPID key to Uint8Array
+      function urlBase64ToUint8Array(base64String){
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+      }
+
+      const appServerKey = window.VAPID_PUBLIC_KEY ? urlBase64ToUint8Array(window.VAPID_PUBLIC_KEY) : null;
+      if (!appServerKey) {
+        console.warn('VAPID public key is not set on client.');
+        return;
+      }
+
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        try {
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
+        } catch (e) {
+          console.warn('Push subscription failed:', e);
+          return;
+        }
+      }
+
+      // Send subscription to backend (room/user are defined below in this script)
+      try {
+        await fetch('/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: sub.toJSON ? sub.toJSON() : sub,
+            room: (typeof room !== 'undefined' ? room : 'main'),
+            userId: (typeof userId !== 'undefined' ? userId : null),
+            nick: (typeof username !== 'undefined' ? username : null)
+          })
+        });
+      } catch (err) {
+        console.warn('Failed to send push subscription to server:', err);
+      }
+    }).catch(err => console.warn('Service Worker registration failed:', err));
+  })();
 
   const form = document.getElementById('form');
   const input = document.getElementById('input');
@@ -276,6 +338,12 @@
       userSpan.className = 'u';
       const msgSpan = document.createElement('span');
 
+      // style for mini-reply readability
+      line.style.color = '#fff';
+      userSpan.style.color = '#ff8c00';
+      userSpan.style.marginRight = '6px';
+      msgSpan.style.color = '#fff';
+
       if (idx > -1) {
         userSpan.textContent = snapshotText.slice(0, idx + 1);
         msgSpan.textContent = snapshotText.slice(idx + 1).trim();
@@ -300,7 +368,7 @@
     b.style.background = 'transparent';
     b.style.border = 'none';
     b.style.padding = '0';
-    b.style.margin = '0 6px';
+    b.style.margin = '0';
     b.style.width = '24px';
     b.style.height = '24px';
     b.style.borderRadius = '0';
@@ -963,6 +1031,12 @@
 
     // Assemble row: reply button outside the bubble
     const replyBtn = createReplyBtnFor(msg);
+    // tighten horizontal spacing relative to the bubble
+    if (isSelf) {
+      replyBtn.style.marginRight = '3px';
+    } else {
+      replyBtn.style.marginLeft = '3px';
+    }
     if (isSelf) {
       // my messages: button on the left of my bubble
       row.appendChild(replyBtn);

@@ -8,6 +8,15 @@ const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
+const webpush = require('web-push');
+// --- Web Push (VAPID) ---
+const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
+  console.warn('VAPID keys/subject missing in .env (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT)');
+} else {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
+
 const PORT = process.env.PORT || 10000;
 const app = express();
 const server = http.createServer(app);
@@ -28,10 +37,161 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 const BUCKET = 'chat-uploads';
 const AVATARS_BUCKET = 'avatars';
 
+// --- Push subscriptions storage helpers (Supabase) ---
+async function upsertSubscription({ endpoint, p256dh, auth, room, user_id, nick }) {
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .upsert(
+      { endpoint, p256dh, auth, room, user_id, nick },
+      { onConflict: 'endpoint' }
+    )
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function removeSubscription(endpoint) {
+  await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+}
+
+async function listRoomSubscriptions(room, excludeUserId) {
+  let q = supabase.from('push_subscriptions').select('endpoint,p256dh,auth,user_id,room');
+  if (room) q = q.eq('room', room);
+  if (excludeUserId) q = q.neq('user_id', excludeUserId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+// --- HTTP endpoints for push subscribe/unsubscribe/test/health ---
+app.post('/push/subscribe', async (req, res) => {
+  try {
+    const { subscription, room, userId, nick } = req.body || {};
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+    const endpoint = subscription.endpoint;
+    const p256dh = subscription.keys.p256dh;
+    const auth = subscription.keys.auth;
+    await upsertSubscription({ endpoint, p256dh, auth, room: room || 'main', user_id: userId || null, nick: nick || null });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('subscribe error:', e.message || e);
+    return res.status(500).json({ error: 'subscribe failed' });
+  }
+});
+
+app.post('/push/unsubscribe', async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: 'No endpoint' });
+    await removeSubscription(endpoint);
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('unsubscribe error:', e.message || e);
+    return res.status(500).json({ error: 'unsubscribe failed' });
+  }
+});
+
+app.post('/push/test', async (req, res) => {
+  try {
+    const { room, title, body } = req.body || {};
+    await sendPushToRoom(room || 'main', { title: title || 'ChaosNet test', body: body || 'It works!' });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('push test error:', e.message || e);
+    return res.status(500).json({ error: 'test failed' });
+  }
+});
+
+app.get('/push/health', (req, res) => {
+  res.json({ vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT) });
+});
+
+async function sendPushToRoom(room, payload, excludeUserId) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return;
+  const subs = await listRoomSubscriptions(room, excludeUserId);
+  const tasks = subs.map(async (row) => {
+    const sub = {
+      endpoint: row.endpoint,
+      keys: { p256dh: row.p256dh, auth: row.auth }
+    };
+    const data = Object.assign(
+      { title: 'ChaosNet', body: 'New message', icon: '/img/ChaosNetLogo.png', tag: `room:${room}` },
+      payload || {},
+      { data: { room } }
+    );
+    try {
+      await webpush.sendNotification(sub, JSON.stringify(data));
+    } catch (err) {
+      if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+        try { await removeSubscription(row.endpoint); } catch(_) {}
+      } else {
+        console.warn('sendNotification error:', err.statusCode, err.body || err.message);
+      }
+    }
+  });
+  await Promise.allSettled(tasks);
+}
+
 // --- Feature flags ---
 // Suppress system join/leave messages on the server (still hidden on client anyway).
 // Set SUPPRESS_SYSTEM_MESSAGES=0 in .env if you want them back.
 const SUPPRESS_SYSTEM_MESSAGES = process.env.SUPPRESS_SYSTEM_MESSAGES === '0' ? false : true;
+
+// Lightweight env injection for static HTML: replaces [[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME]]
+app.get(['/', '/index.html', '/chat.html', '/select.html'], (req, res, next) => {
+  const p = req.path === '/' ? '/index.html' : req.path;
+  const full = path.join(__dirname, 'public', p.replace(/^\//,''));
+  fs.readFile(full, 'utf8', (err, txt) => {
+    if (err) return next();
+    const out = txt.replace(/\[\[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME\]\]/g, process.env.VAPID_PUBLIC_KEY || '');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(out);
+  });
+});
+
+// Dynamically serve a Service Worker at /sw.js
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript');
+  res.send(`self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { self.clients.claim(); });
+
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch(_) {}
+  const title = data.title || 'ChaosNet';
+  const body = data.body || 'New message';
+  const icon = data.icon || '/img/ChaosNetLogo.png';
+  const badge = data.badge || '/img/ChaosNetLogo.png';
+  const tag = data.tag || 'chaosnet';
+  const ts = Date.now();
+  event.waitUntil(self.registration.showNotification(title, { body, icon, badge, tag, timestamp: ts, data: data.data || {} }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const d = (event.notification && event.notification.data) || {};
+  const room = d.room || 'main';
+  const url = '/chat.html?room=' + encodeURIComponent(room);
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        try {
+          const u = new URL(c.url);
+          if (u.pathname.endsWith('/chat.html') && (u.search || '').includes('room=' + room)) {
+            c.focus();
+            return;
+          }
+        } catch(_) {}
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
+`);
+});
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -827,6 +987,10 @@ wss.on('connection', (ws) => {
         user: userData.nick,
         timestamp: tsOut
       });
+      // --- Push notification for text message ---
+      try {
+        await sendPushToRoom(room, { title: `${userData.nick} • ${room}`, body: (text || 'Message') }, userData.id);
+      } catch(_) {}
       activeMessages.set(room, true);
     }
 
@@ -934,6 +1098,11 @@ wss.on('connection', (ws) => {
           user: userData.nick,
           timestamp: tsOut2
         });
+        // --- Push notification for media message ---
+        try {
+          const label = caption ? caption : (thisType.charAt(0).toUpperCase() + thisType.slice(1));
+          await sendPushToRoom(room, { title: `${userData.nick} • ${room}`, body: label }, userData.id);
+        } catch(_) {}
       }
       activeMessages.set(room, true);
     }
