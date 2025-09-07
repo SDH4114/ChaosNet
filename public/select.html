@@ -68,6 +68,91 @@
   </div>
 
   <script>
+  // === Push subscription for ALL recent rooms (select.html) ===
+  // Public VAPID key is injected by server at runtime.
+  window.VAPID_PUBLIC_KEY = window.VAPID_PUBLIC_KEY || '[[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME]]';
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  async function ensureSWAndSubscription() {
+    if (!('serviceWorker' in navigator)) return null;
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    try {
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission().catch(() => {});
+      }
+    } catch (_) {}
+    if (!reg.pushManager) return null;
+
+    const appServerKey = window.VAPID_PUBLIC_KEY ? urlBase64ToUint8Array(window.VAPID_PUBLIC_KEY) : null;
+    if (!appServerKey) {
+      console.warn('VAPID public key is not set on client.');
+      return null;
+    }
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      try {
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey });
+      } catch (e) {
+        console.warn('Push subscription failed:', e);
+        return null;
+      }
+    }
+    return sub.toJSON ? sub.toJSON() : sub;
+  }
+
+  function getRecentRooms() {
+    try {
+      const arr = JSON.parse(localStorage.getItem('rooms')) || [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async function subscribeRooms(rooms) {
+    rooms = Array.from(new Set((rooms || []).filter(Boolean)));
+    if (!rooms.length) return;
+
+    const subscription = await ensureSWAndSubscription();
+    if (!subscription) return;
+
+    const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
+    const nick = localStorage.getItem('username') || null;
+
+    // сервер принимает одну комнату — шлём по одной записи
+    await Promise.allSettled(
+      rooms.map((roomId) =>
+        fetch('/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription,
+            room: roomId,
+            userId: uid,
+            nick
+          })
+        }).catch(() => {})
+      )
+    );
+  }
+
+  // Автоподписка при открытии "Select Room": подписываемся на все недавние
+  document.addEventListener('DOMContentLoaded', () => {
+    const recent = getRecentRooms();
+    if (recent.length) {
+      subscribeRooms(recent);
+    }
+  });
+
     function logOut() {
       localStorage.removeItem('username');
       localStorage.removeItem('userid');
@@ -98,6 +183,10 @@
         items.unshift(value);
         if (items.length > 10) items = items.slice(0, 10);
         localStorage.setItem(key, JSON.stringify(items));
+      }
+      // Автоподписка на только что добавленную комнату
+      if (key === 'rooms') {
+        try { subscribeRooms([value]); } catch (_) {}
       }
     }
 

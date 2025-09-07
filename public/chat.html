@@ -144,20 +144,39 @@
         }
       }
 
-      // Send subscription to backend (room/user are defined below in this script)
+      // Send subscription to backend for ALL recent rooms + current room
       try {
-        await fetch('/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription: sub.toJSON ? sub.toJSON() : sub,
-            room: (typeof room !== 'undefined' ? room : 'main'),
-            userId: (typeof userId !== 'undefined' ? userId : null),
-            nick: (typeof username !== 'undefined' ? username : null)
-          })
-        });
+        const rooms = (() => {
+          try {
+            const arr = JSON.parse(localStorage.getItem('rooms')) || [];
+            const set = new Set(arr);
+            if (typeof room !== 'undefined' && room) set.add(room);
+            // limit to a sane amount to avoid spamming the server
+            return Array.from(set).slice(0, 25);
+          } catch (_) {
+            return [ (typeof room !== 'undefined' && room) ? room : 'main' ];
+          }
+        })();
+
+        const payloadBase = {
+          subscription: sub.toJSON ? sub.toJSON() : sub,
+          userId: (typeof userId !== 'undefined' ? userId : null),
+          nick: (typeof username !== 'undefined' ? username : null)
+        };
+
+        for (const r of rooms) {
+          try {
+            await fetch('/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...payloadBase, room: r || 'main' })
+            });
+          } catch (e) {
+            console.warn('Failed to subscribe for room', r, e);
+          }
+        }
       } catch (err) {
-        console.warn('Failed to send push subscription to server:', err);
+        console.warn('Failed to send push subscriptions to server:', err);
       }
     }).catch(err => console.warn('Service Worker registration failed:', err));
   })();

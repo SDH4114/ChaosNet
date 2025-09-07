@@ -43,12 +43,16 @@ async function upsertSubscription({ endpoint, p256dh, auth, room, user_id, nick 
     .from('push_subscriptions')
     .upsert(
       { endpoint, p256dh, auth, room, user_id, nick },
-      { onConflict: 'endpoint' }
+      { onConflict: 'endpoint,room' }
     )
     .select()
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+async function removeSubscriptionForRoom(endpoint, room) {
+  await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('room', room);
 }
 
 async function removeSubscription(endpoint) {
@@ -67,26 +71,73 @@ async function listRoomSubscriptions(room, excludeUserId) {
 // --- HTTP endpoints for push subscribe/unsubscribe/test/health ---
 app.post('/push/subscribe', async (req, res) => {
   try {
-    const { subscription, room, userId, nick } = req.body || {};
+    const { subscription, room, rooms, userId, nick } = req.body || {};
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return res.status(400).json({ error: 'Invalid subscription' });
     }
     const endpoint = subscription.endpoint;
     const p256dh = subscription.keys.p256dh;
     const auth = subscription.keys.auth;
-    await upsertSubscription({ endpoint, p256dh, auth, room: room || 'main', user_id: userId || null, nick: nick || null });
-    return res.status(200).json({ ok: true });
+
+    const roomsToSave = Array.isArray(rooms) && rooms.length ? rooms : [room || 'main'];
+
+    for (const r of roomsToSave) {
+      await upsertSubscription({
+        endpoint,
+        p256dh,
+        auth,
+        room: String(r || 'main'),
+        user_id: userId || null,
+        nick: nick || null
+      });
+    }
+
+    return res.status(200).json({ ok: true, saved: roomsToSave.length });
   } catch (e) {
     console.error('subscribe error:', e.message || e);
     return res.status(500).json({ error: 'subscribe failed' });
   }
 });
 
+app.post('/push/subscribe-many', async (req, res) => {
+  try {
+    const { subscription, rooms, userId, nick } = req.body || {};
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+      return res.status(400).json({ error: 'No rooms provided' });
+    }
+    const endpoint = subscription.endpoint;
+    const p256dh = subscription.keys.p256dh;
+    const auth = subscription.keys.auth;
+
+    for (const r of rooms) {
+      await upsertSubscription({
+        endpoint,
+        p256dh,
+        auth,
+        room: String(r || 'main'),
+        user_id: userId || null,
+        nick: nick || null
+      });
+    }
+    return res.status(200).json({ ok: true, saved: rooms.length });
+  } catch (e) {
+    console.error('subscribe-many error:', e.message || e);
+    return res.status(500).json({ error: 'subscribe-many failed' });
+  }
+});
+
 app.post('/push/unsubscribe', async (req, res) => {
   try {
-    const { endpoint } = req.body || {};
+    const { endpoint, room } = req.body || {};
     if (!endpoint) return res.status(400).json({ error: 'No endpoint' });
-    await removeSubscription(endpoint);
+    if (room) {
+      await removeSubscriptionForRoom(endpoint, String(room));
+    } else {
+      await removeSubscription(endpoint);
+    }
     return res.status(200).json({ ok: true });
   } catch (e) {
     console.error('unsubscribe error:', e.message || e);
