@@ -19,6 +19,9 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
 
 const PORT = process.env.PORT || 10000;
 const app = express();
+// Body parsers MUST be before route handlers
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
@@ -71,6 +74,7 @@ async function listRoomSubscriptions(room, excludeUserId) {
 // --- HTTP endpoints for push subscribe/unsubscribe/test/health ---
 app.post('/push/subscribe', async (req, res) => {
   try {
+    console.log('SUBSCRIBE body:', req.body);
     const { subscription, room, rooms, userId, nick } = req.body || {};
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return res.status(400).json({ error: 'Invalid subscription' });
@@ -245,7 +249,6 @@ self.addEventListener('notificationclick', event => {
 });
 
 app.use(express.static('public'));
-app.use(express.json());
 
 const upload = multer({ dest: 'temp_uploads/' });
 
