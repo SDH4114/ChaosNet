@@ -153,6 +153,17 @@
     }
   });
 
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const msg = event.data || {};
+      if (msg && msg.type === 'openedFromNotification') {
+        // Пользователь кликнул по пуш-уведомлению — откроем правильную комнату
+        const room = msg.room || 'main';
+        window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
+      }
+    });
+  }
+
     function logOut() {
       localStorage.removeItem('username');
       localStorage.removeItem('userid');

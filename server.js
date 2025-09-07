@@ -228,22 +228,37 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const d = (event.notification && event.notification.data) || {};
-  const room = d.room || 'main';
+  const room = (d && d.room) ? d.room : 'main';
   const url = '/chat.html?room=' + encodeURIComponent(room);
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      for (const c of list) {
-        try {
-          const u = new URL(c.url);
-          if (u.pathname.endsWith('/chat.html') && (u.search || '').includes('room=' + room)) {
-            c.focus();
+
+  event.waitUntil((async () => {
+    const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+    // 1) If a chat tab with the same room is already open — just focus it
+    for (const c of list) {
+      try {
+        const u = new URL(c.url);
+        if (u.pathname.endsWith('/chat.html')) {
+          const params = new URLSearchParams(u.search || '');
+          if (params.get('room') === room) {
+            await c.focus();
             return;
           }
-        } catch(_) {}
-      }
-      return clients.openWindow(url);
-    })
-  );
+        }
+      } catch(_) {}
+    }
+
+    // 2) If any client exists (e.g., select.html or another chat tab), focus it and navigate to the desired room
+    if (list.length) {
+      const c = list[0];
+      try { await c.focus(); } catch(_) {}
+      try { await c.navigate(url); } catch(_) {}
+      return;
+    }
+
+    // 3) Otherwise, open a new tab with the correct room
+    await clients.openWindow(url);
+  })());
 });
 `);
 });

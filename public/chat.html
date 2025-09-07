@@ -607,7 +607,8 @@
       renotify: false,
       timestamp: ts.getTime(),
       silent: false,
-      requireInteraction: IS_MAC // keep visible as a banner on macOS
+      requireInteraction: IS_MAC,
+      data: { room }
     };
 
     try {
@@ -617,16 +618,18 @@
       } else {
         const n = new Notification(title, options);
         n.onclick = () => {
-          try { window.focus(); } catch(_) {}
           try { n.close(); } catch(_) {}
+          try { window.focus(); } catch(_) {}
+          try { gotoRoom(room); } catch(_) {}
         };
       }
     } catch (_) {
       try {
         const n = new Notification(title, options);
         n.onclick = () => {
-          try { window.focus(); } catch(_) {}
           try { n.close(); } catch(_) {}
+          try { window.focus(); } catch(_) {}
+          try { gotoRoom(room); } catch(_) {}
         };
       } catch(__) {}
     }
@@ -641,6 +644,17 @@
     const iso = hasTZ ? s : (s + 'Z');
     const d = new Date(iso);
     return isNaN(d) ? null : d;
+  }
+
+  // Navigate to specific chat room (keeps current tab)
+  function gotoRoom(roomId){
+    const wanted = String(roomId || '').trim();
+    const cur = (new URLSearchParams(location.search)).get('room') || 'main';
+    if (!wanted || wanted === cur) {
+      try { window.focus(); } catch(_) {}
+      return;
+    }
+    location.href = `chat.html?room=${encodeURIComponent(wanted)}`;
   }
 
   function _primeAudioCtx() {
@@ -665,6 +679,20 @@
   document.addEventListener('click', _primeAudioCtx, { once: true });
   document.addEventListener('touchstart', _primeAudioCtx, { once: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) ensureNotifyPermission(); });
+
+  // Listen messages from Service Worker (e.g. request to play beep or open a room)
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type === 'play-beep') {
+        // prime once more in case autoplay was suspended
+        _primeAudioCtx();
+        playBeep();
+      } else if (data.type === 'open-room' && data.room) {
+        gotoRoom(data.room);
+      }
+    });
+  }
 
   // Вставка изображений из буфера обмена прямо в скрытый input (с превью и обычным send-флоу)
   document.addEventListener('paste', async (event) => {
