@@ -790,17 +790,33 @@ app.get('/download', async (req, res) => {
 });
 
 async function insertMessageRow(row) {
-  // Try insert selecting server timestamp columns too
-  let res = await supabase.from('messages').insert(row).select('id, created_at, timestamp').single();
+  // Insert a message and safely select only existing columns.
+  // We no longer rely on the old "timestamp" column (it may not exist).
+  let res = await supabase
+    .from('messages')
+    .insert(row)
+    .select('id, created_at')
+    .single();
 
   if (res?.error) {
     const msg = String(res.error.message || '');
-    // If schema doesn't have some columns (filename / reply_* / timestamp), retry without them
-    if (/(filename|reply_to_id|reply_snapshot|timestamp)/i.test(msg) || /column .* does not exist/i.test(msg) || /schema cache/i.test(msg)) {
-      const { filename, reply_to_id, reply_snapshot, timestamp, ...row2 } = row;
-      res = await supabase.from('messages').insert(row2).select('id, created_at, timestamp').single();
+
+    // If schema is missing optional columns like filename/reply_*,
+    // retry with a minimal row shape and minimal SELECT.
+    if (
+      /(filename|reply_to_id|reply_snapshot)/i.test(msg) ||
+      /column .* does not exist/i.test(msg)
+    ) {
+      const { filename, reply_to_id, reply_snapshot, ...row2 } = row;
+
+      res = await supabase
+        .from('messages')
+        .insert(row2)
+        .select('id, created_at')
+        .single();
     }
   }
+
   return res;
 }
 
