@@ -42,16 +42,35 @@ const AVATARS_BUCKET = 'avatars';
 
 // --- Push subscriptions storage helpers (Supabase) ---
 async function upsertSubscription({ endpoint, p256dh, auth, room, user_id, nick }) {
-  const { data, error } = await supabase
+  // Some databases don't have a unique index on (endpoint, room).
+  // Avoid ON CONFLICT by doing an explicit read-then-write.
+  const { data: existing, error: selErr } = await supabase
     .from('push_subscriptions')
-    .upsert(
-      { endpoint, p256dh, auth, room, user_id, nick },
-      { onConflict: 'endpoint,room' }
-    )
-    .select()
+    .select('endpoint, room')
+    .eq('endpoint', endpoint)
+    .eq('room', room)
     .maybeSingle();
-  if (error) throw error;
-  return data;
+  if (selErr) throw selErr;
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .update({ p256dh, auth, user_id, nick })
+      .eq('endpoint', endpoint)
+      .eq('room', room)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  } else {
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .insert({ endpoint, p256dh, auth, room, user_id, nick })
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
 }
 
 async function removeSubscriptionForRoom(endpoint, room) {
