@@ -160,6 +160,29 @@ app.post('/push/test', async (req, res) => {
   }
 });
 
+// List rooms by userId from push_subscriptions
+app.get('/push/list', async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ rooms: [] });
+    }
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .select('room')
+      .eq('user_id', userId);
+    if (error) {
+      console.error('push/list error:', error.message);
+      return res.status(500).json({ rooms: [] });
+    }
+    const rooms = Array.from(new Set((data || []).map(r => String(r.room || '')).filter(Boolean)));
+    return res.json({ rooms });
+  } catch (e) {
+    console.error('push/list exception:', e);
+    return res.status(500).json({ rooms: [] });
+  }
+});
+
 // Quick reply endpoint: accepts text and posts it into a room, then notifies subscribers
 app.get('/push/health', (req, res) => {
   res.json({ vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT) });

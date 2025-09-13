@@ -62,7 +62,7 @@
     </form>
 
     <div class="list" id="recentRooms">
-      <h3>Recent Rooms</h3>
+      <h3>Rooms</h3>
       <div id="roomsList"></div>
     </div>
   </div>
@@ -79,6 +79,41 @@
     const outputArray = new Uint8Array(rawData.length);
     for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
     return outputArray;
+  }
+  function _unreadKey() {
+    const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || '';
+    return 'unreadByRoom:' + uid;
+  }
+  function getUnreadMap() {
+    try { return JSON.parse(localStorage.getItem(_unreadKey())) || {}; } catch(_) { return {}; }
+  }
+  function setUnreadMap(map) {
+    try { localStorage.setItem(_unreadKey(), JSON.stringify(map || {})); } catch(_) {}
+  }
+  function incUnread(room) {
+    const m = getUnreadMap();
+    m[room] = (m[room] || 0) + 1;
+    setUnreadMap(m);
+    renderList('roomsList', window.__roomsCache || []);
+  }
+  function clearUnread(room) {
+    const m = getUnreadMap();
+    if (m[room]) { delete m[room]; setUnreadMap(m); }
+    renderList('roomsList', window.__roomsCache || []);
+  }
+
+  async function fetchServerRooms(userId) {
+    try {
+      if (!userId) return [];
+      const res = await fetch('/push/list?userId=' + encodeURIComponent(userId), { method: 'GET' });
+      if (!res.ok) return [];
+      const json = await res.json().catch(() => ({}));
+      const arr = Array.isArray(json.rooms) ? json.rooms : [];
+      // unique + non-empty strings only
+      return Array.from(new Set(arr.filter(Boolean)));
+    } catch (_) {
+      return [];
+    }
   }
 
   async function ensureSWAndSubscription() {
@@ -110,12 +145,8 @@
   }
 
   function getRecentRooms() {
-    try {
-      const arr = JSON.parse(localStorage.getItem('rooms')) || [];
-      return Array.isArray(arr) ? arr : [];
-    } catch (_) {
-      return [];
-    }
+    // Deprecated: kept for backward compatibility (returns empty; use loadRoomsFromServer instead)
+    return [];
   }
 
   async function subscribeRooms(rooms) {
@@ -145,11 +176,14 @@
     );
   }
 
-  // Автоподписка при открытии "Select Room": подписываемся на все недавние
-  document.addEventListener('DOMContentLoaded', () => {
-    const recent = getRecentRooms();
-    if (recent.length) {
-      subscribeRooms(recent);
+  // При открытии Select: получаем список комнат с сервера для текущего пользователя
+  document.addEventListener('DOMContentLoaded', async () => {
+    const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
+    const rooms = await fetchServerRooms(uid);
+    renderList('roomsList', rooms);
+    // гарантируем, что пуш-подписка оформлена для всех этих комнат (идемпотентно)
+    if (rooms.length) {
+      try { await subscribeRooms(rooms); } catch (_) {}
     }
   });
 
@@ -165,52 +199,74 @@
       }
     });
   }
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const msg = event.data || {};
+      if (msg.type === 'roomHasNew' && msg.room) {
+        incUnread(msg.room);
+      } else if (msg.type === 'openedFromNotification' && msg.room) {
+        clearUnread(msg.room);
+        window.location.href = `chat.html?room=${encodeURIComponent(msg.room)}`;
+      }
+    });
+  }
 
     function logOut() {
       localStorage.removeItem('username');
       localStorage.removeItem('userid');
       window.location.href = "login.html";
     }
-    document.getElementById('roomForm').addEventListener('submit', function (e) {
+    document.getElementById('roomForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       const input = document.getElementById('roomName');
-      const room = input.value.trim();
+      const room = (input.value || '').trim();
 
+      if (!room) return;
+
+      // (optional) поддержка команды /clear теперь не трогает localStorage
       if (room.toLowerCase() === '/clear') {
-        localStorage.removeItem('rooms');
-        document.getElementById('roomsList').innerHTML = '';
+        alert("Clearing server-side recent rooms is not supported here. Ask admin or unsubscribe per room.");
         input.value = '';
-        alert("Recent rooms cleared");
         return;
       }
 
-      if (room) {
-        saveToStorage('rooms', room);
-        window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
-      }
+      // оформляем/обновляем подписку на эту комнату на сервере
+      try { await subscribeRooms([room]); } catch (_) {}
+
+      // навигируем в комнату
+      window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
     });
 
     function saveToStorage(key, value) {
-      let items = JSON.parse(localStorage.getItem(key)) || [];
-      if (!items.includes(value)) {
-        items.unshift(value);
-        if (items.length > 10) items = items.slice(0, 10);
-        localStorage.setItem(key, JSON.stringify(items));
-      }
-      // Автоподписка на только что добавленную комнату
-      if (key === 'rooms') {
+      // Deprecated: rooms are kept on server in push_subscriptions.
+      if (key === 'rooms' && value) {
         try { subscribeRooms([value]); } catch (_) {}
       }
     }
 
-    function renderList(id, key) {
+    function renderList(id, items) {
       const container = document.getElementById(id);
-      const items = JSON.parse(localStorage.getItem(key)) || [];
-      container.innerHTML = items.map(item => `
-        <div class="list-item">
-          <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
-        </div>
-      `).join('');
+      const list = Array.isArray(items) ? items : [];
+      window.__roomsCache = list.slice();
+      const unread = getUnreadMap();
+      container.innerHTML = list.map(roomId => {
+        const hasUnread = !!unread[roomId];
+        const dot = hasUnread ? '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff8c00;margin-left:8px;vertical-align:middle;" aria-label="new messages"></span>' : '';
+        return `
+          <div class="list-item">
+            <a href="#" data-room="${roomId}" class="room-link link-underline">${roomId}${dot}</a>
+          </div>
+        `;
+      }).join('');
+      // attach click handlers to clear unread before navigating
+      container.querySelectorAll('.room-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          const r = a.getAttribute('data-room');
+          clearUnread(r);
+          window.location.href = 'chat.html?room=' + encodeURIComponent(r);
+        });
+      });
     }
 
     function goToAdminPanel() {
@@ -239,7 +295,13 @@
       });
     }
 
-    renderList('roomsList', 'rooms');
+    (async () => {
+      const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
+      const rooms = await fetchServerRooms(uid);
+      renderList('roomsList', rooms);
+      // re-apply badges upon load
+      renderList('roomsList', rooms);
+    })();
   </script>
 </body>
 </html>
