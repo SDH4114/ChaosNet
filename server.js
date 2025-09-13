@@ -160,6 +160,56 @@ app.post('/push/test', async (req, res) => {
   }
 });
 
+// Quick reply endpoint: accepts text and posts it into a room, then notifies subscribers
+app.post('/push/reply', async (req, res) => {
+  try {
+    const { room, text, userId, nick } = req.body || {};
+    const safeRoom = (room || 'main').toString();
+    const safeNick = (nick || '').toString().trim();
+    const safeUserId = (userId || '').toString().trim();
+    const messageText = (text || '').toString().trim();
+
+    if (!messageText) return res.status(400).json({ error: 'Empty text' });
+
+    // Prepare DB row
+    const row = {
+      room: safeRoom,
+      user: safeNick || 'guest',
+      text: messageText,
+      image_url: null,
+      filename: null
+    };
+
+    // Insert to DB (uses the helper that selects id,created_at only)
+    let ins;
+    try {
+      ins = await insertMessageRow(row);
+    } catch (e) {
+      console.error('Quick reply insert error:', e);
+    }
+
+    const tsOut = normalizeTimestampForClient(ins?.data) || new Date().toISOString();
+
+    // Broadcast to connected WS clients in that room
+    broadcast(safeRoom, {
+      type: 'message',
+      text: messageText,
+      user: safeNick || 'guest',
+      timestamp: tsOut
+    });
+
+    // Push notify other subscribers in that room (exclude the author by userId if provided)
+    try {
+      await sendPushToRoom(safeRoom, { title: `${safeNick || 'Someone'} • ${safeRoom}`, body: messageText }, safeUserId || undefined);
+    } catch(_) {}
+
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('quick-reply error:', e?.message || e);
+    return res.status(500).json({ error: 'quick-reply failed' });
+  }
+});
+
 app.get('/push/health', (req, res) => {
   res.json({ vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT) });
 });
@@ -213,51 +263,93 @@ app.get('/sw.js', (req, res) => {
   res.send(`self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 
-self.addEventListener('push', event => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch(_) {}
+// Small helper to show a notification with consistent options
+function showChatNotification(data) {
   const title = data.title || 'ChaosNet';
   const body = data.body || 'New message';
   const icon = data.icon || '/img/ChaosNetLogo.png';
   const badge = data.badge || '/img/ChaosNetLogo.png';
-  const tag = data.tag || 'chaosnet';
+  const tag = data.tag || (data.data && data.data.room ? 'room:' + data.data.room : 'chaosnet');
   const ts = Date.now();
-  event.waitUntil(self.registration.showNotification(title, { body, icon, badge, tag, timestamp: ts, data: data.data || {} }));
+  const room = (data.data && data.data.room) || 'main';
+
+  // Provide action buttons; "Reply" will trigger a quick-reply flow in the client
+  const actions = [
+    { action: 'open', title: 'Open' },
+    { action: 'reply', title: 'Reply' }
+  ];
+
+  return self.registration.showNotification(title, {
+    body,
+    icon,
+    badge,
+    tag,
+    timestamp: ts,
+    data: { ...(data.data || {}), room },
+    actions
+  });
+}
+
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch(_) {}
+  event.waitUntil(showChatNotification(data));
 });
+
+// Try to open/focus a client with chat.html?room=...
+async function openOrFocusRoom(room) {
+  const url = '/chat.html?room=' + encodeURIComponent(room);
+  const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+  // If a chat tab with the same room exists — focus it
+  for (const c of list) {
+    try {
+      const u = new URL(c.url);
+      if (u.pathname.endsWith('/chat.html')) {
+        const params = new URLSearchParams(u.search || '');
+        if (params.get('room') === room) {
+          await c.focus();
+          return c;
+        }
+      }
+    } catch(_) {}
+  }
+
+  // If any client exists — focus and navigate it to the target room
+  if (list.length) {
+    const c = list[0];
+    try { await c.focus(); } catch(_) {}
+    try { await c.navigate(url); } catch(_) {}
+    return c;
+  }
+
+  // Otherwise, open new
+  await clients.openWindow(url);
+  return null;
+}
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const d = (event.notification && event.notification.data) || {};
   const room = (d && d.room) ? d.room : 'main';
-  const url = '/chat.html?room=' + encodeURIComponent(room);
+
+  const action = event.action || 'open';
 
   event.waitUntil((async () => {
-    const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-
-    // 1) If a chat tab with the same room is already open — just focus it
-    for (const c of list) {
+    // When "Reply" action is clicked, we focus a client and ask it to open the Quick Reply UI
+    if (action === 'reply') {
+      const client = await openOrFocusRoom(room);
       try {
-        const u = new URL(c.url);
-        if (u.pathname.endsWith('/chat.html')) {
-          const params = new URLSearchParams(u.search || '');
-          if (params.get('room') === room) {
-            await c.focus();
-            return;
-          }
+        const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const c of list) {
+          c.postMessage({ type: 'openQuickReply', room });
         }
       } catch(_) {}
-    }
-
-    // 2) If any client exists (e.g., select.html or another chat tab), focus it and navigate to the desired room
-    if (list.length) {
-      const c = list[0];
-      try { await c.focus(); } catch(_) {}
-      try { await c.navigate(url); } catch(_) {}
       return;
     }
 
-    // 3) Otherwise, open a new tab with the correct room
-    await clients.openWindow(url);
+    // Default action: just open the room
+    await openOrFocusRoom(room);
   })());
 });
 `);
