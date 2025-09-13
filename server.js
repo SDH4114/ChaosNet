@@ -79,11 +79,15 @@ app.post('/push/subscribe', async (req, res) => {
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return res.status(400).json({ error: 'Invalid subscription' });
     }
+
     const endpoint = subscription.endpoint;
     const p256dh = subscription.keys.p256dh;
-    const auth = subscription.keys.auth;
+    const auth    = subscription.keys.auth;
 
     const roomsToSave = Array.isArray(rooms) && rooms.length ? rooms : [room || 'main'];
+
+    // не пишем в БД мусорный guest — сохраняем как NULL
+    const normalizedUserId = (userId && userId !== 'guest') ? String(userId) : null;
 
     for (const r of roomsToSave) {
       await upsertSubscription({
@@ -91,9 +95,29 @@ app.post('/push/subscribe', async (req, res) => {
         p256dh,
         auth,
         room: String(r || 'main'),
-        user_id: userId || null,
+        user_id: normalizedUserId,
         nick: nick || null
       });
+    }
+
+    // --- авто-починка старых строк: проставляем user_id там, где ещё null/guest ---
+    if (normalizedUserId) {
+      // по endpoint + тем же комнатам
+      await supabase
+        .from('push_subscriptions')
+        .update({ user_id: normalizedUserId })
+        .eq('endpoint', endpoint)
+        .in('room', roomsToSave)
+        .or('user_id.is.null,user_id.eq.guest');
+
+      // по нику (если он известен)
+      if (nick) {
+        await supabase
+          .from('push_subscriptions')
+          .update({ user_id: normalizedUserId })
+          .eq('nick', nick)
+          .or('user_id.is.null,user_id.eq.guest');
+      }
     }
 
     return res.status(200).json({ ok: true, saved: roomsToSave.length });
@@ -160,23 +184,33 @@ app.post('/push/test', async (req, res) => {
   }
 });
 
-// List rooms by userId from push_subscriptions
+// List rooms by userId, nick, or endpoint from push_subscriptions (fallbacks supported)
 app.get('/push/list', async (req, res) => {
   try {
-    const userId = req.query.userId;
-    if (!userId) {
-      return res.status(400).json({ rooms: [] });
+    const userId   = (req.query.userId || '').trim();
+    const nick     = (req.query.nick || '').trim();
+    const endpoint = (req.query.endpoint || '').trim();
+
+    const rooms = new Set();
+
+    async function addRoomsBy(filter) {
+      const { data, error } = await supabase
+        .from('push_subscriptions')
+        .select('room')
+        .match(filter);
+      if (!error && Array.isArray(data)) {
+        for (const r of data) {
+          const v = String(r.room || '').trim();
+          if (v) rooms.add(v);
+        }
+      }
     }
-    const { data, error } = await supabase
-      .from('push_subscriptions')
-      .select('room')
-      .eq('user_id', userId);
-    if (error) {
-      console.error('push/list error:', error.message);
-      return res.status(500).json({ rooms: [] });
-    }
-    const rooms = Array.from(new Set((data || []).map(r => String(r.room || '')).filter(Boolean)));
-    return res.json({ rooms });
+
+    if (userId) await addRoomsBy({ user_id: userId });
+    if (rooms.size === 0 && nick) await addRoomsBy({ nick });
+    if (rooms.size === 0 && endpoint) await addRoomsBy({ endpoint });
+
+    return res.json({ rooms: Array.from(rooms) });
   } catch (e) {
     console.error('push/list exception:', e);
     return res.status(500).json({ rooms: [] });

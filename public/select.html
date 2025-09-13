@@ -106,17 +106,69 @@
     incUnread(room);
   }
 
-  async function fetchServerRooms(userId) {
+  async function fetchServerRooms(userId, nick, endpoint) {
     try {
-      if (!userId) return [];
-      const res = await fetch('/push/list?userId=' + encodeURIComponent(userId), { method: 'GET' });
-      if (!res.ok) return [];
-      const json = await res.json().catch(() => ({}));
-      const arr = Array.isArray(json.rooms) ? json.rooms : [];
+      const params = new URLSearchParams();
+      if (userId) params.set('userId', userId);
+      if (nick) params.set('nick', nick);
+      if (endpoint) params.set('endpoint', endpoint);
+
+      // First attempt: with all known identifiers
+      let url = '/push/list' + (params.toString() ? ('?' + params.toString()) : '');
+      let res = await fetch(url, { method: 'GET' });
+      let rooms = [];
+      if (res && res.ok) {
+        const json = await res.json().catch(() => ({}));
+        rooms = Array.isArray(json.rooms) ? json.rooms : [];
+      }
+
+      // If nothing came back, retry with fallbacks
+      if (!rooms || rooms.length === 0) {
+        // 2) try by userId only
+        if (userId) {
+          const u2 = '/push/list?userId=' + encodeURIComponent(userId);
+          const r2 = await fetch(u2, { method: 'GET' }).catch(() => null);
+          if (r2 && r2.ok) {
+            const j2 = await r2.json().catch(() => ({}));
+            rooms = Array.isArray(j2.rooms) ? j2.rooms : rooms;
+          }
+        }
+        // 3) try by nick only
+        if ((!rooms || rooms.length === 0) && nick) {
+          const u3 = '/push/list?nick=' + encodeURIComponent(nick);
+          const r3 = await fetch(u3, { method: 'GET' }).catch(() => null);
+          if (r3 && r3.ok) {
+            const j3 = await r3.json().catch(() => ({}));
+            rooms = Array.isArray(j3.rooms) ? j3.rooms : rooms;
+          }
+        }
+        // 4) try by endpoint only
+        if ((!rooms || rooms.length === 0) && endpoint) {
+          const u4 = '/push/list?endpoint=' + encodeURIComponent(endpoint);
+          const r4 = await fetch(u4, { method: 'GET' }).catch(() => null);
+          if (r4 && r4.ok) {
+            const j4 = await r4.json().catch(() => ({}));
+            rooms = Array.isArray(j4.rooms) ? j4.rooms : rooms;
+          }
+        }
+      }
+
       // unique + non-empty strings only
-      return Array.from(new Set(arr.filter(Boolean)));
+      return Array.from(new Set((rooms || []).filter(Boolean)));
     } catch (_) {
       return [];
+    }
+  }
+
+  async function getCurrentPushEndpoint() {
+    try {
+      if (!('serviceWorker' in navigator)) return null;
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg || !reg.pushManager) return null;
+      const sub = await reg.pushManager.getSubscription();
+      return sub ? (sub.endpoint || null) : null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -182,9 +234,23 @@
 
   // При открытии Select: получаем список комнат с сервера для текущего пользователя
   document.addEventListener('DOMContentLoaded', async () => {
-    const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
-    const rooms = await fetchServerRooms(uid);
+    const uid  = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
+    const nick = localStorage.getItem('username') || null;
+
+    // Ensure SW + push subscription first (so we know endpoint and auto-upsert server-side)
+    let endpoint = null;
+    try {
+      const sub = await ensureSWAndSubscription(); // idempotent
+      if (sub && sub.endpoint) endpoint = sub.endpoint;
+      if (!endpoint) {
+        // If ensureSWAndSubscription returned a plain object without .endpoint, try to read existing reg
+        endpoint = await getCurrentPushEndpoint();
+      }
+    } catch (_) {}
+
+    const rooms = await fetchServerRooms(uid, nick, endpoint);
     renderList('roomsList', rooms);
+
     // гарантируем, что пуш-подписка оформлена для всех этих комнат (идемпотентно)
     if (rooms.length) {
       try { await subscribeRooms(rooms); } catch (_) {}
@@ -300,10 +366,10 @@
     }
 
     (async () => {
-      const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
-      const rooms = await fetchServerRooms(uid);
-      renderList('roomsList', rooms);
-      // re-apply badges upon load
+      const uid  = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
+      const nick = localStorage.getItem('username') || null;
+      const endpoint = await getCurrentPushEndpoint();
+      const rooms = await fetchServerRooms(uid, nick, endpoint);
       renderList('roomsList', rooms);
     })();
   </script>
