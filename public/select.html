@@ -101,6 +101,10 @@
     if (m[room]) { delete m[room]; setUnreadMap(m); }
     renderList('roomsList', window.__roomsCache || []);
   }
+  // Compatibility shim for older snippets
+  function markRoomHasUnread(room){
+    incUnread(room);
+  }
 
   async function fetchServerRooms(userId) {
     try {

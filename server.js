@@ -265,7 +265,20 @@ function showChatNotification(data) {
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(_) {}
-  event.waitUntil(showChatNotification(data));
+
+  event.waitUntil((async () => {
+    // Show the notification
+    await showChatNotification(data);
+
+    // Broadcast to all open windows so the UI can show the orange dot (unread badge)
+    try {
+      const room = (data &amp;&amp; data.data &amp;&amp; data.data.room) ? data.data.room : 'main';
+      const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of list) {
+        try { c.postMessage({ type: 'roomHasNew', room }); } catch(_) {}
+      }
+    } catch(_) {}
+  })());
 });
 
 // Try to open/focus a client with chat.html?room=...
