@@ -97,97 +97,8 @@
   <img class="modal-content" id="modalImage">
 </div>
 
-<!-- Quick Reply modal (ответ прямо из уведомления/чата) -->
-<div id="quickReplyModal" style="display:none; position: fixed; inset:0; background: rgba(0,0,0,.55); z-index: 2000; align-items:center; justify-content:center;">
-  <div style="background:#1f1f1f; border:1px solid #444; border-radius:12px; padding:16px; width:min(520px, 92vw); box-shadow: 0 10px 30px rgba(0,0,0,.6);">
-    <div id="qr-title" style="color:#ff8c00; font-weight:600; margin-bottom:8px; font-size:16px;">Quick Reply</div>
-    <div id="qr-context" style="color:#cfcfcf; font-size:12px; margin-bottom:10px; max-height:56px; overflow:auto;"></div>
-    <textarea id="qr-input" rows="3" placeholder="Ваш ответ..." style="width:100%; resize:vertical; border-radius:8px; border:1px solid #555; background:#2a2a2a; color:#fff; padding:10px; outline:none;"></textarea>
-    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
-      <button id="qr-cancel" type="button" style="background:#333; color:#fff; border:1px solid #555; border-radius:8px; padding:8px 12px; cursor:pointer;">Cancel</button>
-      <button id="qr-send" type="button" style="background:#ff8c00; color:#000; border:none; border-radius:8px; padding:8px 12px; cursor:pointer;">Send</button>
-    </div>
-  </div>
-</div>
 
 <script>
-  // === Quick Reply helpers ===
-  let _qrRoom = null;
-
-  function openQuickReplyModal(roomId, snapshotText){
-    _qrRoom = roomId || (new URLSearchParams(location.search)).get('room') || 'main';
-    const wrap = document.getElementById('quickReplyModal');
-    const ctx  = document.getElementById('qr-context');
-    const inp  = document.getElementById('qr-input');
-    const title = document.getElementById('qr-title');
-    if (!wrap || !inp) return;
-
-    const s = String(snapshotText || '').trim();
-    if (ctx) {
-      ctx.textContent = s ? s : `Room: ${_qrRoom}`;
-      ctx.style.display = 'block';
-    }
-    if (title) title.textContent = `Quick Reply • ${_qrRoom}`;
-
-    wrap.style.display = 'flex';
-    setTimeout(()=>{ try { inp.focus(); } catch(_){} }, 0);
-  }
-
-  function closeQuickReplyModal(){
-    const wrap = document.getElementById('quickReplyModal');
-    const inp  = document.getElementById('qr-input');
-    if (wrap) wrap.style.display = 'none';
-    if (inp) inp.value = '';
-    _qrRoom = null;
-  }
-
-  async function sendQuickReply(){
-    const inp = document.getElementById('qr-input');
-    const text = (inp?.value || '').trim();
-    if (!text) return;
-    const userId = localStorage.getItem('userid') || localStorage.getItem('userID') || null;
-    const nick   = localStorage.getItem('username') || null;
-    const roomId = _qrRoom || (new URLSearchParams(location.search)).get('room') || 'main';
-
-    try {
-      const r = await fetch('/push/reply', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ room: roomId, text, userId, nick })
-      });
-      if (!r.ok) throw new Error('Reply failed');
-
-      // Оптимистично отправим по WS в текущую комнату, если открыта та же
-      try {
-        const currentRoom = (new URLSearchParams(location.search)).get('room') || 'main';
-        if (currentRoom === roomId) {
-          const payload = { type:'message', text, user: nick || 'me', room: roomId };
-          socket.send(JSON.stringify(payload));
-        }
-      } catch(_){}
-
-      closeQuickReplyModal();
-    } catch (e) {
-      alert('Failed to send reply. Try again.');
-      console.error(e);
-    }
-  }
-
-  // Привязка кнопок и хоткеев
-  document.addEventListener('DOMContentLoaded', () => {
-    const btnSend = document.getElementById('qr-send');
-    const btnCancel = document.getElementById('qr-cancel');
-    const modal = document.getElementById('quickReplyModal');
-    if (btnSend) btnSend.addEventListener('click', sendQuickReply);
-    if (btnCancel) btnCancel.addEventListener('click', closeQuickReplyModal);
-    if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeQuickReplyModal(); });
-    const inp = document.getElementById('qr-input');
-    if (inp) inp.addEventListener('keydown', (e)=>{
-      if (e.key === 'Escape') closeQuickReplyModal();
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendQuickReply();
-    });
-  });
-
   // ws / wss в зависимости от протокола страницы
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket = new WebSocket(wsProto + '://' + location.host);
@@ -687,12 +598,6 @@
   async function showBannerForMessage(room, msg) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-    // Если вкладка активна — открываем окно быстрого ответа вместо системного баннера
-    if (!isChatInactive()) {
-      openQuickReplyModal(room, previewTextFor(msg));
-      return;
-    }
-
     const title = `${msg.user} • ${room}`;
     const body = previewTextFor(msg) || 'New message';
     const ts = (normalizeTimestamp && (normalizeTimestamp(msg.created_at || msg.timestamp))) || new Date();
@@ -786,8 +691,6 @@
         _primeAudioCtx();
       } else if (data.type === 'open-room' && data.room) {
         gotoRoom(data.room);
-      } else if (data.type === 'openQuickReply' && data.room) {
-        openQuickReplyModal(data.room, data.snapshot || '');
       }
     });
   }
@@ -1206,13 +1109,8 @@
 
     // Уведомления только для чужих сообщений (кроме system/leave)
     if (msg.user !== username && msg.type !== 'system' && msg.type !== 'leave') {
-      if (document.hidden || !document.hasFocus()) {
-        ensureNotifyPermission();
-        showBannerForMessage(room, msg);
-      } else {
-        // Вкладка активна — показываем окно быстрого ответа
-        openQuickReplyModal(room, previewTextFor(msg));
-      }
+      ensureNotifyPermission();
+      showBannerForMessage(room, msg);
     }
   });
 

@@ -161,55 +161,6 @@ app.post('/push/test', async (req, res) => {
 });
 
 // Quick reply endpoint: accepts text and posts it into a room, then notifies subscribers
-app.post('/push/reply', async (req, res) => {
-  try {
-    const { room, text, userId, nick } = req.body || {};
-    const safeRoom = (room || 'main').toString();
-    const safeNick = (nick || '').toString().trim();
-    const safeUserId = (userId || '').toString().trim();
-    const messageText = (text || '').toString().trim();
-
-    if (!messageText) return res.status(400).json({ error: 'Empty text' });
-
-    // Prepare DB row
-    const row = {
-      room: safeRoom,
-      user: safeNick || 'guest',
-      text: messageText,
-      image_url: null,
-      filename: null
-    };
-
-    // Insert to DB (uses the helper that selects id,created_at only)
-    let ins;
-    try {
-      ins = await insertMessageRow(row);
-    } catch (e) {
-      console.error('Quick reply insert error:', e);
-    }
-
-    const tsOut = normalizeTimestampForClient(ins?.data) || new Date().toISOString();
-
-    // Broadcast to connected WS clients in that room
-    broadcast(safeRoom, {
-      type: 'message',
-      text: messageText,
-      user: safeNick || 'guest',
-      timestamp: tsOut
-    });
-
-    // Push notify other subscribers in that room (exclude the author by userId if provided)
-    try {
-      await sendPushToRoom(safeRoom, { title: `${safeNick || 'Someone'} • ${safeRoom}`, body: messageText }, safeUserId || undefined);
-    } catch(_) {}
-
-    return res.status(200).json({ ok: true });
-  } catch (e) {
-    console.error('quick-reply error:', e?.message || e);
-    return res.status(500).json({ error: 'quick-reply failed' });
-  }
-});
-
 app.get('/push/health', (req, res) => {
   res.json({ vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT) });
 });
@@ -273,10 +224,8 @@ function showChatNotification(data) {
   const ts = Date.now();
   const room = (data.data && data.data.room) || 'main';
 
-  // Provide action buttons; "Reply" will trigger a quick-reply flow in the client
   const actions = [
-    { action: 'open', title: 'Open' },
-    { action: 'reply', title: 'Reply' }
+    { action: 'open', title: 'Open' }
   ];
 
   return self.registration.showNotification(title, {
@@ -333,22 +282,7 @@ self.addEventListener('notificationclick', event => {
   const d = (event.notification && event.notification.data) || {};
   const room = (d && d.room) ? d.room : 'main';
 
-  const action = event.action || 'open';
-
   event.waitUntil((async () => {
-    // When "Reply" action is clicked, we focus a client and ask it to open the Quick Reply UI
-    if (action === 'reply') {
-      const client = await openOrFocusRoom(room);
-      try {
-        const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-        for (const c of list) {
-          c.postMessage({ type: 'openQuickReply', room });
-        }
-      } catch(_) {}
-      return;
-    }
-
-    // Default action: just open the room
     await openOrFocusRoom(room);
   })());
 });
