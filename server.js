@@ -239,10 +239,27 @@ function showChatNotification(data) {
   });
 }
 
+// Broadcast helper to notify all open windows/tabs
+async function broadcastToClients(msg) {
+  try {
+    const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of list) {
+      try { c.postMessage(msg); } catch (_) {}
+    }
+  } catch (_) {}
+}
+
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(_) {}
-  event.waitUntil(showChatNotification(data));
+
+  event.waitUntil((async () => {
+    // 1) Show the system notification
+    await showChatNotification(data);
+    // 2) Tell all pages there's a new message in that room -> they can bump unread counters
+    const room = (data && data.data && data.data.room) ? data.data.room : 'main';
+    await broadcastToClients({ type: 'roomHasNew', room });
+  })());
 });
 
 // Try to open/focus a client with chat.html?room=...
@@ -283,6 +300,8 @@ self.addEventListener('notificationclick', event => {
   const room = (d && d.room) ? d.room : 'main';
 
   event.waitUntil((async () => {
+    // Inform pages which room was opened from a notification (so they can clear unread)
+    await broadcastToClients({ type: 'openedFromNotification', room });
     await openOrFocusRoom(room);
   })());
 });

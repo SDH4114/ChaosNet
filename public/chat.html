@@ -536,6 +536,25 @@
     if (rest) container.appendChild(document.createTextNode(rest));
   }
 
+  // === Unread counters (shared with select.html logic) ===
+  function _unreadKey() {
+    const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || '';
+    return 'unreadByRoom:' + uid;
+  }
+  function getUnreadMap() {
+    try { return JSON.parse(localStorage.getItem(_unreadKey())) || {}; } catch(_) { return {}; }
+  }
+  function setUnreadMap(map) {
+    try { localStorage.setItem(_unreadKey(), JSON.stringify(map || {})); } catch(_) {}
+  }
+  function clearUnread(roomId) {
+    const m = getUnreadMap();
+    if (m && roomId && m[roomId]) {
+      delete m[roomId];
+      setUnreadMap(m);
+    }
+  }
+
 
   let notificationAsked = false;
   let _audioCtx;
@@ -683,7 +702,7 @@
   document.addEventListener('touchstart', _primeAudioCtx, { once: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) ensureNotifyPermission(); });
 
-  // Listen messages from Service Worker (e.g. request to play beep or open a room)
+  // Listen messages from Service Worker (e.g. request to play beep, open a room, or handle unread)
   if (navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener('message', (event) => {
       const data = event.data || {};
@@ -691,6 +710,15 @@
         _primeAudioCtx();
       } else if (data.type === 'open-room' && data.room) {
         gotoRoom(data.room);
+      } else if (data.type === 'roomHasNew' && data.room) {
+        // If this tab is currently showing that room, zero its unread counter
+        const cur = (new URLSearchParams(location.search)).get('room') || 'main';
+        if (cur === data.room) clearUnread(cur);
+      } else if (data.type === 'openedFromNotification' && data.room) {
+        // Coming from a notification click – ensure unread is cleared for that room
+        clearUnread(data.room);
+        const cur = (new URLSearchParams(location.search)).get('room') || 'main';
+        if (cur !== data.room) gotoRoom(data.room);
       }
     });
   }
@@ -746,6 +774,8 @@
   const userId = localStorage.getItem("userid") || "guest";
   const urlParams = new URLSearchParams(location.search);
   const room = urlParams.get("room") || "main";
+  // clear unread for the room we just opened
+  try { clearUnread(room); } catch(_) {}
   const target = urlParams.get("target");
   // Save current room into recent list
   if (room) { saveToStorage('rooms', room); }
@@ -1263,11 +1293,13 @@ form.addEventListener('submit', async (e) => {
   window.addEventListener('focus', () => {
     const el = document.getElementById('notif-audio');
     if (el) { try { el.pause(); el.currentTime = 0; } catch(_) {} }
+    try { clearUnread(room); } catch(_) {}
   });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       const el = document.getElementById('notif-audio');
       if (el) { try { el.pause(); el.currentTime = 0; } catch(_) {} }
+      try { clearUnread(room); } catch(_) {}
     }
   });
 
