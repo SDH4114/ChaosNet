@@ -80,6 +80,35 @@
     for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
     return outputArray;
   }
+  function _unreadKey() {
+    const uid = localStorage.getItem('userid') || localStorage.getItem('userID') || '';
+    return 'unreadByRoom:' + uid;
+  }
+  function getUnreadMap() {
+    try { return JSON.parse(localStorage.getItem(_unreadKey())) || {}; } catch(_) { return {}; }
+  }
+  function setUnreadMap(map) {
+    try { localStorage.setItem(_unreadKey(), JSON.stringify(map || {})); } catch(_) {}
+  }
+  function incUnread(room) {
+    if (!room) return;
+    const m = getUnreadMap();
+    m[room] = (m[room] || 0) + 1;
+    setUnreadMap(m);
+    // re-render list to reflect updated counter
+    renderList('roomsList', 'rooms');
+  }
+  function clearUnread(room) {
+    if (!room) return;
+    const m = getUnreadMap();
+    if (m[room]) { delete m[room]; setUnreadMap(m); }
+    // re-render list to reflect updated counter
+    renderList('roomsList', 'rooms');
+  }
+  // Backward-compat shim for older SW posts
+  function markRoomHasUnread(room){
+    incUnread(room);
+  }
 
   async function ensureSWAndSubscription() {
     if (!('serviceWorker' in navigator)) return null;
@@ -165,6 +194,17 @@
       }
     });
   }
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const msg = event.data || {};
+      if (msg.type === 'roomHasNew' && msg.room) {
+        incUnread(msg.room);
+      } else if (msg.type === 'openedFromNotification' && msg.room) {
+        clearUnread(msg.room);
+        window.location.href = `chat.html?room=${encodeURIComponent(msg.room)}`;
+      }
+    });
+  }
 
     function logOut() {
       localStorage.removeItem('username');
@@ -185,6 +225,7 @@
       }
 
       if (room) {
+        clearUnread(room);
         saveToStorage('rooms', room);
         window.location.href = `chat.html?room=${encodeURIComponent(room)}`;
       }
@@ -204,14 +245,30 @@
     }
 
     function renderList(id, key) {
-      const container = document.getElementById(id);
-      const items = JSON.parse(localStorage.getItem(key)) || [];
-      container.innerHTML = items.map(item => `
+    const container = document.getElementById(id);
+    const items = JSON.parse(localStorage.getItem(key)) || [];
+    const unread = getUnreadMap();
+    container.innerHTML = items.map(item => {
+      const count = unread[item] || 0;
+      const badge = count > 0
+        ? `<span style="display:inline-flex;min-width:18px;height:18px;padding:0 6px;border-radius:999px;background:#ff8c00;color:#1e1e1e;font-weight:700;font-size:12px;line-height:18px;text-align:center;margin-left:8px;vertical-align:middle;justify-content:center;align-items:center;">${count}</span>`
+        : '';
+      return `
         <div class="list-item">
-          <a href="chat.html?room=${encodeURIComponent(item)}" class="link-underline">${item}</a>
+          <a href="#" data-room="${item}" class="room-link link-underline">${item}${badge}</a>
         </div>
-      `).join('');
-    }
+      `;
+    }).join('');
+    // Attach click handlers to clear unread before navigating
+    container.querySelectorAll('.room-link').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const r = a.getAttribute('data-room');
+        clearUnread(r);
+        window.location.href = 'chat.html?room=' + encodeURIComponent(r);
+      });
+    });
+  }
 
     function goToAdminPanel() {
       window.location.href = "adminPanel.html";
