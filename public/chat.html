@@ -1437,7 +1437,7 @@ form.addEventListener('submit', async (e) => {
     }
     const within = recentPanel.contains(e.target) || (recentBtn && recentBtn.contains(e.target));
     if (!within) toggleRecentPanel(false);
-    // Avatar popover outside-click
+    // Avatar popover outside-click asd
     if (avatarPopoverEl && avatarPopoverEl.style.display === 'block') {
       const withinAP = avatarPopoverEl.contains(e.target) || (e.target && e.target.classList && e.target.classList.contains('avatar'));
       if (!withinAP) hideAvatarPopover();
