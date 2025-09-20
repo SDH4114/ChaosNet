@@ -121,6 +121,21 @@
     }).catch(()=>{});
   }
 
+  // --- Ask SW for unread snapshot robustly (works when SW not yet active) ---
+  function requestUnreadSnapshot() {
+    // try immediately
+    postToSW({ type: 'getUnreadSnapshot' });
+
+    // when SW is ready/controls the page
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then(() => {
+          postToSW({ type: 'getUnreadSnapshot' });
+        })
+        .catch(() => {});
+    }
+  }
+
   async function ensureSWAndSubscription() {
     if (!('serviceWorker' in navigator)) return null;
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
@@ -186,11 +201,13 @@
   }
 
   // Автоподписка при открытии "Select Room": подписываемся на все недавние
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     const recent = getRecentRooms();
     if (recent.length) {
-      subscribeRooms(recent);
+      try { await subscribeRooms(recent); } catch (_) {}
     }
+    // после регистрации/подписки запрашиваем снапшот непрочитанных у SW
+    requestUnreadSnapshot();
   });
 
   if (navigator.serviceWorker) {
@@ -205,6 +222,15 @@
       }
     });
   }
+
+  // When the SW takes control (e.g., on first load / update), refresh unread counters
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // give the new SW a moment to become active
+      setTimeout(() => requestUnreadSnapshot(), 200);
+    });
+  }
+
   if (navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener('message', (event) => {
       const msg = event.data || {};
@@ -320,10 +346,17 @@
     }
 
     document.addEventListener('DOMContentLoaded', ()=>{
-      postToSW({ type: 'getUnreadSnapshot' });
+      requestUnreadSnapshot();
     });
 
     renderList('roomsList', 'rooms');
+
+    // When user returns to the tab/app, refresh counters from SW
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        requestUnreadSnapshot();
+      }
+    });
   </script>
 </body>
 </html>

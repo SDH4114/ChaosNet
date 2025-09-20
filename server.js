@@ -247,7 +247,62 @@ app.get('/sw.js', (req, res) => {
   res.send(`self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { self.clients.claim(); });
 
-// Small helper to show a notification with consistent options
+/* ===== IndexedDB для счётчиков непрочитанных ===== */
+const DB_NAME = 'chaosnet-unread';
+const STORE = 'rooms';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const st = tx.objectStore(STORE);
+    const g = st.get(key);
+    g.onsuccess = () => resolve(g.result || 0);
+    g.onerror = () => reject(g.error);
+  });
+}
+
+async function idbSet(key, val) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const st = tx.objectStore(STORE);
+    const p = st.put(val, key);
+    p.onsuccess = () => resolve();
+    p.onerror = () => reject(p.error);
+  });
+}
+
+async function idbAll() {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const st = tx.objectStore(STORE);
+    const out = {};
+    const req = st.openCursor();
+    req.onsuccess = (e) => {
+      const cur = e.target.result;
+      if (!cur) return resolve(out);
+      out[cur.key] = cur.value || 0;
+      cur.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/* ===== Helpers: уведомление и широковещалка в окна ===== */
 function showChatNotification(data) {
   const title = data.title || 'ChaosNet';
   const body = data.body || 'New message';
@@ -256,51 +311,60 @@ function showChatNotification(data) {
   const tag = data.tag || (data.data && data.data.room ? 'room:' + data.data.room : 'chaosnet');
   const ts = Date.now();
   const room = (data.data && data.data.room) || 'main';
-
-  const actions = [
-    { action: 'open', title: 'Open' }
-  ];
+  const actions = [{ action: 'open', title: 'Open' }];
 
   return self.registration.showNotification(title, {
-    body,
-    icon,
-    badge,
-    tag,
-    timestamp: ts,
+    body, icon, badge, tag, timestamp: ts,
     data: { ...(data.data || {}), room },
     actions
   });
 }
 
-// Broadcast helper to notify all open windows/tabs
 async function broadcastToClients(msg) {
   try {
     const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const c of list) {
-      try { c.postMessage(msg); } catch (_) {}
+      try { c.postMessage(msg); } catch(_) {}
     }
   } catch (_) {}
 }
 
-self.addEventListener('push', event => {
+/* ===== Счётчики ===== */
+async function incUnread(room) {
+  if (!room) return;
+  const cur = (await idbGet(room)) || 0;
+  await idbSet(room, cur + 1);
+}
+
+async function clearUnread(room) {
+  if (!room) return;
+  await idbSet(room, 0);
+}
+
+/* ===== PUSH: инкрементим счётчик даже при закрытом приложении ===== */
+self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(_) {}
 
   event.waitUntil((async () => {
-    // 1) Show the system notification
-    await showChatNotification(data);
-    // 2) Tell all pages there's a new message in that room -> they can bump unread counters
     const room = (data && data.data && data.data.room) ? data.data.room : 'main';
+
+    // 1) показываем уведомление
+    await showChatNotification(data);
+
+    // 2) bump счётчик в IndexedDB
+    try { await incUnread(room); } catch(_) {}
+
+    // 3) Сообщаем всем окнам — обновите бейджи
     await broadcastToClients({ type: 'roomHasNew', room });
   })());
 });
 
-// Try to open/focus a client with chat.html?room=...
+/* ===== Клик по уведомлению: открыть/сфокусировать и обнулить счётчик ===== */
 async function openOrFocusRoom(room) {
   const url = '/chat.html?room=' + encodeURIComponent(room);
   const list = await clients.matchAll({ type: 'window', includeUncontrolled: true });
 
-  // If a chat tab with the same room exists — focus it
   for (const c of list) {
     try {
       const u = new URL(c.url);
@@ -313,30 +377,60 @@ async function openOrFocusRoom(room) {
       }
     } catch(_) {}
   }
-
-  // If any client exists — focus and navigate it to the target room
   if (list.length) {
     const c = list[0];
     try { await c.focus(); } catch(_) {}
     try { await c.navigate(url); } catch(_) {}
     return c;
   }
-
-  // Otherwise, open new
   await clients.openWindow(url);
   return null;
 }
 
-self.addEventListener('notificationclick', event => {
+self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const d = (event.notification && event.notification.data) || {};
   const room = (d && d.room) ? d.room : 'main';
 
   event.waitUntil((async () => {
-    // Inform pages which room was opened from a notification (so they can clear unread)
+    try { await clearUnread(room); } catch(_) {}
+    // сообщаем страницам для очистки локального ls-бейджа
     await broadcastToClients({ type: 'openedFromNotification', room });
     await openOrFocusRoom(room);
   })());
+});
+
+/* ===== Сообщения от страниц (Select/Chat) ===== */
+self.addEventListener('message', (event) => {
+  const msg = event.data || {};
+  const portPost = (m) => {
+    // ответить именно отправителю, если можем
+    try {
+      if (event.source && event.source.postMessage) {
+        event.source.postMessage(m);
+        return;
+      }
+    } catch(_) {}
+    // иначе всем
+    broadcastToClients(m);
+  };
+
+  if (msg.type === 'getUnreadSnapshot') {
+    event.waitUntil((async () => {
+      const map = await idbAll().catch(() => ({}));
+      portPost({ type: 'unreadSnapshot', map });
+    })());
+  } else if (msg.type === 'clearUnread' && msg.room) {
+    event.waitUntil((async () => {
+      await clearUnread(msg.room);
+      portPost({ type: 'unreadSnapshot', map: await idbAll().catch(() => ({})) });
+    })());
+  } else if (msg.type === 'bumpUnread' && msg.room) {
+    event.waitUntil((async () => {
+      await incUnread(msg.room);
+      portPost({ type: 'unreadSnapshot', map: await idbAll().catch(() => ({})) });
+    })());
+  }
 });
 `);
 });
