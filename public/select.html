@@ -102,12 +102,23 @@
     if (!room) return;
     const m = getUnreadMap();
     if (m[room]) { delete m[room]; setUnreadMap(m); }
+    postToSW({ type: 'clearUnread', room });
     // re-render list to reflect updated counter
     renderList('roomsList', 'rooms');
   }
   // Backward-compat shim for older SW posts
   function markRoomHasUnread(room){
     incUnread(room);
+  }
+
+  // --- SW bridge to sync unread counters when PWA is closed ---
+  function postToSW(msg){
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.getRegistration().then((reg)=>{
+      if (reg && reg.active) {
+        try { reg.active.postMessage(msg); } catch(_) {}
+      }
+    }).catch(()=>{});
   }
 
   async function ensureSWAndSubscription() {
@@ -205,6 +216,18 @@
       }
     });
   }
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', (event)=>{
+      const msg = event.data || {};
+      if (msg.type === 'unreadSnapshot' && msg.map && typeof msg.map === 'object') {
+        // merge SW map into localStorage map
+        const current = getUnreadMap();
+        const merged = Object.assign({}, current, msg.map);
+        setUnreadMap(merged);
+        renderList('roomsList', 'rooms');
+      }
+    });
+  }
 
     function logOut() {
       localStorage.removeItem('username');
@@ -295,6 +318,10 @@
         console.error("Failed to check admin:", err);
       });
     }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      postToSW({ type: 'getUnreadSnapshot' });
+    });
 
     renderList('roomsList', 'rooms');
   </script>

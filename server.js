@@ -160,6 +160,39 @@ app.post('/push/test', async (req, res) => {
   }
 });
 
+// List rooms by userId, nick, or endpoint from push_subscriptions (fallbacks supported)
+app.get('/push/list', async (req, res) => {
+  try {
+    const userId   = (req.query.userId || '').trim();
+    const nick     = (req.query.nick || '').trim();
+    const endpoint = (req.query.endpoint || '').trim();
+
+    const rooms = new Set();
+
+    async function addRoomsBy(filter) {
+      const { data, error } = await supabase
+        .from('push_subscriptions')
+        .select('room')
+        .match(filter);
+      if (!error && Array.isArray(data)) {
+        for (const r of data) {
+          const v = String(r.room || '').trim();
+          if (v) rooms.add(v);
+        }
+      }
+    }
+
+    if (userId) await addRoomsBy({ user_id: userId });
+    if (rooms.size === 0 && nick) await addRoomsBy({ nick });
+    if (rooms.size === 0 && endpoint) await addRoomsBy({ endpoint });
+
+    return res.json({ rooms: Array.from(rooms) });
+  } catch (e) {
+    console.error('push/list exception:', e);
+    return res.status(500).json({ rooms: [] });
+  }
+});
+
 // Quick reply endpoint: accepts text and posts it into a room, then notifies subscribers
 app.get('/push/health', (req, res) => {
   res.json({ vapidConfigured: !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT) });
