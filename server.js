@@ -1286,13 +1286,17 @@ wss.on('connection', (ws) => {
 
     // Delete message (owner or admin)
     if (data.type === 'delete') {
-      const msgId = data.id;
+      let msgId = data.id;
       if (!msgId) {
-        ws.send(JSON.stringify({ type: 'error', text: 'No message id provided for delete.' }));
+        ws.send(JSON.stringify({ type: 'delete_error', id: null, reason: 'No message id provided.' }));
         return;
       }
+      // Coerce numeric-looking ids to numbers to avoid eq() mismatch
+      if (typeof msgId === 'string' && /^\d+$/.test(msgId)) {
+        msgId = Number(msgId);
+      }
       try {
-        // Fetch the row to verify permissions and room
+        // Fetch the row to verify permissions and to know room & possible media to clean
         const { data: row, error: selErr } = await supabase
           .from('messages')
           .select('id, room, user, image_url, filename')
@@ -1301,18 +1305,18 @@ wss.on('connection', (ws) => {
 
         if (selErr) {
           console.error('Delete select error:', selErr.message);
-          ws.send(JSON.stringify({ type: 'error', text: 'Server error' }));
+          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Server error' }));
           return;
         }
         if (!row) {
-          ws.send(JSON.stringify({ type: 'error', text: 'Message not found' }));
+          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Message not found' }));
           return;
         }
 
         // Only author or admin can delete
         const { isAdmin } = await getUserFlags(userData.id);
         if (row.user !== userData.nick && !isAdmin) {
-          ws.send(JSON.stringify({ type: 'error', text: 'Not allowed' }));
+          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Not allowed' }));
           return;
         }
 
@@ -1320,23 +1324,23 @@ wss.on('connection', (ws) => {
         const { error: delErr } = await supabase
           .from('messages')
           .delete()
-          .eq('id', msgId);
+          .eq('id', row.id);
 
         if (delErr) {
           console.error('Delete DB error:', delErr.message);
-          ws.send(JSON.stringify({ type: 'error', text: 'Failed to delete' }));
+          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Failed to delete' }));
           return;
         }
 
-        // (Optional) If you want to remove uploaded file from storage too, you can do it here
-        // Note: we cannot infer bucket path from public URL reliably; skipping for safety.
+        // Best-effort: remove uploaded file from Storage if it points to our bucket
+        try { await deleteFileFromPublicUrl(row.image_url); } catch (_) {}
 
-        // Broadcast deletion to room participants
-        broadcast(row.room, { type: 'delete', id: msgId });
-
+        // Notify requester and broadcast to room participants
+        try { ws.send(JSON.stringify({ type: 'delete_ok', id: row.id })); } catch (_) {}
+        broadcast(row.room, { type: 'delete', id: row.id });
       } catch (e) {
         console.error('Unexpected delete error:', e);
-        ws.send(JSON.stringify({ type: 'error', text: 'Server error' }));
+        ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Server error' }));
       }
       return;
     }
@@ -1488,6 +1492,24 @@ wss.on('connection', (ws) => {
     }
   });
 });
+
+// Helper: if a public URL points to our Supabase bucket, remove the object
+async function deleteFileFromPublicUrl(publicUrl) {
+  if (!publicUrl || typeof publicUrl !== 'string') return;
+  try {
+    // Example public URL:
+    // https://YOUR-PROJECT.supabase.co/storage/v1/object/public/chat-uploads/filename.ext
+    const m = publicUrl.match(/\/object\/public\/([^/]+)\/(.+)$/);
+    if (!m) return;
+    const bucket = m[1];
+    const pathInBucket = m[2];
+    // Only act on known buckets
+    if (bucket !== BUCKET && bucket !== AVATARS_BUCKET) return;
+    await supabase.storage.from(bucket).remove([pathInBucket]);
+  } catch (_) {
+    // best-effort
+  }
+}
 
 function broadcast(room, data) {
   const json = JSON.stringify(data);

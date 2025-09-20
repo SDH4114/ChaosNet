@@ -371,19 +371,23 @@
     ctxDeleteBtn.addEventListener('click', () => {
       try {
         if (!_ctxTargetMsg || !_ctxTargetRow) return hideMsgContext();
-        const mid = _ctxTargetMsg.id || _ctxTargetRow.getAttribute('data-msgid');
+        const mid = (_ctxTargetMsg && _ctxTargetMsg.id) || (_ctxTargetRow && _ctxTargetRow.getAttribute('data-msgid'));
         if (!mid) { alert('Cannot delete: no message id.'); hideMsgContext(); return; }
 
         // Ask confirmation
         if (!confirm('Delete this message?')) { hideMsgContext(); return; }
 
-        // Send delete request to server (WS)
+        // Visually mark as pending deletion, but do NOT remove until server confirms
         try {
-          socket.send(JSON.stringify({ type: 'delete', id: mid, room }));
+          _ctxTargetRow.style.opacity = '0.5';
+          _ctxTargetRow.setAttribute('data-deleting', '1');
         } catch(_) {}
 
-        // Optimistically remove from UI
-        try { _ctxTargetRow.remove(); } catch(_) {}
+        // Send delete request to server (WS) including user identity
+        try {
+          socket.send(JSON.stringify({ type: 'delete', id: String(mid), room, user: username, uid: userId }));
+        } catch(_) {}
+
         hideMsgContext();
       } catch(_) {
         hideMsgContext();
@@ -1019,6 +1023,25 @@
         const node = messages.querySelector(`[data-msgid="${delId}"]`);
         if (node) node.remove();
       } catch(_){}
+      return;
+    }
+    // Optional explicit server responses (if your backend sends them)
+    if (msg.type === 'delete_ok' && (msg.id || msg.msg_id)) {
+      // No action needed here because server should also broadcast a 'delete' packet
+      // that is handled above to actually remove the DOM node.
+      return;
+    }
+    if (msg.type === 'delete_error' && (msg.id || msg.msg_id)) {
+      const delId = String(msg.id || msg.msg_id);
+      try {
+        const node = messages.querySelector(`[data-msgid="${delId}"]`);
+        if (node) {
+          node.style.opacity = '';
+          node.removeAttribute('data-deleting');
+        }
+      } catch(_) {}
+      const reason = msg.reason || 'Delete failed on server';
+      try { alert(reason); } catch(_) {}
       return;
     }
     if (msg.type === 'userlist') {
