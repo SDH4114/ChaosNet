@@ -29,6 +29,12 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_KEY; // anon (public) key
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY; // prefer service role
 
+// Warn if we are accidentally using the anon key for server-side operations (RLS may block writes/deletes)
+if (SUPABASE_SERVICE_ROLE_KEY === SUPABASE_ANON_KEY) {
+  console.warn('[Supabase] SUPABASE_SERVICE_ROLE_KEY is not set, falling back to anon key. ' +
+               'RLS may block inserts/deletes (set SUPABASE_SERVICE_ROLE_KEY to the service role key).');
+}
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
   process.exit(1);
@@ -1287,6 +1293,8 @@ wss.on('connection', (ws) => {
     // Delete message (owner or admin)
     if (data.type === 'delete') {
       let msgId = data.id;
+      // Add a small helper log at the start of the delete branch to log the incoming id.
+      console.log('[Delete request] raw id =', msgId, 'type =', typeof msgId);
       if (!msgId) {
         ws.send(JSON.stringify({ type: 'delete_error', id: null, reason: 'No message id provided.' }));
         return;
@@ -1303,9 +1311,11 @@ wss.on('connection', (ws) => {
           .eq('id', msgId)
           .maybeSingle();
 
+        // Improved error block for select error:
         if (selErr) {
-          console.error('Delete select error:', selErr.message);
-          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Server error' }));
+          console.error('Delete select error:', selErr);
+          const reason = selErr.message || 'Server error';
+          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason }));
           return;
         }
         if (!row) {
@@ -1315,6 +1325,8 @@ wss.on('connection', (ws) => {
 
         // Only author or admin can delete
         const { isAdmin } = await getUserFlags(userData.id);
+        // Debug log: who tried to delete what
+        console.log('[Delete attempt]', { byNick: userData.nick, isAdmin, msgId: row.id, rowUser: row.user, room: row.room });
         if (row.user !== userData.nick && !isAdmin) {
           ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Not allowed' }));
           return;
@@ -1326,9 +1338,15 @@ wss.on('connection', (ws) => {
           .delete()
           .eq('id', row.id);
 
+        // Improved error block for DB delete error:
         if (delErr) {
-          console.error('Delete DB error:', delErr.message);
-          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason: 'Failed to delete' }));
+          console.error('Delete DB error:', delErr);
+          let reason = delErr.message || 'Failed to delete';
+          // Common RLS error surfaces here when using anon key
+          if (/row-level security|permission|violat/i.test(reason)) {
+            reason = 'RLS blocked delete. Set SUPABASE_SERVICE_ROLE_KEY or adjust policies.';
+          }
+          ws.send(JSON.stringify({ type: 'delete_error', id: msgId, reason }));
           return;
         }
 
@@ -1584,3 +1602,8 @@ wss.on('close', () => clearInterval(heartbeatInterval));
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+if (process.env.NODE_ENV !== 'production') {
+  console.log('[Startup] Using Supabase project:', SUPABASE_URL);
+  console.log('[Startup] Service key equals anon key?', SUPABASE_SERVICE_ROLE_KEY === SUPABASE_ANON_KEY);
+}

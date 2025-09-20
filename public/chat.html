@@ -50,7 +50,7 @@
     }
     .msg-context button {
       width: 100%;
-      text-align: left;
+      text-align: center;
       background: transparent;
       border: 0;
       padding: 10px 12px;
@@ -1326,26 +1326,35 @@
       const LONG_MS = 450;
       let tId = null;
 
+      // Use the message bubble as the target element for context handlers
+      const targetEl = div;
+
       function triggerContext(ev){
         ev.preventDefault();
         const p = ev.touches ? ev.touches[0] : ev;
-        const cx = p.clientX || (row.getBoundingClientRect().left + 20);
-        const cy = p.clientY || (row.getBoundingClientRect().top + 20);
+        let cx, cy;
+        if (p && (p.clientX || p.clientY)) {
+          cx = p.clientX;
+          cy = p.clientY;
+        } else {
+          const r = div.getBoundingClientRect();
+          cx = r.left + r.width / 2;
+          cy = r.top + r.height / 2;
+        }
         showMsgContextFor(row, msg, cx, cy, isSelf);
       }
 
       // Desktop: right click
-      row.addEventListener('contextmenu', (ev) => {
-        triggerContext(ev);
-      });
+      targetEl.addEventListener('contextmenu', (ev) => { ev.stopPropagation(); triggerContext(ev); });
 
       // Touch long-press
-      row.addEventListener('touchstart', (ev) => {
+      targetEl.addEventListener('touchstart', (ev) => {
+        ev.stopPropagation();
         if (tId) clearTimeout(tId);
         tId = setTimeout(() => triggerContext(ev), LONG_MS);
       }, { passive: true });
-      row.addEventListener('touchend', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
-      row.addEventListener('touchmove', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
+      targetEl.addEventListener('touchend', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
+      targetEl.addEventListener('touchmove', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
     })();
 
     // Load avatar async for others (and refresh self)
