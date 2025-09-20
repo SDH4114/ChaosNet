@@ -1214,7 +1214,7 @@ wss.on('connection', (ws) => {
             text: `${userData.nick} joined`,
             image_url: ''
           })
-          .select('id, created_at, timestamp')
+          .select('id, created_at')
           .single();
 
         const tsSys = normalizeTimestampForClient(insSys?.data);
@@ -1307,7 +1307,7 @@ wss.on('connection', (ws) => {
         // Fetch the row to verify permissions and to know room & possible media to clean
         const { data: row, error: selErr } = await supabase
           .from('messages')
-          .select('id, room, user, image_url, filename')
+          .select('id, room, user, image_url')
           .eq('id', msgId)
           .maybeSingle();
 
@@ -1482,7 +1482,7 @@ wss.on('connection', (ws) => {
           text: `${userData.nick} left`,
           image_url: ''
         })
-        .select('id, created_at, timestamp')
+        .select('id, created_at')
         .single();
 
       const tsSys = normalizeTimestampForClient(insSys?.data);
