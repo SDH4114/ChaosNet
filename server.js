@@ -1183,6 +1183,7 @@ wss.on('connection', (ws) => {
           : 'message';
         ws.send(JSON.stringify({
           type: inferredType,
+          id: m.id,
           text: m.text,
           image: m.image_url,
           filename: m.filename || undefined,
@@ -1263,6 +1264,7 @@ wss.on('connection', (ws) => {
 
       broadcast(room, {
         type: 'message',
+        id: insertedId,
         text,
         user: userData.nick,
         timestamp: tsOut,
@@ -1279,6 +1281,63 @@ wss.on('connection', (ws) => {
     if (data.type === 'requestUserList') {
       const users = getRoomUsers(userData.room || data.room);
       ws.send(JSON.stringify({ type: 'userlist', users }));
+      return;
+    }
+
+    // Delete message (owner or admin)
+    if (data.type === 'delete') {
+      const msgId = data.id;
+      if (!msgId) {
+        ws.send(JSON.stringify({ type: 'error', text: 'No message id provided for delete.' }));
+        return;
+      }
+      try {
+        // Fetch the row to verify permissions and room
+        const { data: row, error: selErr } = await supabase
+          .from('messages')
+          .select('id, room, user, image_url, filename')
+          .eq('id', msgId)
+          .maybeSingle();
+
+        if (selErr) {
+          console.error('Delete select error:', selErr.message);
+          ws.send(JSON.stringify({ type: 'error', text: 'Server error' }));
+          return;
+        }
+        if (!row) {
+          ws.send(JSON.stringify({ type: 'error', text: 'Message not found' }));
+          return;
+        }
+
+        // Only author or admin can delete
+        const { isAdmin } = await getUserFlags(userData.id);
+        if (row.user !== userData.nick && !isAdmin) {
+          ws.send(JSON.stringify({ type: 'error', text: 'Not allowed' }));
+          return;
+        }
+
+        // Delete DB row
+        const { error: delErr } = await supabase
+          .from('messages')
+          .delete()
+          .eq('id', msgId);
+
+        if (delErr) {
+          console.error('Delete DB error:', delErr.message);
+          ws.send(JSON.stringify({ type: 'error', text: 'Failed to delete' }));
+          return;
+        }
+
+        // (Optional) If you want to remove uploaded file from storage too, you can do it here
+        // Note: we cannot infer bucket path from public URL reliably; skipping for safety.
+
+        // Broadcast deletion to room participants
+        broadcast(row.room, { type: 'delete', id: msgId });
+
+      } catch (e) {
+        console.error('Unexpected delete error:', e);
+        ws.send(JSON.stringify({ type: 'error', text: 'Server error' }));
+      }
       return;
     }
 
@@ -1373,6 +1432,7 @@ wss.on('connection', (ws) => {
 
         broadcast(room, {
           type: thisType,
+          id: insertedId2,
           text: caption,
           image: urlToSend,
           filename: filenameToStore,

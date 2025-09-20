@@ -35,6 +35,41 @@
       top: calc(env(safe-area-inset-top) + var(--header-h));
       z-index: 999; /* just under header */
     }
+    /* --- Context menu for message actions --- */
+    .msg-context {
+      position: fixed;
+      min-width: 160px;
+      background: #2a2a2a;
+      color: #fff;
+      border: 1px solid rgba(255,140,0,0.3);
+      border-radius: 10px;
+      padding: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      z-index: 2000;
+      display: none;
+    }
+    .msg-context button {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .msg-context button:hover {
+      background: rgba(255,140,0,0.12);
+      color: #ff8c00;
+    }
+    .msg-context .danger {
+      color: #ff7373;
+    }
+    .msg-context .danger:hover {
+      background: rgba(255,0,0,0.12);
+      color: #ff4d4d;
+    }
   </style>
 </head>
 <body>
@@ -83,6 +118,11 @@
 </div>
 
 <!-- Контейнер для сообщений -->
+<!-- Context menu (reply/delete) -->
+<div id="msgContext" class="msg-context" aria-hidden="true">
+  <button type="button" id="ctxReply">Reply</button>
+  <button type="button" id="ctxDelete" class="danger">Delete</button>
+</div>
 <div id="messages"></div>
 
 <!-- Форма ввода -->
@@ -232,6 +272,13 @@
   const apBadge = avatarPopoverEl ? avatarPopoverEl.querySelector('.ap-badge') : null;
   let _apAnchor = null; // currently anchored avatar element
 
+  // Context menu elements/state
+  const msgContext = document.getElementById('msgContext');
+  const ctxReplyBtn = document.getElementById('ctxReply');
+  const ctxDeleteBtn = document.getElementById('ctxDelete');
+  let _ctxTargetRow = null;   // DOM row of message
+  let _ctxTargetMsg = null;   // message object
+
   function showAvatarPopover(nick, src, anchorEl){
     if (!avatarPopoverEl) return;
     _apAnchor = anchorEl || null;
@@ -278,6 +325,70 @@
     avatarPopoverEl.setAttribute('aria-hidden','true');
     avatarPopoverEl.style.transform = 'translate(-9999px, -9999px)';
     _apAnchor = null;
+  }
+
+  function hideMsgContext() {
+    if (!msgContext) return;
+    msgContext.style.display = 'none';
+    msgContext.setAttribute('aria-hidden','true');
+    _ctxTargetRow = null;
+    _ctxTargetMsg = null;
+  }
+  function showMsgContextFor(row, msg, clientX, clientY, isSelf) {
+    if (!msgContext) return;
+    _ctxTargetRow = row;
+    _ctxTargetMsg = msg;
+
+    // Toggle Delete visibility: only for own messages
+    if (ctxDeleteBtn) {
+      ctxDeleteBtn.style.display = isSelf ? 'block' : 'none';
+    }
+
+    msgContext.style.left = Math.max(8, Math.min(clientX, window.innerWidth - 170)) + 'px';
+    msgContext.style.top  = Math.max(8, Math.min(clientY, window.innerHeight - 90)) + 'px';
+    msgContext.style.display = 'block';
+    msgContext.setAttribute('aria-hidden','false');
+  }
+
+  // Close context on outside click / ESC / resize / scroll
+  document.addEventListener('click', (e) => {
+    if (!msgContext || msgContext.style.display !== 'block') return;
+    const within = msgContext.contains(e.target);
+    if (!within) hideMsgContext();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMsgContext(); });
+  window.addEventListener('resize', hideMsgContext, { passive: true });
+  if (messages) messages.addEventListener('scroll', hideMsgContext, { passive: true });
+
+  // Context menu buttons
+  if (ctxReplyBtn) {
+    ctxReplyBtn.addEventListener('click', () => {
+      if (_ctxTargetMsg) setReplyContext(_ctxTargetMsg);
+      hideMsgContext();
+    });
+  }
+  if (ctxDeleteBtn) {
+    ctxDeleteBtn.addEventListener('click', () => {
+      try {
+        if (!_ctxTargetMsg || !_ctxTargetRow) return hideMsgContext();
+        const mid = _ctxTargetMsg.id || _ctxTargetRow.getAttribute('data-msgid');
+        if (!mid) { alert('Cannot delete: no message id.'); hideMsgContext(); return; }
+
+        // Ask confirmation
+        if (!confirm('Delete this message?')) { hideMsgContext(); return; }
+
+        // Send delete request to server (WS)
+        try {
+          socket.send(JSON.stringify({ type: 'delete', id: mid, room }));
+        } catch(_) {}
+
+        // Optimistically remove from UI
+        try { _ctxTargetRow.remove(); } catch(_) {}
+        hideMsgContext();
+      } catch(_) {
+        hideMsgContext();
+      }
+    });
   }
 
   function saveToStorage(key, value) {
@@ -898,6 +1009,18 @@
     const msg = JSON.parse(event.data);
     try { if (msg && msg.id != null) messageById.set(String(msg.id), msg); } catch(_) {}
     if (msg.type === 'activeRoom') return;
+    // Server-side delete broadcast: {type:'delete', id:'...'}
+    if (msg.type === 'delete' && (msg.id || msg.msg_id)) {
+      const delId = String(msg.id || msg.msg_id);
+      // Remove from map if present
+      try { messageById.delete(delId); } catch(_){}
+      // Remove DOM node with matching data-msgid
+      try {
+        const node = messages.querySelector(`[data-msgid="${delId}"]`);
+        if (node) node.remove();
+      } catch(_){}
+      return;
+    }
     if (msg.type === 'userlist') {
       const usersOnline = document.getElementById('users-online');
       if (usersOnline) usersOnline.textContent = msg.users.join(', ');
@@ -924,6 +1047,9 @@
     const row = document.createElement('div');
     const div = document.createElement('div');
     row.classList.add('message-row');
+    if (msg.id != null) {
+      try { row.setAttribute('data-msgid', String(msg.id)); } catch(_) {}
+    }
     div.classList.add('bubble');
 
     const isSelf = msg.user === username;
@@ -1171,6 +1297,33 @@
 
     messages.appendChild(row);
     messages.scrollTop = messages.scrollHeight;
+
+    // --- Long-press / context menu for reply/delete ---
+    (function attachContextHandlers(){
+      const LONG_MS = 450;
+      let tId = null;
+
+      function triggerContext(ev){
+        ev.preventDefault();
+        const p = ev.touches ? ev.touches[0] : ev;
+        const cx = p.clientX || (row.getBoundingClientRect().left + 20);
+        const cy = p.clientY || (row.getBoundingClientRect().top + 20);
+        showMsgContextFor(row, msg, cx, cy, isSelf);
+      }
+
+      // Desktop: right click
+      row.addEventListener('contextmenu', (ev) => {
+        triggerContext(ev);
+      });
+
+      // Touch long-press
+      row.addEventListener('touchstart', (ev) => {
+        if (tId) clearTimeout(tId);
+        tId = setTimeout(() => triggerContext(ev), LONG_MS);
+      }, { passive: true });
+      row.addEventListener('touchend', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
+      row.addEventListener('touchmove', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
+    })();
 
     // Load avatar async for others (and refresh self)
     if (isSelf) {
