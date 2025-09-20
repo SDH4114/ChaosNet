@@ -881,6 +881,22 @@
       return;
     }
 
+    // Ignore service/marker packets or anything that shouldn't render a bubble
+    if (msg.type === 'history_end') return;
+
+    // Render only known content types
+    const RENDERABLE_TYPES = new Set(['message','image','video','audio','file']);
+    if (!RENDERABLE_TYPES.has(msg.type)) return;
+
+    // Skip completely empty payloads (e.g., message with no text, or media without URL)
+    const hasPayload =
+      (msg.type === 'message') ? (typeof msg.text === 'string' && msg.text.trim().length > 0)
+                               : (typeof msg.image === 'string' && msg.image.trim().length > 0);
+    if (!hasPayload) return;
+
+    // Ensure we have a sender; otherwise do not render to avoid "unknown message"
+    if (!msg.user || typeof msg.user !== 'string' || msg.user.trim() === '') return;
+
     // Container row + bubble
     const row = document.createElement('div');
     const div = document.createElement('div');

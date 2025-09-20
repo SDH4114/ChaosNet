@@ -1165,7 +1165,19 @@ wss.on('connection', (ws) => {
 
       const history = await fetchHistoryOrdered(userData.room);
 
-      history.forEach(m => {
+      // Inform the client that historical backlog is starting (so UI can mute unread counters)
+      try {
+        ws.send(JSON.stringify({ type: 'history_start', room: userData.room }));
+      } catch (_) {}
+
+      // Send only meaningful history rows (skip rows without text and without image_url)
+      const filteredHistory = (history || []).filter((m) => {
+        const t = (m.text || '').trim();
+        const img = (m.image_url || '').trim();
+        return (t.length > 0) || (img.length > 0);
+      });
+
+      filteredHistory.forEach(m => {
         const inferredType = (m.image_url && String(m.image_url).trim() !== '')
           ? inferTypeFromUrl(m.image_url, m.filename)
           : 'message';
@@ -1216,6 +1228,11 @@ wss.on('connection', (ws) => {
       const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
 
       const text = (data.text || '').trim();
+
+      // Ignore empty text messages
+      if (!text) {
+        return;
+      }
 
       // Length limit for non-subscribed users is applied to the actual message text only
       if (!isAdmin && !isSubscribed && text && text.length > 444) {
