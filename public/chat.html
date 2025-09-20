@@ -11,7 +11,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="ChaosNet">
   <link rel="stylesheet" href="css/chatStyle.css" />
-  <meta name="viewport" content="width=device-width, initial-scale=0.9">
+  <style>
+    /* Prevent iOS Safari auto-zoom on input focus while keeping pinch-zoom overall */
+    :root { -webkit-text-size-adjust: 100%; }
+    input, textarea, select, button {
+      font-size: 16px; /* ≥16px stops iOS from zooming on focus */
+    }
+    /* ensure the chat input keeps 16px even if external CSS sets smaller */
+    .input-field { font-size: 16px !important; }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, viewport-fit=cover">
 
 </head>
 <body>

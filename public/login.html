@@ -10,7 +10,50 @@
   <link rel="apple-touch-icon" href="/img/ChaosNetLogo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="ChaosNet">
-  <meta name="viewport" content="width=device-width, initial-scale=0.8">
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, user-scalable=yes, viewport-fit=cover">
+  <title>ChaosNet - Free Messenger & Private Chat</title>
+  <meta name="description" content="ChaosNet is a fast, secure messenger with free group chat, private chat, video and photo sharing, push notifications, and cross-device sync.">
+
+  <style>
+    /* Password toggle (Login page) */
+    .password-field{ position: relative; }
+    .password-field input{ padding-right: 48px; }
+
+    /* Keep it as a small button (NOT icon-only here) */
+    .toggle-pwd{
+      position: absolute;
+      top: calc(50%);
+      transform: translateY(-50%);
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .toggle-pwd img{
+      width: 18px;
+      height: 18px;
+      display: block;
+      pointer-events: none;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    /* Prevent iOS auto-zoom on form focus while keeping pinch-zoom available */
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    input, textarea, select, button {
+      font-size: 16px; /* >=16px stops iOS focus zoom */
+    }
+  </style>
 
 </head>
   <link rel="stylesheet" href="css/mainStyle.css" />
