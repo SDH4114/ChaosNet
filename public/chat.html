@@ -19,6 +19,22 @@
       top: 0;
       z-index: 1000;
     }
+    :root { --header-h: 56px; }
+    /* Keep the header visible and reserve safe-area on iOS PWAs */
+    @media (max-width: 768px) {
+      .chat-header {
+        padding-top: calc(10px + env(safe-area-inset-top)) !important; /* override inline padding */
+        min-height: calc(var(--header-h) + env(safe-area-inset-top));
+        background: #1e1e1e; /* ensure solid backdrop when overlapping */
+      }
+    }
+
+    /* Make the online bar sticky under the header on phones and PWAs */
+    #online-bar {
+      position: sticky;
+      top: calc(env(safe-area-inset-top) + var(--header-h));
+      z-index: 999; /* just under header */
+    }
   </style>
 </head>
 <body>
