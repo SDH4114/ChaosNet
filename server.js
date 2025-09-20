@@ -1175,9 +1175,15 @@ wss.on('connection', (ws) => {
           image: m.image_url,
           filename: m.filename || undefined,
           user: m.user,
-          timestamp: normalizeTimestampForClient(m)
+          timestamp: normalizeTimestampForClient(m),
+          isHistory: true
         }));
       });
+
+      // Inform the client that historical backlog is finished
+      try {
+        ws.send(JSON.stringify({ type: 'history_end', room: userData.room }));
+      } catch (_) {}
 
       // Optionally keep server-side system join log (suppressed by default)
       if (!SUPPRESS_SYSTEM_MESSAGES) {
@@ -1242,7 +1248,8 @@ wss.on('connection', (ws) => {
         type: 'message',
         text,
         user: userData.nick,
-        timestamp: tsOut
+        timestamp: tsOut,
+        isHistory: false
       });
       // --- Push notification for text message ---
       try {
@@ -1353,7 +1360,8 @@ wss.on('connection', (ws) => {
           image: urlToSend,
           filename: filenameToStore,
           user: userData.nick,
-          timestamp: tsOut2
+          timestamp: tsOut2,
+          isHistory: false
         });
         // --- Push notification for media message ---
         try {

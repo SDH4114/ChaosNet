@@ -103,6 +103,9 @@
   const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
   const socket = new WebSocket(wsProto + '://' + location.host);
 
+  // Timestamp when this page instance was opened (used to filter history spam)
+  const PAGE_OPENED_AT = Date.now();
+
   // === Web Push (client) ===
   // Public VAPID key will be injected by the server later; use a placeholder for now.
   // On production, the server should replace [[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME]] with actual key.
@@ -1137,10 +1140,16 @@
       fetchAvatarByNick(msg.user).then(url => { avatarImg.src = url; }).catch(()=>{});
     }
 
-    // Уведомления только для чужих сообщений (кроме system/leave)
+    // Уведомления только для чужих сообщений (кроме system/leave).
+    // Не спамим уведомлениями для ИСТОРИИ, которую сервер присылает при входе.
+    // История определяется по timestamp < момент открытия вкладки (с небольшой дельтой).
     if (msg.user !== username && msg.type !== 'system' && msg.type !== 'leave') {
-      ensureNotifyPermission();
-      showBannerForMessage(room, msg);
+      const tsObj = normalizeTimestamp(msg.created_at || msg.timestamp) || new Date();
+      const isHistory = tsObj.getTime() < (PAGE_OPENED_AT - 2000); // 2s запас, чтобы не зацепить реальные "только что"
+      if (!isHistory && isChatInactive()) {
+        ensureNotifyPermission();
+        showBannerForMessage(room, msg);
+      }
     }
   });
 
