@@ -13,11 +13,18 @@
   <link rel="stylesheet" href="css/chatStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
+  <style>
+    .chat-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+  </style>
 </head>
 <body>
 
 <!-- Верхняя панель -->
-<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
+<div class="chat-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #1e1e1e;">
   <div style="display: flex; align-items: center;">
     <h2 id="chat-title" style="margin: 0; color: #fff;">
       <span class="room-label">Room:</span>
