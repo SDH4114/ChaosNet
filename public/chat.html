@@ -339,9 +339,11 @@
     _ctxTargetRow = row;
     _ctxTargetMsg = msg;
 
-    // Toggle Delete visibility: only for own messages
+    // Toggle Delete visibility: allow for own messages OR if current user is admin
+    const isAdmin = !!(window.USER_FLAGS && window.USER_FLAGS.isAdmin);
+    const canDelete = isSelf || isAdmin;
     if (ctxDeleteBtn) {
-      ctxDeleteBtn.style.display = isSelf ? 'block' : 'none';
+      ctxDeleteBtn.style.display = canDelete ? 'block' : 'none';
     }
 
     msgContext.style.left = Math.max(8, Math.min(clientX, window.innerWidth - 170)) + 'px';
