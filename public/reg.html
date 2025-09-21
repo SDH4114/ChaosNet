@@ -65,16 +65,70 @@
   </div>
 
   <script>
+    (function enhanceInputs(){
+      const idInput = document.getElementById('id');
+      const nickInput = document.getElementById('nick');
+
+      if (idInput) {
+        idInput.addEventListener('input', () => {
+          // Keep only letters/digits, uppercase letters, and limit length to 6
+          let v = idInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+          if (v.length > 6) v = v.slice(0,6);
+          idInput.value = v;
+        });
+      }
+      if (nickInput) {
+        nickInput.addEventListener('blur', () => {
+          nickInput.value = (nickInput.value || '').trim();
+        });
+      }
+    })();
+
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const nick = document.getElementById('nick').value;
-      const id = document.getElementById('id').value;
-      const idPattern = /^[A-Z]{2}\d{4}$/;
-      if (!idPattern.test(id)) {
-        alert("User ID must be in the format AA0000.");
+
+      const nickInput = document.getElementById('nick');
+      const idInput = document.getElementById('id');
+      const pwInput = document.getElementById('password');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+
+      // Normalize/trim
+      const nick = (nickInput.value || '').trim();
+      const id = ((idInput.value || '').trim().toUpperCase());
+      const password = (pwInput.value || '').trim();
+
+      // Put normalized ID back into the field so the user sees the canonical form
+      idInput.value = id;
+
+      // Basic validations
+      if (!nick) {
+        alert('Nick is required.');
         return;
       }
-      const password = document.getElementById('password').value;
+      const idPattern = /^[A-Z]{2}\d{4}$/;
+      if (!idPattern.test(id)) {
+        alert('User ID must be in the format AA0000 (two uppercase letters + four digits).');
+        return;
+      }
+      if (!password) {
+        alert('Password is required.');
+        return;
+      }
+
+      // Optional minimal length/size checks (can be adjusted)
+      if (nick.length > 32) {
+        alert('Nick is too long (max 32 characters).');
+        return;
+      }
+      if (password.length > 128) {
+        alert('Password is too long.');
+        return;
+      }
+
+      // Prevent double-submit
+      const prevText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Registering…';
 
       try {
         const res = await fetch('/register', {
@@ -84,13 +138,32 @@
         });
 
         if (res.ok) {
-          alert("User registered successfully!");
+          alert('User registered successfully!');
           window.location.href = 'login.html';
+          return;
+        }
+
+        // Non-OK: try to show specific server reason (e.g., "Nickname already taken" or "User already exists")
+        const text = await res.text().catch(() => '');
+        if (res.status === 409) {
+          // Server returns 409 for duplicates; surface the exact message if available
+          if (/nickname already taken/i.test(text)) {
+            alert('This nick is already taken. Choose another.');
+          } else if (/user already exists/i.test(text)) {
+            alert('This ID is already registered. Use a different ID.');
+          } else {
+            alert(text || 'Nick or ID is already in use.');
+          }
+        } else if (res.status === 400) {
+          alert(text || 'Invalid data. Please check your inputs.');
         } else {
-          alert("Registration failed.");
+          alert(text || 'Registration failed. Please try again.');
         }
       } catch (err) {
-        alert("Error: " + err.message);
+        alert('Network error: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevText;
       }
     });
     // Password visibility toggle (with view/hide icons)
