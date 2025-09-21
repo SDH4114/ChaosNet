@@ -1164,7 +1164,7 @@ async function getUserFlags(userId, nick) {
 
 wss.on('connection', (ws) => {
   let userData = { nick: '', id: '', room: '' };
-  // --- WS heartbeat to detect dead connections ---
+  // --- WS heartbeat to detect dead connections --- ну удалю потом
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
