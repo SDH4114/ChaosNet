@@ -38,26 +38,29 @@
     /* --- Context menu for message actions --- */
     .msg-context {
       position: fixed;
-      min-width: 160px;
+      min-width: 180px;
       background: #2a2a2a;
       color: #fff;
       border: 1px solid rgba(255,140,0,0.3);
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 6px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.35);
       z-index: 2000;
       display: none;
+      transform: translate(-50%, -100%); /* center horizontally and show above bubble */
+      text-align: center; /* center button labels */
     }
     .msg-context button {
       width: 100%;
       text-align: center;
       background: transparent;
       border: 0;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 12px 14px;
+      border-radius: 10px;
       color: #fff;
-      font-size: 14px;
+      font-size: 15px;
       cursor: pointer;
+      display: inline-block;
     }
     .msg-context button:hover {
       background: rgba(255,140,0,0.12);
@@ -334,7 +337,7 @@
     _ctxTargetRow = null;
     _ctxTargetMsg = null;
   }
-  function showMsgContextFor(row, msg, clientX, clientY, isSelf) {
+  function showMsgContextFor(row, msg, _clientX, _clientY, isSelf) {
     if (!msgContext) return;
     _ctxTargetRow = row;
     _ctxTargetMsg = msg;
@@ -346,8 +349,19 @@
       ctxDeleteBtn.style.display = canDelete ? 'block' : 'none';
     }
 
-    msgContext.style.left = Math.max(8, Math.min(clientX, window.innerWidth - 170)) + 'px';
-    msgContext.style.top  = Math.max(8, Math.min(clientY, window.innerHeight - 90)) + 'px';
+    // Always anchor to the center of the message bubble (not the whole line)
+    const bubble = row.querySelector('.bubble');
+    const rect = bubble ? bubble.getBoundingClientRect() : row.getBoundingClientRect();
+    let cx = rect.left + rect.width / 2;
+    let cy = rect.top + rect.height / 2;
+
+    // Clamp within viewport margins
+    const margin = 12;
+    cx = Math.max(margin, Math.min(cx, window.innerWidth  - margin));
+    cy = Math.max(margin, Math.min(cy, window.innerHeight - margin));
+
+    msgContext.style.left = cx + 'px';
+    msgContext.style.top  = cy + 'px';
     msgContext.style.display = 'block';
     msgContext.setAttribute('aria-hidden','false');
   }
@@ -1333,17 +1347,8 @@
 
       function triggerContext(ev){
         ev.preventDefault();
-        const p = ev.touches ? ev.touches[0] : ev;
-        let cx, cy;
-        if (p && (p.clientX || p.clientY)) {
-          cx = p.clientX;
-          cy = p.clientY;
-        } else {
-          const r = div.getBoundingClientRect();
-          cx = r.left + r.width / 2;
-          cy = r.top + r.height / 2;
-        }
-        showMsgContextFor(row, msg, cx, cy, isSelf);
+        // Always open centered on the bubble itself
+        showMsgContextFor(row, msg, null, null, isSelf);
       }
 
       // Desktop: right click
@@ -1358,6 +1363,13 @@
       targetEl.addEventListener('touchend', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
       targetEl.addEventListener('touchmove', () => { if (tId) { clearTimeout(tId); tId = null; } }, { passive: true });
     })();
+
+    // Avoid text selection on long-press (mobile)
+    div.style.userSelect = 'none';
+    div.style.webkitUserSelect = 'none';
+    div.style.msUserSelect = 'none';
+    div.style.MozUserSelect = 'none';
+    div.style.touchAction = 'manipulation';
 
     // Load avatar async for others (and refresh self)
     if (isSelf) {

@@ -1125,15 +1125,34 @@ function getRoomUsers(room) {
   return Array.from(new Set(arr));
 }
 
-async function getUserFlags(userId) {
-  if (!userId || userId.startsWith('guest_')) return { isAdmin: false, isSubscribed: false };
+async function getUserFlags(userId, nick) {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('AdminStatus, Subscription')
-      .eq('id', userId)
-      .maybeSingle();
-    if (error || !data) return { isAdmin: false, isSubscribed: false };
+    let data = null;
+    let error = null;
+
+    // 1) Try by id (if not a guest id)
+    if (userId && !String(userId).startsWith('guest_')) {
+      ({ data, error } = await supabase
+        .from('users')
+        .select('AdminStatus, Subscription, id, nick')
+        .eq('id', userId)
+        .maybeSingle());
+    }
+
+    // 2) Fallback by nickname if not found by id
+    if ((!data || error) && nick) {
+      const res2 = await supabase
+        .from('users')
+        .select('AdminStatus, Subscription, id, nick')
+        .eq('nick', nick)
+        .maybeSingle();
+      data = res2.data;
+      error = res2.error;
+    }
+
+    if (error || !data) {
+      return { isAdmin: false, isSubscribed: false };
+    }
     return {
       isAdmin: data.AdminStatus === true,
       isSubscribed: data.Subscription === true
@@ -1232,7 +1251,7 @@ wss.on('connection', (ws) => {
 
     if (data.type === 'message') {
       // Flags
-      const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
+      const { isAdmin, isSubscribed } = await getUserFlags(userData.id, userData.nick);
 
       const text = (data.text || '').trim();
 
@@ -1324,7 +1343,7 @@ wss.on('connection', (ws) => {
         }
 
         // Only author or admin can delete
-        const { isAdmin } = await getUserFlags(userData.id);
+        const { isAdmin } = await getUserFlags(userData.id, userData.nick);
         // Debug log: who tried to delete what
         console.log('[Delete attempt]', { byNick: userData.nick, isAdmin, msgId: row.id, rowUser: row.user, room: row.room });
         if (row.user !== userData.nick && !isAdmin) {
@@ -1370,7 +1389,7 @@ wss.on('connection', (ws) => {
         return;
       }
 
-      const { isAdmin, isSubscribed } = await getUserFlags(userData.id);
+      const { isAdmin, isSubscribed } = await getUserFlags(userData.id, userData.nick);
       const caption = (data.text || '').trim();
       if (!isAdmin && !isSubscribed && caption && caption.length > 444) {
         ws.send(JSON.stringify({ type: 'error', text: 'Caption too long for non-subscribed users.' }));
