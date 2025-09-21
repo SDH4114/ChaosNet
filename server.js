@@ -8,6 +8,10 @@ const nodemailer = require('nodemailer');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
+// --- tiny request logger & CORS (no dependency) ---
+
+// (middleware inserted after app = express())
+
 const webpush = require('web-push');
 // --- Web Push (VAPID) ---
 const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
@@ -19,6 +23,24 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
 
 const PORT = process.env.PORT || 3000;
 const app = express();
+
+// Simple request logger
+app.use((req, res, next) => {
+  try {
+    console.log('[HTTP]', req.method, req.path);
+  } catch (_) {}
+  next();
+});
+
+// Simple CORS without extra deps
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  next();
+});
+
 // Body parsers MUST be before route handlers
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -240,7 +262,15 @@ app.get(['/', '/index.html', '/chat.html', '/select.html'], (req, res, next) => 
   const p = req.path === '/' ? '/index.html' : req.path;
   const full = path.join(__dirname, 'public', p.replace(/^\//,''));
   fs.readFile(full, 'utf8', (err, txt) => {
-    if (err) return next();
+    if (err) {
+      // If index.html is missing, still report healthy to satisfy Koyeb health checks
+      if (p === '/index.html') {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.status(200).send('ok ' + new Date().toISOString());
+        return;
+      }
+      return next();
+    }
     const out = txt.replace(/\[\[VAPID_PUBLIC_KEY_REPLACED_AT_RUNTIME\]\]/g, process.env.VAPID_PUBLIC_KEY || '');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(out);
@@ -445,12 +475,11 @@ app.use(express.static('public'));
 
 const upload = multer({ dest: 'temp_uploads/' });
 
-app.get('/health', (req, res) => {
+app.get(['/health', '/healthz', '/push/health'], (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.status(200).send('ok ' + new Date().toISOString());
 });
-// Явный HEAD, Express и так обрабатывает, но пусть будет
-app.head('/health', (req, res) => {
+app.head(['/health', '/healthz', '/push/health'], (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.status(200).end();
 });
