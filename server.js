@@ -17,7 +17,7 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 const app = express();
 // Body parsers MUST be before route handlers
 app.use(express.json());
