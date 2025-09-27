@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ChaosNet — Settings</title>
-  <link rel="icon" type="image/png" href="img/ChaosNetLogo.png" />
-  <link rel="shortcut icon" href="img/ChaosNetLogo.png" type="image/png" />
+  <title>Triksters Land — Settings</title>
+  <link rel="icon" type="image/png" href="img/triksterslandLogo.png" />
+  <link rel="shortcut icon" href="img/triksterslandLogo.png" type="image/png" />
     <!-- iOS home screen icon + web app meta -->
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="apple-touch-icon" href="/img/ChaosNetLogo.png">
+  <link rel="apple-touch-icon" href="/img/triksterslandLogo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="ChaosNet">
+  <meta name="apple-mobile-web-app-title" content="Triksters Land">
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
   <style>
-    :root { --bg:#1e1e1e; --card:#2a2a2a; --accent:#ff8c00; --text:#fff; --muted:#bdbdbd; --stroke:#444; }
+    :root { --bg:#1e1e1e; --card:#2a2a2a; --accent:#00FF66; --text:#fff; --muted:#bdbdbd; --stroke:#444; }
     *{ box-sizing:border-box; }
     html,body{ height:100%; }
     body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; background:var(--bg); color:var(--text); }
@@ -52,16 +52,16 @@
 
     /* Right side: form */
     .card{ background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:24px; }
-    .card h3{ margin:0 0 16px; color:#ff8c00; font-size:18px; }
+    .card h3{ margin:0 0 16px; color:#00FF66; font-size:18px; }
 
     .form{ display:flex; flex-direction:column; gap:14px; }
     .row{ display:flex; flex-direction:column; gap:6px; }
-    label{ font-size:13px; color:#ff8c00; }
+    label{ font-size:13px; color:#00FF66; }
     input[type="text"], input[type="password"]{
       background:#1e1e1e; color:var(--text); border:1px solid var(--stroke); border-radius:12px; padding:12px 14px; font-size:15px;
       outline:none; transition:border .15s ease; width:100%;
     }
-    input::placeholder{ color:#ff8c00; opacity:.9; }
+    input::placeholder{ color:#00FF66; opacity:.9; }
     input:focus{ border-color:#666; }
 
     .password-row { position: relative; }
@@ -110,7 +110,7 @@
     .crop-modal{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:9999; }
     .crop-modal.show{ display:flex; }
     .crop-dialog{ background:#2a2a2a; border:1px solid var(--stroke); border-radius:16px; padding:16px; width:min(92vw, 520px); }
-    .crop-title{ color:#ff8c00; margin:0 0 10px; font-size:16px; }
+    .crop-title{ color:#00FF66; margin:0 0 10px; font-size:16px; }
     .crop-stage{ position:relative; width:100%; aspect-ratio:1/1; background:#1e1e1e; border-radius:12px; overflow:hidden; }
     #cropCanvas{ width:100%; height:100%; display:block; }
     /* circular mask overlay */
@@ -118,7 +118,7 @@
     .crop-controls{ display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap; }
     .crop-controls .range{ flex:1; }
     .crop-btn{ background:#3a3a3a; color:#fff; border:none; border-radius:10px; padding:8px 12px; cursor:pointer; }
-    .crop-btn.primary{ background:#ff8c00; color:#000; }
+    .crop-btn.primary{ background:#00FF66; color:#000; }
   </style>
 </head>
 <body>
@@ -141,9 +141,9 @@
         </label>
         <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" class="file-hidden" />
       </div>
-      <div id="userNameDisplay" style="color:#ff8c00; text-align:center; margin-top:12px; font-weight:500;"></div>
-      <div id="adminStatusDisplay" style="color:#ff8c00; text-align:center; font-size:14px;"></div>
-      <button type="button" id="deleteAvatar" class="btn secondary avatar-del" style="color:#ff8c00;" title="Remove avatar" aria-label="Remove avatar">Delete avatar</button>
+      <div id="userNameDisplay" style="color:#00FF66; text-align:center; margin-top:12px; font-weight:500;"></div>
+      <div id="adminStatusDisplay" style="color:#00FF66; text-align:center; font-size:14px;"></div>
+      <button type="button" id="deleteAvatar" class="btn secondary avatar-del" style="color:#00FF66;" title="Remove avatar" aria-label="Remove avatar">Delete avatar</button>
     </section>
 
     <!-- Right side: account form -->
@@ -174,8 +174,8 @@
 
         <div class="buttons">
           <button type="button" class="btn" id="saveLocal" style="color:#000000;">Save</button>
-          <button type="button" class="btn secondary" id="logoutBtn" style="color:#ff8c00;">Log out</button>
-          <button type="button" class="btn secondary" id="deleteAcc" style="color:#ff8c00;">Delete Account</button>
+          <button type="button" class="btn secondary" id="logoutBtn" style="color:#00FF66;">Log out</button>
+          <button type="button" class="btn secondary" id="deleteAcc" style="color:#00FF66;">Delete Account</button>
         </div>
         <div id="status" class="status"></div>
       </form>

@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ChaosNet - Chat</title>
-  <link rel="icon" type="image/png" href="img/ChaosNetLogo.png" />
-  <link rel="shortcut icon" href="img/ChaosNetLogo.png" type="image/png"/>
+  <title>Triksters Land - Chat</title>
+  <link rel="icon" type="image/png" href="img/triksterslandLogo.png" />
+  <link rel="shortcut icon" href="img/triksterslandLogo.png" type="image/png"/>
   <!-- iOS home screen icon + web app meta -->
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="apple-touch-icon" href="/img/ChaosNetLogo.png">
+  <link rel="apple-touch-icon" href="/img/triksterslandLogo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="ChaosNet">
+  <meta name="apple-mobile-web-app-title" content="Triksters Land">
   <link rel="stylesheet" href="css/chatStyle.css" />
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
@@ -41,7 +41,7 @@
       min-width: 180px;
       background: #2a2a2a;
       color: #fff;
-      border: 1px solid rgba(255,140,0,0.3);
+      border: 1px solid rgba(0,255,102,0.3);
       border-radius: 12px;
       padding: 6px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.35);
@@ -63,15 +63,15 @@
       display: inline-block;
     }
     .msg-context button:hover {
-      background: rgba(255,140,0,0.12);
-      color: #ff8c00;
+      background: rgba(0,255,102,0.12);
+      color: #00FF66;
     }
     .msg-context .danger {
-      color: #ff7373;
+      color: #00FF66;
     }
     .msg-context .danger:hover {
       background: rgba(255,0,0,0.12);
-      color: #ff4d4d;
+      color: #00FF66;
     }
   </style>
 </head>
@@ -86,11 +86,11 @@
     </h2>
   </div>
   <div style="display: flex; align-items: center;">
-    <button id="recentBtn" style="background-color: #ff8c00; color:#000; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; margin-right:8px;">
+    <button id="recentBtn" style="background-color: #00FF66; color:#000; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; margin-right:8px;">
       List
     </button>
     <a href="select.html" style="text-decoration: none;">
-      <button style="background-color: #ff8c00; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
+      <button style="background-color: #00FF66; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer;">
         <img src="img/leave.png" alt="Leave" style="height: 24px;" />
       </button>
     </a>
@@ -117,7 +117,7 @@
 
 <!-- Полоса с онлайном -->
 <div id="online-bar" style="padding: 6px 16px; font-size: 13px; background:#232323; color:#ffffff;">
-  <span style="color:#ff8c00;">Online:</span> <span id="users-online">—</span>
+  <span style="color:#00FF66;">Online:</span> <span id="users-online">—</span>
 </div>
 
 <!-- Контейнер для сообщений -->
@@ -136,18 +136,18 @@
     <button type="button" class="close-reply" id="replyCancel" aria-label="Cancel reply">×</button>
   </div>
   <div id="selectedImagesContainer" style="display: none; margin-bottom: 10px; color: white;">
-    <div style="font-size: 14px; margin-bottom: 6px;color: #ff8c00;">Selected images:</div>
+    <div style="font-size: 14px; margin-bottom: 6px;color: #00FF66;">Selected images:</div>
     <div id="imageThumbnails" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
   </div>
   <div class="form-row">
     <input id="input" autocomplete="off" placeholder="Message or caption" class="input-field" />
-    <button type="button" id="photoBtn" class="round-btn" style="background-color:#ff8c00; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
+    <button type="button" id="photoBtn" class="round-btn" style="background-color:#00FF66; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
       <img src="img/gallery.png" alt="Upload Photo" style="height: 22px;" />
     </button>
-    <button type="button" id="micBtn" class="round-btn" style="background-color:#ff8c00; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
+    <button type="button" id="micBtn" class="round-btn" style="background-color:#00FF66; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
       <img src="img/microphone.png" alt="Voice" style="height: 22px;" />
     </button>
-    <button type="submit" class="round-btn" style="background-color:#ff8c00; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
+    <button type="submit" class="round-btn" style="background-color:#00FF66; border:none; cursor:pointer; box-shadow:0 0 10px rgba(255,140,0,0.4);">
       <img src="img/send.png" alt="Send" style="height: 22px;" />
     </button>
   </div>

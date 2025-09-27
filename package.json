@@ -1,7 +1,7 @@
 {
-  "name": "chaosnet",
+  "name": "triksters-land",
   "version": "1.0.0",
-  "description": "ChaosNet Chat Server",
+  "description": "Triksters Land Chat Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

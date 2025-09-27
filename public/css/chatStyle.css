@@ -40,7 +40,7 @@ body {
 /* Сообщения пользователя (справа) */
 .bubble.self {
   align-self: flex-end;
-  background-color: #ff8c00;
+  background-color: #00FF66;
   text-align: right;
   color: white;
 }
@@ -125,7 +125,7 @@ body {
 button,
 form button[type="submit"],
 #photoBtn {
-  background: #ff8c00;
+  background: #00FF66;
   color: white;
   border: none;
   padding: 10px 16px;
@@ -143,14 +143,14 @@ form button[type="submit"],
 button:hover,
 form button[type="submit"]:hover,
 #photoBtn:hover {
-  background: #ffa733;
+  background: #00ff80;
 }
 
 /* Заголовок комнаты */
 #chat-title {
   text-align: center;
   margin: 10px 0;
-  color: #ff8c00;
+  color: #00FF66;
 }
 
 /* Кнопка "Фото" — отдельное оформление */
@@ -198,7 +198,7 @@ form button[type="submit"]:hover,
 }
 
 .close:hover {
-  color: #ff8c00;
+  color: #00FF66;
 }
 
 .system .meta,
@@ -267,7 +267,7 @@ form button[type="submit"]:hover,
   }
 
   .input-field::placeholder {
-    color: #ff8c00;
+    color: #00FF66;
   }
 
 /* WhatsApp-like message row with avatar */
@@ -298,7 +298,7 @@ form button[type="submit"]:hover,
     }
     #recentPanel h4{
       margin:0 0 8px;
-      color:#ff8c00;
+      color:#00FF66;
       font-size:14px;
       font-weight:600;
     }
@@ -308,7 +308,7 @@ form button[type="submit"]:hover,
     }
     #recentPanel .recent-item:last-child{ border-bottom:none; }
     #recentPanel a{
-      color:#ff8c00;
+      color:#00FF66;
       text-decoration:none;
       word-break: break-word;
     }
@@ -316,7 +316,7 @@ form button[type="submit"]:hover,
     /* Orange underline hover effect for recent room links (same as Select) */
     .link-underline{
       position: relative;
-      color: #ff8c00;
+      color: #00FF66;
       text-decoration: none;
     }
     .link-underline::after{
@@ -326,7 +326,7 @@ form button[type="submit"]:hover,
       bottom:-2px;
       width:0;
       height:2px;
-      background:#ff8c00;
+      background:#00FF66;
       transition: width .2s ease;
     }
     .link-underline:hover::after{
@@ -358,7 +358,7 @@ form button[type="submit"]:hover,
       height: 28px;
       padding: 0 10px;
       background: #2b2b2b;
-      color: #ff8c00;
+      color: #00FF66;
       border: 1px solid #444;
       border-radius: 6px;
       cursor: pointer;
@@ -370,17 +370,17 @@ form button[type="submit"]:hover,
       padding: 0 8px;
       margin: 0;
       font-size: 12px;
-      color:#ff8c00;
+      color:#00FF66;
       background:none;
       border:none;
       cursor:pointer;
     }
     #recentClear:hover{ text-decoration: none; }
-    .bubble a.msg-link { color:#ff8c00; text-decoration: underline; word-break: break-all; }
+    .bubble a.msg-link { color:#00FF66; text-decoration: underline; word-break: break-all; }
     .bubble.self a.msg-link { color:#ffffff; text-decoration: underline; }
     .bubble { position: relative; }
     /* Room label color */
-    .room-label { color:#ff8c00; }
+    .room-label { color:#00FF66; }
     /* Force round icon buttons */
     .round-btn {
       width: 44px;
@@ -443,7 +443,7 @@ form button[type="submit"]:hover,
     .message-row.other .reply-btn{ order:3; margin-left:3px; }
     .reply-line{
       background: rgba(255,255,255,0.06);
-      border-left: 3px solid #ff8c00;
+      border-left: 3px solid #00FF66;
       padding: 6px 8px;
       border-radius: 10px;
       margin-bottom: 6px;
@@ -453,7 +453,7 @@ form button[type="submit"]:hover,
       word-break: break-word;
     }
     .reply-line .u{
-      color:#fff !important;
+      color:#00ff99 !important;
       margin-right: 6px;
       font-size: 12px;
     }
@@ -461,14 +461,14 @@ form button[type="submit"]:hover,
 
     .reply-block{
       background: rgba(255,255,255,0.06);
-      border-left: 3px solid #ff8c00;
+      border-left: 3px solid #00FF66;
       padding: 6px 8px;
       border-radius: 10px;
       margin-bottom: 6px;
     }
     .reply-block .reply-user{
       font-size: 12px;
-      color:#fff;
+      color:#00ff99;
       margin-bottom: 2px;
     }
     .reply-block .reply-text{
@@ -481,14 +481,14 @@ form button[type="submit"]:hover,
     #replyBar{
       display:none;
       background:#232323;
-      border-left:3px solid #ff8c00;
+      border-left:3px solid #00FF66;
       border-radius:10px;
       padding:8px 36px 8px 10px;
       position:relative;
       margin-top:4px;
     }
     #replyBar .rb-user{
-      font-size:12px; color:#ffcc88; margin-bottom:2px;
+      font-size:12px; color:#00ff99; margin-bottom:2px;
     }
     #replyBar .rb-text{
       font-size:13px; color:#fff; opacity:0.9;
@@ -534,7 +534,7 @@ form button[type="submit"]:hover,
     }
     #avatarPopover .ap-badge{
       text-align:center;
-      color:#ff8c00;
+      color:#00ff99;
       font-size:12px;
       margin-top:4px;
       display:none;

@@ -10,12 +10,12 @@ body {
 }
 
 h1 {
-  color: #ff8c00;
+  color: #00FF66;
   margin-bottom: 20px;
 }
 
 .button-link {
-  background: #ff8c00;
+  background: #00FF66;
   color: white;
   text-decoration: none;
   padding: 12px 24px;
@@ -25,14 +25,14 @@ h1 {
 }
 
 .button-link:hover {
-  background: #ffa733;
+  background: #33FF88;
 }
 
 .admin-room-item {
   padding: 6px 10px;
   margin-bottom: 5px;
   background: #2e2e2e;
-  color: #ff8c00;
+  color: #00FF66;
   border-radius: 6px;
   font-weight: bold;
 }
