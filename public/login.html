@@ -2,17 +2,17 @@
 <html lang="us">
 <head>
   <meta charset="UTF-8" />
-  <title>Triksters Land - Login</title>
+  <title>Tricksters Land - Login</title>
   <link rel="icon" type="image/png" href="img/triksterslandLogo.png" />
   <link rel="shortcut icon" href="img/triksterslandLogo.png" type="image/png"/>
     <!-- iOS home screen icon + web app meta -->
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="apple-touch-icon" href="/img/triksterslandLogo.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Triksters Land">
+  <meta name="apple-mobile-web-app-title" content="Tricksters Land">
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Triksters Land - Free Messenger & Private Chat</title>
-  <meta name="description" content="Triksters Land is a fast, secure messenger with free group chat, private chat, video and photo sharing, push notifications, and cross-device sync.">
+  <title>Tricksters Land - Free Messenger & Private Chat</title>
+  <meta name="description" content="Tricksters Land is a fast, secure messenger with free group chat, private chat, video and photo sharing, push notifications, and cross-device sync.">
 
   <style>
     /* Password toggle (Login page) */
@@ -57,14 +57,14 @@
     <h2>Log In</h2>
     <form id="loginForm">
       <input type="hidden" id="nick" />
-      <input type="text" id="id" placeholder="ID" pattern="[A-Z]{2}\d{4}" title="ID must be in the format AA0000" required />
+      <input type="text" id="id" placeholder="ID" pattern="[A-Z]{2}\d{4}" title="ID must be in the format AA0000" required style="color:#00FF66;" />
       <div class="password-field">
-        <input type="password" id="password" placeholder="Password" required />
+        <input type="password" id="password" placeholder="Password" required style="color:#00FF66;" />
         <button type="button" id="togglePwd" class="toggle-pwd" style="top: calc(50% - 7px);" aria-label="Show password" title="Show password">
           <img id="togglePwdIcon" src="img/view.png" alt="" />
         </button>
       </div>
-      <button type="submit" style="background: #00FF66; border-color: #00FF66;">Log In</button>
+      <button type="submit" style="background: #00FF66; border-color: #00FF66; color:#000;">Log In</button>
       <div class="error" id="error"></div>
     </form>
     <div class="guest-link" style="text-align: center;">

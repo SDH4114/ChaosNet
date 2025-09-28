@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tricksters Land — About</title>
+  <meta name="description" content="TrikstersLand — свободный мессенджер и территория трикстеров: без цензуры, ограничений и правил." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#000000;            /* основной фон */
+      --fg:#ffffff;            /* основной текст */
+      --muted:#aaaaaa;         /* второстепенный текст */
+      --accent:#00FF66;        /* неоново‑зелёный */
+      --card:#0b0b0b;          /* плитки/блоки */
+      --surface:#0a0a0a;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--fg);
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      line-height:1.5; overflow-x:hidden;
+    }
+    a{color:var(--fg); text-decoration:none}
+    a:hover{color:var(--accent)}
+
+    /* Header */
+    .wrap{max-width:1200px; margin:0 auto; padding:0 24px}
+    header{
+      position:sticky; top:0; z-index:50; backdrop-filter:saturate(120%) blur(6px);
+      background:linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,.6) 80%, rgba(0,0,0,0));
+      border-bottom:1px solid #111;
+    }
+    .nav{display:flex; align-items:center; justify-content:space-between; height:64px}
+    .brand{display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:.4px}
+    .brand-badge{
+      width:28px; height:28px; border-radius:6px; background:var(--accent);
+      box-shadow:0 0 24px var(--accent); flex:none
+    }
+    .brand span{font-family:"JetBrains Mono", monospace}
+    .menu{display:flex; gap:20px; align-items:center}
+    .btn{display:inline-flex; align-items:center; gap:10px; padding:10px 16px; border:1px solid #1b1b1b; border-radius:10px; background:#0e0e0e}
+    .btn.accent{border-color:var(--accent); background:linear-gradient(180deg, #0b0b0b, #0f0f0f); box-shadow:0 0 20px rgba(0,255,102,.25)}
+
+    /* Hero */
+    .hero{position:relative; isolation:isolate;}
+    .hero .wrap{display:grid; grid-template-columns: 1.15fr 1fr; gap:32px; align-items:center; padding:72px 24px}
+    .orb{
+      position:relative; aspect-ratio:1/1; width:min(560px, 80vw); margin:40px auto; border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, rgba(0,255,102,.35), transparent 55%),
+                  radial-gradient(circle at 70% 70%, rgba(0,255,102,.25), transparent 55%),
+                  #101010;
+      box-shadow: 0 0 0 10px rgba(0,255,102,.08), 0 0 120px rgba(0,255,102,.18) inset;
+      overflow:hidden;
+    }
+    .orb::after{ /* неоновое кольцо */
+      content:""; position:absolute; inset:22px; border-radius:50%; border:2px dashed rgba(0,255,102,.45); filter:drop-shadow(0 0 18px rgba(0,255,102,.6));
+    }
+    .logo-in-orb{position:absolute; inset:12%; object-fit:contain; width:76%; height:76%; margin:auto; left:12%; top:12%; filter:drop-shadow(0 0 28px rgba(0,255,102,.55))}
+
+    .title{font-size:clamp(28px, 3.8vw, 56px); font-weight:800; letter-spacing:.4px}
+    .title b{color:var(--accent); text-shadow:0 0 22px rgba(0,255,102,.4)}
+    .lead{color:var(--muted); margin-top:16px}
+    .cta{display:flex; gap:16px; margin-top:28px; flex-wrap:wrap}
+
+    /* Ghost huge outline word */
+    .ghost{position:absolute; inset:auto 0 8% 0; font-weight:800; font-size:min(22vw, 220px); line-height:.9; color:#0a0a0a; letter-spacing:6px; pointer-events:none; user-select:none; text-align:center}
+
+    /* Sections */
+    section{padding:56px 0; border-top:1px solid #0f0f0f; background:var(--surface)}
+    .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:28px}
+    .card{background:var(--card); border:1px solid #121212; border-radius:14px; padding:20px}
+    .card h3{margin:0 0 8px; font-size:18px}
+    .card p{margin:0; color:var(--muted)}
+
+    /* Footer */
+    footer{padding:40px 0; color:#888; text-align:center; border-top:1px solid #0f0f0f}
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .hero .wrap{grid-template-columns:1fr; padding-top:36px}
+      .ghost{font-size:22vw; bottom:2%}
+      .cards{grid-template-columns:1fr;}
+      .orb{width:min(480px, 86vw)}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/">
+        <span class="brand-badge" aria-hidden="true"></span>
+        <span>TrikstersLand</span>
+      </a>
+      <nav class="menu">
+        <a href="/about.html">О проекте</a>
+        <a href="/select.html">Комнаты</a>
+        <a href="https://github.com/SDH4114/ChaosNet" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn accent" href="/chat.html">Открыть веб‑чат</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <h1 class="title">Встань из хаоса и <b>говори свободно</b></h1>
+          <p class="lead">
+            <b>TrikstersLand</b> — свободная цифровая территория. Здесь нет цензуры и
+            искусственных ограничений: комнаты, анонимные ники, пуш‑уведомления и быстрые файлы. Мы строим площадку
+            для тех, кто ценит независимость и дух underground.
+          </p>
+          <div class="cta">
+            <a class="btn accent" href="/chat.html">Войти в TrikstersLand</a>
+            <a class="btn" href="https://telegram.org/about" target="_blank" rel="noopener">Вдохновение ↗</a>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center">
+          <div class="orb">
+            <!-- Замените путь ниже на ваш реальный логотип: /img/logo.svg или /img/logo.png -->
+            <img class="logo-in-orb" src="/img/triksterslandLogo.png" onerror="this.src='/img/logo.png'">
+          </div>
+        </div>
+      </div>
+      <div class="ghost" aria-hidden="true">TRIKSTER</div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <h2 class="title" style="font-size:28px">Что такое TrikstersLand?</h2>
+        <p class="lead" style="max-width:900px">Проект‑мессенджер для сообщества трикстеров: программистов, криптоэнтузиастов и всех,
+          кто разделяет философию <em>no rules</em>. Мы делаем простой веб‑клиент и открытый сервер, чтобы любой мог развернуть
+          свою территорию.</p>
+        <div class="cards">
+          <div class="card">
+            <h3>Свобода и приватность</h3>
+            <p>Чёрный фон, тёмная атмосфера и минимум лишнего. Твоя территория — твои правила.</p>
+          </div>
+          <div class="card">
+            <h3>Анонимные ники и комнаты</h3>
+            <p>Создавай комнаты, меняй ники, общайся без привязки к личности.</p>
+          </div>
+          <div class="card">
+            <h3>Открытый код</h3>
+            <p>Исходники на GitHub. Форкай, дополняй, запускай собственный узел.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div>© <span id="y"></span> TrikstersLand. Территория трикстеров.</div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('y').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
