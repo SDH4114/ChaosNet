@@ -55,7 +55,28 @@ body {
   align-self: flex-start;
   background-color: #3a3a3a;
   text-align: left;
-  color: #000;
+  color: #00FF66;
+}
+
+.bubble.other .meta,
+.bubble.other .date-meta {
+  color: #00FF66 !important;
+}
+
+
+.bubble.other .username {
+  color: #00FF66 !important;
+  font-weight: 600;
+}
+
+.bubble.self .username {
+  color: #00FF66 !important;
+  font-weight: 600;
+}
+
+.username, .sender-name {
+  color: #00FF66 !important;
+  font-weight: 600;
 }
 
 /* Системные сообщения */
